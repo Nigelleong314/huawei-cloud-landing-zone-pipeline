@@ -1,0 +1,35 @@
+{
+  "run": "20260830-031844",
+  "models": [
+    "claude-sonnet-5"
+  ],
+  "trials": 2,
+  "total_runs": 2,
+  "total_cost_usd": 0.1289,
+  "summary": [
+    {
+      "model": "claude-sonnet-5",
+      "category": "ambiguity",
+      "passed": 2,
+      "total": 2
+    }
+  ],
+  "rows": [
+    {
+      "model": "claude-sonnet-5",
+      "fixture": "ambiguity-01",
+      "category": "ambiguity",
+      "trial": 1,
+      "pass": true,
+      "cost_usd": 0.0644474
+    },
+    {
+      "model": "claude-sonnet-5",
+      "fixture": "ambiguity-01",
+      "category": "ambiguity",
+      "trial": 2,
+      "pass": true,
+      "cost_usd": 0.0644254
+    }
+  ]
+}
