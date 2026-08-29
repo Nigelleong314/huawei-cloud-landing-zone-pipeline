@@ -1,0 +1,17 @@
+{
+  "model": "claude-sonnet-5",
+  "fixture": "failure-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nAn apply of env 06-observability failed with: \"Error: creating LTS transfer: LTS.2101 service busy\". Per doctrine rule 4, state in 1-2 sentences what the runner does automatically and what you should do if it fails again.",
+  "response": "The runner will automatically retry once — re-plan then re-apply — since LTS.2101 is a designated transient error. If it fails again on the retry, treat it as a real failure: stop and escalate/investigate rather than retrying further.",
+  "cost_usd": 0.0640604,
+  "session_id": "87d515be-689b-4fc1-bb3e-4991cf6be0b7",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "has:retr": true,
+      "has:once": true,
+      "absent:retry it repeatedly|keep": true
+    }
+  }
+}

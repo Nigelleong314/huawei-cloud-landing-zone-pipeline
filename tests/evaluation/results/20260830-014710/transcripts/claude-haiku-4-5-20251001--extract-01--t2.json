@@ -1,0 +1,21 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "fixture": "extract-01",
+  "trial": 2,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nA customer wrote: \"We want a landing zone in the Singapore region ap-southeast-1. Three business units: retail, logistics, corporate. Each needs its own workload account, production only for now. Our on-prem network is 172.20.0.0/16 and must reach the cloud over VPN.\"\n\nOutput ONLY a JSON object (no prose, no code fences) with keys: region (string), workload_accounts (array of strings), onprem_cidr (string), connectivity (string), open_questions (array of strings listing REQUIRED facts the customer did not provide, e.g. cloud-side CIDR plan, DNS, egress).",
+  "response": "```json\n{\n  \"region\": \"ap-southeast-1\",\n  \"workload_accounts\": [\"retail\", \"logistics\", \"corporate\"],\n  \"onprem_cidr\": \"172.20.0.0/16\",\n  \"connectivity\": \"vpn\",\n  \"open_questions\": [\n    \"Cloud-side CIDR plan: VPC ranges for hub and each workload account?\",\n    \"VPN architecture: single gateway or redundant/HA endpoints?\",\n    \"DNS strategy: on-prem name resolution for cloud resources; cloud resolution for on-prem?\",\n    \"Egress routing: internet egress path (NAT gateway, firewall, proxy)?\",\n    \"Inter-account connectivity: hub-and-spoke through shared services, or direct peering between workload accounts?\",\n    \"Logging aggregation: centralized log storage account; retention period?\",\n    \"Backup/DR: RPO, RTO, backup destination (cross-region, same region)?\",\n    \"Compliance scope: data residency, encryption at rest/transit, audit/SOC2 requirements?\",\n    \"Observability: monitoring backend (CloudWatch/AnyStack), alerting thresholds?\"\n  ]\n}\n```",
+  "cost_usd": 0.0253888,
+  "session_id": "b8ca61c9-092f-4593-abae-65396551a8a9",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "json_parses": true,
+      "json_keys": true,
+      "open_questions_min": true,
+      "accounts_len": true,
+      "has:ap-southeast-1": true,
+      "has:172\\.20\\.0\\.0/16": true,
+      "absent:10\\.\\d+\\.\\d+\\.\\d+/\\d+": true
+    }
+  }
+}

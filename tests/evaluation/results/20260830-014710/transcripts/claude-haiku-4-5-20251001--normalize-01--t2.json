@@ -1,0 +1,18 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "fixture": "normalize-01",
+  "trial": 2,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nNormalize this requirement into JSON: \"Logs have to be kept for one hundred and eighty days, and the audit account is called central-audit.\" Output ONLY a JSON object with keys retention_days (number) and audit_account (string).",
+  "response": "```json\n{\n  \"retention_days\": 180,\n  \"audit_account\": \"central-audit\"\n}\n```",
+  "cost_usd": 0.0201348,
+  "session_id": "8a1337a5-37b8-4bf5-b550-85d144ebe865",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "json_parses": true,
+      "json_keys": true,
+      "json_equals:retention_days": true,
+      "json_equals:audit_account": true
+    }
+  }
+}

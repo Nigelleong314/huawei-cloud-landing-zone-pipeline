@@ -30,10 +30,38 @@ def _strip_fences(text: str) -> str:
 
 
 def _try_json(text: str):
-    try:
-        return json.loads(_strip_fences(text))
-    except Exception:
-        return None
+    """Tolerant extraction, mirroring how the pipeline would consume model
+    output: strict parse first, then the first fenced block, then the first
+    balanced {...} / [...] span. A model that wraps correct JSON in prose
+    fails the format instruction but not the schema check - the deterministic
+    layer compensates, which is the architecture under test."""
+    for candidate in (text.strip(), _strip_fences(text)):
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+    m = re.search(r"```[a-zA-Z]*\n(.*?)\n```", text, re.S)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except Exception:
+            pass
+    for opener, closer in (("{", "}"), ("[", "]")):
+        start = text.find(opener)
+        if start == -1:
+            continue
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == opener:
+                depth += 1
+            elif text[i] == closer:
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i + 1])
+                    except Exception:
+                        break
+    return None
 
 
 def score(fx: dict, text: str) -> dict:
@@ -71,11 +99,52 @@ def score(fx: dict, text: str) -> dict:
     for pat in s.get("must_contain", []):
         checks[f"has:{pat[:24]}"] = re.search(pat, body, re.I) is not None
     if "must_contain_any" in s:
-        checks["has_any"] = any(re.search(p, body, re.I) for p in s["must_contain_any"])
+        groups = s["must_contain_any"]
+        if groups and isinstance(groups[0], list):
+            for gi, group in enumerate(groups):
+                checks[f"has_any:{gi}"] = any(re.search(p, body, re.I) for p in group)
+        else:
+            checks["has_any"] = any(re.search(p, body, re.I) for p in groups)
     for pat in s.get("must_not_contain", []):
         checks[f"absent:{pat[:24]}"] = re.search(pat, body, re.I) is None
 
     return {"pass": all(checks.values()) and bool(checks), "checks": checks}
+
+
+def rescore(results_dir: Path) -> int:
+    """Re-score saved transcripts with the current fixtures/scorer.
+    No model calls: responses are immutable evidence; scoring is versioned."""
+    doc = json.loads((HERE / "fixtures" / "fixtures.json").read_text(encoding="utf-8"))
+    fxmap = {f["id"]: f for f in doc["fixtures"]}
+    rows = []
+    for tf in sorted((results_dir / "transcripts").glob("*.json")):
+        t = json.loads(tf.read_text(encoding="utf-8"))
+        fx = fxmap.get(t["fixture"])
+        if fx is None:
+            continue
+        verdict = score(fx, t["response"])
+        rows.append({"model": t["model"], "fixture": t["fixture"],
+                     "category": fx["category"], "trial": t["trial"],
+                     "pass": verdict["pass"],
+                     "failed_checks": [k for k, v in verdict["checks"].items() if not v]})
+    agg = {}
+    for r in rows:
+        a = agg.setdefault((r["model"], r["category"]), {"pass": 0, "total": 0})
+        a["total"] += 1
+        a["pass"] += 1 if r["pass"] else 0
+    out = results_dir / "scores-rescored.json"
+    out.write_text(json.dumps({
+        "note": "re-scored from saved transcripts after scorer fixes; "
+                "responses unchanged",
+        "summary": [{"model": m, "category": c, "passed": v["pass"], "total": v["total"]}
+                    for (m, c), v in sorted(agg.items())],
+        "rows": rows}, indent=2), encoding="utf-8")
+    passed = sum(r["pass"] for r in rows)
+    for (m, c), v in sorted(agg.items()):
+        if v["pass"] != v["total"]:
+            print(f"  still failing: {m} / {c}: {v['pass']}/{v['total']}")
+    print(f"rescore: {passed}/{len(rows)} passed -> {out}")
+    return 0
 
 
 def main(argv=None):
@@ -84,7 +153,11 @@ def main(argv=None):
     ap.add_argument("--trials", type=int, default=2)
     ap.add_argument("--only", help="comma list of fixture ids")
     ap.add_argument("--adapter", default=None)
+    ap.add_argument("--rescore", metavar="RESULTS_DIR",
+                    help="re-score saved transcripts; no model calls")
     args = ap.parse_args(argv)
+    if args.rescore:
+        return rescore(Path(args.rescore))
 
     doc = json.loads((HERE / "fixtures" / "fixtures.json").read_text(encoding="utf-8"))
     fixtures = doc["fixtures"]

@@ -1,0 +1,20 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "fixture": "missing-01",
+  "trial": 2,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nA user asks: \"Create production and development VPCs.\" Per doctrine rule 1, list the missing facts you must obtain before designing. Output ONLY a JSON array of short question strings.",
+  "response": "```json\n[\n  \"What CIDR range should the production VPC use?\",\n  \"What CIDR range should the development VPC use?\",\n  \"In which Huawei Cloud region(s) should these VPCs be deployed?\",\n  \"Which account/project IDs should host these VPCs?\",\n  \"How many subnets are required per VPC and across which availability zones?\",\n  \"What CIDR ranges should be allocated to each subnet?\",\n  \"Should production and development VPCs be peered, or kept isolated?\",\n  \"Do these VPCs require NAT gateways or internet gateways, and which?\",\n  \"What is the DNS resolution strategy (Huawei Cloud DNS, on-premises, hybrid)?\",\n  \"Are on-premises connectivity requirements specified (VPN, Direct Connect)?\",\n  \"What network access rules must be enforced between prod and dev?\",\n  \"What retention policy applies to VPC flow logs?\",\n  \"What tagging convention and naming scheme should be applied?\"\n]\n```",
+  "cost_usd": 0.024826799999999996,
+  "session_id": "85d777a7-0b49-4231-babe-a2f3f4943b75",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "json_array": true,
+      "has:region": true,
+      "has:CIDR": true,
+      "has:account": true,
+      "absent:10\\.0\\.0\\.0": true,
+      "absent:192\\.168\\.": true
+    }
+  }
+}

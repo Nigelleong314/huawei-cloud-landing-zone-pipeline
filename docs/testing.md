@@ -55,10 +55,28 @@ The export test also asserts no `secrets.auto.tfvars.json` ships in any artifact
 
 ## The eval suite
 
-`tests/evaluation/` (currently `fixtures/` only) holds the model-evaluation suite; the harness lands in a later change. Intended shape:
+`tests/evaluation/` holds the executed model-evaluation harness:
 
-- a thin CLI adapter per model (a `claude -p`-style prompt runner; other models plug in the same way);
-- shared fixtures under `tests/evaluation/fixtures/` (questionnaire dumps, draft specs, expected decisions);
-- **deterministic scoring** — outputs are judged by the same validators production uses (JSON Schema, `spec-validate`, LZR rules), not by another model;
-- model selection via a `MODEL` environment variable;
-- everything marked `eval` (already registered in `pyproject.toml`: "cost real tokens; opt-in"), so `pytest -m eval` runs it and plain `pytest` never does.
+- `adapter.py` — model adapters behind one `run_model()` call. The first
+  implementation shells out to headless Claude Code (`claude -p
+  --output-format json`) from an empty temp cwd for context isolation; other
+  providers plug in by adding a function to `ADAPTERS`.
+- `fixtures/fixtures.json` — self-contained single-turn tasks across ten
+  categories (requirement extraction, missing-information detection,
+  normalization, invalid-input rejection, tool selection, tool arguments,
+  workflow sequencing, destructive-apply safety, failure recovery,
+  ambiguity escalation). Every fixture embeds its own doctrine, so all
+  models receive identical context.
+- `run_eval.py` — matrix runner with **deterministic scoring only** (json
+  shape/equality, regex presence/absence, exact match — never a judge
+  model), a per-run cost ledger from the CLI's `total_cost_usd`, committed
+  transcripts under `results/<ts>/`, and `--rescore <dir>` to re-score saved
+  transcripts after scorer changes without new model calls.
+
+Run it: `python tests/evaluation/run_eval.py [--models a,b,c] [--trials N]`.
+Executed results (60-run matrix across three capability tiers) live in
+`tests/evaluation/results/` with both the original and rescored score files.
+Tolerant JSON extraction in the scorer mirrors production consumption: a
+model that wraps correct JSON in prose fails the *format* instruction but
+not the schema check — the deterministic layer compensating for model
+weakness is exactly the architecture under test.

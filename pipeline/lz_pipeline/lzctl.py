@@ -10,16 +10,24 @@ plan_triage.py next to it and the envs tree's deps.json) ships inside the
 customer handover artifact. Pipeline-side verbs (build/validate/docs) exist
 only where the pipeline is installed and say so otherwise.
 
-Usage:
-    py lzctl.py preflight  --envs-dir <envs>
-    py lzctl.py plan       --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
-    py lzctl.py apply      --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes]
-    py lzctl.py drift      --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
-    py lzctl.py adopt      --envs-dir <envs> ENV ADDRESS CLOUD_ID
-    py lzctl.py state-backup --envs-dir <envs> [ENV | --all]
-    py lzctl.py triage     PLAN_JSON [...]
-    py lzctl.py who-changed RESOURCE_NAME [--region r]
-    py lzctl.py order      --envs-dir <envs>
+Usage (lifecycle order):
+    lzctl intake       FILLED_QUESTIONNAIRE.xlsx [-o dump.json]
+    lzctl assess       DUMP.json --customer <slug> [--workspace <dir>] [--force]
+    lzctl validate     SPEC.json            (alias: spec-validate)
+    lzctl build        --ir SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
+    lzctl preflight    --envs-dir <envs>
+    lzctl plan         --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+    lzctl apply        --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+                       [--allow-destroy] [--yes] [--destroy-confirm ENV]
+    lzctl verify       --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
+    lzctl report       --envs-dir <envs> [--out <dir>]
+    lzctl drift        --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
+    lzctl adopt        --envs-dir <envs> ENV ADDRESS CLOUD_ID
+    lzctl state-backup --envs-dir <envs> [ENV | --all]
+    lzctl triage       PLAN_JSON [...]
+    lzctl who-changed  RESOURCE_NAME
+    lzctl order        --envs-dir <envs>
+    lzctl check        [CHECK]              (regression harness)
 
 Exit codes follow terraform's plan convention where relevant:
 0 ok / no changes, 2 changes present, 3 destructive changes present.

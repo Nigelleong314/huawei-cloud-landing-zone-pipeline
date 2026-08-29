@@ -1,0 +1,16 @@
+{
+  "model": "claude-haiku-4-5-20251001",
+  "fixture": "invalid-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nReview this spec fragment for validity:\n  vpc-a CIDR: 10.50.0.0/16\n  vpc-b CIDR: 10.50.32.0/20\nBoth are ER-attached spokes that must route to each other. State in one short paragraph whether this is valid and why.",
+  "response": "This spec is **invalid** due to CIDR overlap. vpc-b's block (10.50.32.0/20, spanning 10.50.32.0–10.50.47.255) falls entirely within vpc-a's range (10.50.0.0/16, spanning 10.50.0.0–10.50.255.255). ER-attached spokes require non-overlapping CIDR blocks to route traffic deterministically; overlapping ranges create ambiguous routing decisions and will fail traffic delivery between the two VPCs. Both blocks need to occupy disjoint IP space—for example, vpc-b could use 10.50.32.0/20 only if vpc-a used a different /16 such as 10.49.0.0/16 or 10.51.0.0/16.",
+  "cost_usd": 0.022319799999999997,
+  "session_id": "203c582d-c9e6-415b-bc37-71e42a7c4104",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "has:overlap": true,
+      "absent:\"valid\"|is valid and": true
+    }
+  }
+}
