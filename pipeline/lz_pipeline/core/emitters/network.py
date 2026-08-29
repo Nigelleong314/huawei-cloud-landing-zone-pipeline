@@ -94,7 +94,7 @@ def _emit_network_codegen(env_dir: Path, spec: dict):
     ):
         path = env_dir / fname
         _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8")
+        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     # VPN was un-merged into env 10-network-vpn (2026-07); drop a stale copy.
     stale = env_dir / "vpn.generated.tf"
     if stale.exists():
@@ -139,4 +139,4 @@ def _emit_vpn_codegen(env_dir: Path, spec: dict):
     ]
     path = env_dir / "vpn.generated.tf"
     _backup_if_exists(path)
-    path.write_text("\n".join(vpn), encoding="utf-8")
+    path.write_text("\n".join(vpn), encoding="utf-8", newline="\n")

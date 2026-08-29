@@ -1,0 +1,20 @@
+{
+  "model": "claude-sonnet-5",
+  "fixture": "missing-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nA user asks: \"Create production and development VPCs.\" Per doctrine rule 1, list the missing facts you must obtain before designing. Output ONLY a JSON array of short question strings.",
+  "response": "```json\n[\n  \"What is the target Huawei Cloud region for these VPCs?\",\n  \"What CIDR block should be used for the production VPC?\",\n  \"What CIDR block should be used for the development VPC?\",\n  \"What is the account/project name to associate with the production environment?\",\n  \"What is the account/project name to associate with the development environment?\",\n  \"What subnet structure or count is required within each VPC?\",\n  \"Are these VPCs expected to peer or connect with any existing VPCs or on-premises networks?\",\n  \"What is the required internet/external exposure level for each VPC (public, private, NAT-only)?\",\n  \"What log or resource retention policy applies to these environments?\",\n  \"What is the dependency order between the production and development environments (deps.json)?\"\n]\n```",
+  "cost_usd": 0.0656654,
+  "session_id": "4bd01d53-82c0-444a-8a07-100473bae0cb",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "json_array": true,
+      "has:region": true,
+      "has:CIDR": true,
+      "has:account": true,
+      "absent:10\\.0\\.0\\.0": true,
+      "absent:192\\.168\\.": true
+    }
+  }
+}

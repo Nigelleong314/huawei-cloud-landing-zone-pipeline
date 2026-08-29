@@ -151,7 +151,7 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
     ):
         path = env_dir / fname
         _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8")
+        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 def _logconverge_codegen(enabled: bool, admin: str, rows: list, accounts: list,

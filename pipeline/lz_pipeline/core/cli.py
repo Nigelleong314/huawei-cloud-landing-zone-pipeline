@@ -175,7 +175,7 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected, ak: str,
                                  f"{envs_dir.name} is stamped {have!r} - wrong envs dir?")
         else:
             envs_dir.mkdir(parents=True, exist_ok=True)
-            marker.write_text(customer + "\n", encoding="utf-8")
+            marker.write_text(customer + "\n", encoding="utf-8", newline="\n")
 
     derive_log_converge(spec)
     g = spec.get("Global", {}).get("Settings", {})

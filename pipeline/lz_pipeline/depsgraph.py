@@ -115,7 +115,7 @@ def main():
 
     if args.write:
         out = envs_dir / "deps.json"
-        out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+        out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8", newline="\n")
         if not args.quiet:
             print(f"wrote {out}")
     return 1 if errs else 0

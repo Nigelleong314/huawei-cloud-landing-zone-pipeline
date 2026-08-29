@@ -1,0 +1,18 @@
+{
+  "model": "claude-opus-5",
+  "fixture": "tool-args-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nWrite the exact single shell command to run spec validation for the spec file specs/lz.spec.acme.json using lzctl. Output ONLY the command line, nothing else.",
+  "response": "```\nlzctl validate specs/lz.spec.acme.json\n```",
+  "cost_usd": 0.127662,
+  "session_id": "64b37002-139f-43f6-a427-1384790e629f",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "has:lzctl validate": true,
+      "has:specs/lz.spec.acme.json": true,
+      "absent:apply": true,
+      "absent:build ": true
+    }
+  }
+}

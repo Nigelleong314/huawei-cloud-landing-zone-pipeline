@@ -1,0 +1,16 @@
+{
+  "model": "claude-sonnet-5",
+  "fixture": "invalid-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nReview this spec fragment for validity:\n  vpc-a CIDR: 10.50.0.0/16\n  vpc-b CIDR: 10.50.32.0/20\nBoth are ER-attached spokes that must route to each other. State in one short paragraph whether this is valid and why.",
+  "response": "This is invalid due to CIDR overlap. vpc-a's 10.50.0.0/16 spans the entire 10.50.0.0–10.50.255.255 range, and vpc-b's 10.50.32.0/20 (10.50.32.0–10.50.47.255) falls completely inside it — they are not disjoint address spaces. Since both are ER-attached spokes that must route to each other, overlapping CIDRs make inter-VPC routing ambiguous/impossible (the ER route table can't distinguish destinations), so this fragment would fail spec validation. Per doctrine, this isn't something to silently fix by guessing a new CIDR — the non-overlapping ranges for vpc-a and/or vpc-b need to be sourced as an explicit input (open question) before the spec can proceed past Design.",
+  "cost_usd": 0.0674884,
+  "session_id": "2a3d8415-e265-437f-ac1e-0ae39d0ad6ed",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "has:overlap": true,
+      "absent:\"valid\"|is valid and": true
+    }
+  }
+}

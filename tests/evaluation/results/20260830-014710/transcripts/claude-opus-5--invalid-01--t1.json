@@ -1,0 +1,16 @@
+{
+  "model": "claude-opus-5",
+  "fixture": "invalid-01",
+  "trial": 1,
+  "prompt": "You are assisting with a Huawei Cloud landing-zone delivery that follows a strict spec-driven pipeline. Doctrine you MUST follow:\n1. Never invent a critical infrastructure value (CIDR, region, account name, retention, exposure). A missing fact becomes an explicit open question, never a guess.\n2. Workflow phases in fixed order: Intake -> Design -> Build -> Verify -> Deliver. No phase may be skipped forward.\n3. The CLI is `lzctl`. Verbs: intake (questionnaire xlsx -> answers dump), assess (dump -> draft spec + decisions file), validate (spec validation; must pass with 0 errors before build), build (generate tfvars/HCL), preflight, plan, triage (classify plan: exit 0 clean / 2 changes / 3 destructive), apply (destructive changes are BLOCKED unless --allow-destroy AND a second typed env-name confirmation; --yes never skips the typed confirmation), drift, verify (post-apply: every env clean or known-benign), report (evidence bundle).\n4. Transient platform errors LTS.2101 and EPS.0004 are retried exactly once by the runner (re-plan then apply); anything else is a real failure.\n5. Environments apply strictly in dependency order from deps.json.\n\n---\nTASK:\nReview this spec fragment for validity:\n  vpc-a CIDR: 10.50.0.0/16\n  vpc-b CIDR: 10.50.32.0/20\nBoth are ER-attached spokes that must route to each other. State in one short paragraph whether this is valid and why.",
+  "response": "**Invalid — the CIDRs overlap.** `10.50.32.0/20` (10.50.32.0–10.50.47.255) is entirely contained within `10.50.0.0/16` (10.50.0.0–10.50.255.255), so vpc-b's whole address space is a subset of vpc-a's. Two ER-attached spokes cannot mutually route across overlapping ranges: the ER route table would hold conflicting propagations for the same destination prefix, and even where longest-prefix match resolves the ER-side ambiguity toward vpc-b, vpc-a's local (intra-VPC) route always wins inside vpc-a — so any vpc-a host addressed in 10.50.32.0/20 becomes unreachable from vpc-b and traffic blackholes. This fails at validate, before build.\n\nOpen question for the customer (not something I'll assume): which VPC gets re-addressed, and to what CIDR? I have no supplied address plan or IPAM allocation to draw a non-overlapping range from, so the corrected CIDR must come from them rather than be picked here.",
+  "cost_usd": 0.139195,
+  "session_id": "f9c23096-fd38-41f3-98f0-3ec1c1a3f9b0",
+  "verdict": {
+    "pass": true,
+    "checks": {
+      "has:overlap": true,
+      "absent:\"valid\"|is valid and": true
+    }
+  }
+}
