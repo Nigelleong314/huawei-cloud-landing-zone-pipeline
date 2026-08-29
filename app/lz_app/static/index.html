@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LZ Pipeline</title>
+<style>
+  /* Huawei Cloud console/login design tokens (theme-hws1small):
+     ink #191919, control blue #1476FF, hover #DEECFF, borders #C2C2C2/#DFE1E6,
+     success #5CB300, warn #E37D29, error #DE504E, HuaweiSans stack. */
+  :root { --brand:#C7000B; --brand-dark:#A50008; --brand-bg:#FBE9EA; --cell-active:#FDF3F3;
+          --ink:#191919; --text:#575D6C; --line:#DFE1E6; --line-strong:#C2C2C2;
+          --bg:#F5F5F6; --grey:#8A8E99; --ok:#5CB300; --warnc:#E37D29; --err:#DE504E; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:13px/1.5 -apple-system,HuaweiSans,"Helvetica Neue",Helvetica,Arial,sans-serif;
+         background:var(--bg); color:var(--ink); display:flex; flex-direction:column; overflow:hidden; }
+  header { background:#fff; color:var(--ink); padding:9px 20px; display:flex; gap:16px;
+           align-items:center; border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; font-weight:600; letter-spacing:.2px; white-space:nowrap;
+              display:flex; align-items:center; gap:12px; }
+  header h1 img { height:26px; display:block; }
+  header h1 .divider { width:1px; height:20px; background:var(--line-strong); }
+  header .src { color:var(--text); font-size:12px; flex:1; overflow:hidden;
+                text-overflow:ellipsis; white-space:nowrap; }
+  header { flex:none; }
+  main { display:grid; grid-template-columns: 176px 1fr 380px; gap:0; flex:1; min-height:0; }
+  nav { background:#fff; border-right:1px solid var(--line); overflow-y:auto; padding-top:8px; }
+  .navlabel { font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+              color:var(--grey); padding:4px 14px 6px; }
+  nav button { display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:7px 14px 7px 11px;
+               border:0; background:none; cursor:pointer; font:inherit; color:var(--ink);
+               border-left:3px solid transparent; }
+  nav button .num { font:11px/1 Consolas,monospace; color:var(--grey); width:18px; flex:none; text-align:right; }
+  nav button:hover { color:var(--brand); background:var(--cell-active); }
+  nav button.active { border-left-color:var(--brand); background:var(--cell-active); font-weight:700; color:var(--brand); }
+  nav button.active .num { color:var(--brand); font-weight:700; }
+  #editor { overflow-y:auto; padding:16px 20px; }
+  #side { border-left:1px solid var(--line); background:#fff; overflow-y:auto; padding:16px 14px; scrollbar-gutter:stable; }
+  #side h2:not(:first-child) { margin-top:22px; }
+  h2 { font-size:20px; margin:.1em 0 .35em; color:var(--ink); font-weight:700; letter-spacing:-.01em; }
+  #side h2 { font-size:13px; font-weight:700; letter-spacing:.02em; padding-bottom:6px;
+             border-bottom:1px solid var(--line); margin-bottom:10px; }
+  h3 { font-size:14px; margin:1.4em 0 .3em; color:var(--ink); font-weight:600; }
+  .desc { color:var(--text); font-size:12px; margin-bottom:6px; max-width:70em; }
+  table { border-collapse:collapse; background:#fff; border:1px solid var(--line); }
+  th, td { border:0; border-bottom:1px solid #EEF0F2; padding:6px 10px; font-size:12px; text-align:left; }
+  th { background:#F7F8FA; font-weight:600; white-space:nowrap; color:var(--text);
+       border-bottom:1px solid var(--line); }
+  #editor table:not(.kv) tbody tr:hover td, #editor table:not(.kv) tr:hover td { background:#FAFBFC; }
+  tr:last-child td { border-bottom:0; }
+  td input, td select { width:100%; min-width:70px; border:0; font:inherit; background:transparent;
+                        padding:2px; color:var(--ink); }
+  td input:focus, td select:focus { outline:1px solid var(--brand); border-radius:2px; background:var(--cell-active); }
+  .kv td:first-child { background:#F7F8FA; font-weight:600; white-space:nowrap; width:1%; }
+  .kv td:last-child input { min-width:260px; }
+  .rowbtn { border:0; background:none; color:var(--err); cursor:pointer; font-size:12px; }
+  .add { margin:5px 0 10px; font-size:12px; cursor:pointer; color:var(--brand); font-weight:600; }
+  .add:hover { color:var(--brand-dark); }
+  textarea { width:340px; height:90px; font:inherit; border:1px solid var(--line); border-radius:2px; }
+  .bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; align-items:center; }
+  button.act { background:var(--brand); color:#fff; border:1px solid var(--brand); padding:3px 12px;
+               border-radius:3px; cursor:pointer; font:inherit; font-size:12px; font-weight:600; }
+  button.act:hover { background:var(--brand-dark); }
+  button.act.sec { background:#fff; color:var(--ink); border:1px solid var(--line-strong); }
+  button.act.sec:hover { color:var(--brand); border-color:var(--brand); background:#fff; }
+  button.act:disabled { background:#E3E4E8; border-color:#E3E4E8; color:#9A9EA8; }
+  select.small, input.small { padding:0 8px; height:28px; border:1px solid var(--line-strong); border-radius:2px;
+                              font:inherit; color:var(--ink); background:#fff; }
+  /* dropdown list items: padded rows with a hairline separator (honored by
+     Chromium's stylable listboxes; harmless where the popup is native) */
+  select.small option { padding:6px 8px; border-bottom:1px solid var(--line); background:#fff; }
+  select.small option:checked { background:var(--cell-active); color:var(--brand); font-weight:600; }
+  header .hbar { display:inline-flex; align-items:center; gap:8px; }
+  header .hbar select.small, header .hbar input.small { width:220px; }
+  header .hbar button.act { height:28px; }
+  select.small:focus, input.small:focus { outline:none; border-color:var(--brand); }
+  /* ── results cards ── */
+  #results { min-height:40px; }
+  .card { display:flex; gap:8px; align-items:flex-start; border:1px solid var(--line);
+          border-radius:2px; padding:7px 9px; margin-bottom:5px; background:#fff; font-size:12px;
+          color:var(--text); }
+  .card .chip { flex:none; font-size:10px; font-weight:700; padding:1px 7px; border-radius:9px; margin-top:1px; }
+  .card.error  { border-left:3px solid var(--err); }  .card.error .chip { background:#FFEEED; color:var(--err); }
+  .card.warn   { border-left:3px solid var(--warnc); } .card.warn  .chip { background:#FFF3E8; color:var(--warnc); }
+  .card.okc    { border-left:3px solid var(--ok); }    .card.okc   .chip { background:#EEF8E2; color:#3D7A00; }
+  .card.note   { border-left:3px solid var(--brand); } .card.note  .chip { background:var(--brand-bg); color:var(--brand); }
+  .card a.sheetlink { color:var(--brand); cursor:pointer; text-decoration:none; font-weight:600; }
+  .card a.sheetlink:hover { text-decoration:underline; }
+  /* ── job console panel ── */
+  #jobPanel { border:1px solid var(--line); border-radius:2px; background:#fff; }
+  #jobHead { display:flex; gap:8px; align-items:center; padding:7px 9px; font-size:12px; color:var(--ink); }
+  #jobHead .chip { font-size:10px; font-weight:700; padding:1px 9px; border-radius:9px; }
+  #jobHead .chip.running { background:var(--brand-bg); color:var(--brand); }
+  #jobHead .chip.okj     { background:#EEF8E2; color:#3D7A00; }
+  #jobHead .chip.fail    { background:#FFEEED; color:var(--err); }
+  #jobHead .chip.warnj   { background:#FFF3E8; color:var(--warnc); }
+  #jobHead .elapsed { color:var(--grey); font-size:11px; margin-left:auto; }
+  #jobPanel details { border-top:1px solid var(--line); }
+  #jobPanel summary { cursor:pointer; font-size:11px; color:var(--grey); padding:4px 9px; }
+  #log { white-space:pre-wrap; font:11px/1.6 Consolas,monospace; background:#1A1C21; color:#C9CDD4;
+        padding:9px 11px; margin:0; max-height:40vh; overflow-y:auto; }
+  #log .sec { display:block; color:#fff; font-weight:700; border-top:1px solid #33363E;
+              margin-top:6px; padding-top:6px; }
+  #log .sec:first-child { border-top:0; margin-top:0; padding-top:0; }
+  #log .okt { color:#7CCB5E; font-weight:700; }
+  #log .failt { color:#FF7B72; font-weight:700; }
+  #log .cmdl { display:block; color:#8A919C; }
+  #log .cmdl .envchip { color:#79B8FF; font-weight:700; }
+  #log .infol { display:block; color:#79B8FF; }
+  #log .meta { display:block; color:#8A919C; font-style:italic; }
+  /* job tabs + per-job sections */
+  #jobTabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+  #jobTabs button { border:1px solid var(--line); background:#fff; border-radius:14px;
+                    padding:3px 11px; font:inherit; font-size:12px; cursor:pointer; color:var(--ink); }
+  #jobTabs button:hover { border-color:var(--brand); color:var(--brand); }
+  #jobTabs button.active { background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600; }
+  #jobSection { border:1px solid var(--line); border-radius:2px; background:#fff;
+                padding:9px 11px; margin-bottom:8px; }
+  .jobdesc { color:var(--text); font-size:12px; margin:0 0 8px; }
+  .prow { display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+  .prow label.cap { width:118px; flex:none; font-size:12px; color:var(--text); }
+  .prow input.small, .prow select.small { flex:1; min-width:120px; }
+  .warnbox { background:#FFF3E8; border:1px solid #FFD0A6; color:#7A4A00; border-radius:2px;
+             padding:5px 9px; font-size:12px; margin:6px 0; }
+  /* env checkbox picker (plan/apply) */
+  .envpick { border:1px solid var(--line); border-radius:2px; background:#fff;
+             margin:-2px 0 8px; font-size:12px; }
+  .envpick summary { cursor:pointer; padding:5px 9px; color:var(--text); }
+  .envpick[open] summary { border-bottom:1px solid var(--line); }
+  #envPickList { padding:6px 9px; display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
+  #envPickList label { display:flex; gap:6px; align-items:center; white-space:nowrap;
+                       color:var(--ink); cursor:pointer; }
+  #envPickList .allrow { grid-column:1 / -1; border-bottom:1px solid var(--line);
+                         padding-bottom:4px; margin-bottom:3px; color:var(--text); }
+  #log::-webkit-scrollbar { width:8px; } #log::-webkit-scrollbar-thumb { background:#44474F; border-radius:4px; }
+  .spin { display:inline-block; width:10px; height:10px; border:2px solid var(--brand-bg); border-top-color:var(--brand);
+          border-radius:50%; animation:sp 0.8s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  /* ── toasts ── */
+  #toasts { position:fixed; top:52px; right:16px; z-index:1000; display:flex; flex-direction:column; gap:6px; }
+  .toast { padding:9px 14px; border-radius:2px; font-size:12px; cursor:pointer; background:#fff;
+           color:var(--ink); border:1px solid var(--line); border-left-width:3px;
+           box-shadow:0 4px 12px rgba(37,43,58,.14); max-width:360px; animation:fadein .15s ease-out; }
+  .toast.ok   { border-left-color:var(--ok); }
+  .toast.err  { border-left-color:var(--err); }
+  .toast.info { border-left-color:var(--brand); }
+  @keyframes fadein { from { opacity:0; transform:translateY(-4px); } }
+  :focus-visible { outline:2px solid var(--brand); outline-offset:1px; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation:none; } .toast { animation:none; } }
+  .pill { display:inline-block; padding:0 8px; border-radius:9px; background:#EEF1F5; font-size:11px;
+          margin-left:5px; color:var(--text); font-weight:400; }
+  .pill.mand { background:#EEF8E2; color:#3D7A00; }
+  .pill.opt  { background:#FFF3E8; color:var(--warnc); }
+  .pill.rsv  { background:#E9EAEE; color:#6A6F7A; }
+  .pill.auto { background:var(--brand-bg); color:var(--brand); }
+  .hint { color:var(--grey); font-size:11px; margin:2px 0 8px; max-width:70em; }
+  .guide { font-size:11px; color:var(--text); margin:2px 0 8px; max-width:70em; }
+  .guide summary { cursor:pointer; color:var(--brand); }
+  .guide li { margin:1px 0; }
+  .fixedcard { background:#F7F8FA; border:1px solid var(--line); border-radius:2px;
+               padding:9px 11px; margin:6px 0 12px; max-width:70em; }
+  .fixedcard h4 { margin:0 0 5px; font-size:12px; color:var(--text); }
+  .fixedcard table td { background:#F7F8FA; border-color:var(--line); color:var(--text); }
+  .fixedcard .note { color:var(--grey); font-size:11px; margin-top:5px; }
+  table.rsv td { background:#F2F3F5; }
+  table.rsv input, table.rsv select { color:var(--grey); }
+  td .missing { color:var(--err); }
+  .kv td.desc2 { color:var(--text); font-size:11px; max-width:34em; }
+</style>
+</head>
+<body>
+<header>
+  <h1><img src="/logo-en.svg" alt="Huawei Cloud"><span class="divider"></span>LZ Pipeline</h1>
+  <span class="src" id="srcLabel">No spec loaded</span>
+  <span id="openBar" class="hbar">
+    <select class="small" id="fileSel" title="Spec files in lz_spec\"></select>
+    <button class="act" onclick="loadSpec()">Load</button>
+    <button class="act sec" onclick="showNew(true)">New</button>
+  </span>
+  <span id="newBar" class="hbar" style="display:none">
+    <input class="small" id="newName" placeholder="lz.spec.customer.json"
+           onkeydown="if(event.key==='Enter')createSpec(); if(event.key==='Escape')showNew(false);">
+    <button class="act" onclick="createSpec()">Create</button>
+    <button class="act sec" onclick="showNew(false)">Cancel</button>
+  </span>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <div id="editor"><p class="desc">Load a spec file (.json) or start a new one.
+    The editor is generated from the pipeline schema: reference fields are dropdowns of the values
+    you defined in their source table, each table is badged MANDATORY / OPTIONAL (billable) /
+    AUTO / RESERVED, and fixed platform wiring is shown greyed out (no input).</p></div>
+  <div id="side">
+    <h2>Spec actions</h2>
+    <div class="bar">
+      <button class="act" onclick="validateSpec()">Validate</button>
+    </div>
+    <div class="bar">
+      <button class="act sec" onclick="saveSpec()">Save</button>
+      <input class="small" id="saveAs" placeholder="Save as (JSON name, optional)" size="26"
+             title="Blank = save back to the current file; a name saves a JSON copy in lz_spec\ (the Excel workbook is generated as an export artifact, not saved here)">
+    </div>
+    <div id="results"><p class="hint">Validate and save results appear here</p></div>
+    <h2 style="margin-top:14px">Pipeline jobs</h2>
+    <div class="bar" title="Shared by all pipeline jobs">
+      <label class="hint" style="margin:0" for="envsDir">Environments directory</label>
+      <input class="small" id="envsDir" value="" placeholder="set by the server on load" size="24"
+             onchange="loadEnvs()" title="Environments directory (relative to the workspace) — shared by all jobs">
+    </div>
+    <div id="jobTabs"></div>
+    <div id="jobSection">
+      <p class="jobdesc" id="jobDesc"></p>
+      <details class="envpick" id="envPick" style="display:none">
+        <summary id="envPickSummary">Environments: all</summary>
+        <div id="envPickList"></div>
+      </details>
+      <div id="jobParams"></div>
+      <div class="bar" style="margin-top:8px">
+        <button class="act" id="runBtn" onclick="runJob()">Run</button>
+        <span class="hint" id="runNote" style="margin:0"></span>
+      </div>
+    </div>
+    <div id="jobPanel">
+      <div id="jobHead"><span class="hint" style="margin:0">Select a job and click Run — status and output appear here</span></div>
+      <details id="jobBody" open><summary>Console</summary><div id="log"></div></details>
+    </div>
+  </div>
+</main>
+<div id="toasts"></div>
+<script>
+let SCHEMA=null, SPEC=null, CUR=null;
+const $=id=>document.getElementById(id);
+const api=async(p,m="GET",b)=>{const r=await fetch(p,{method:m,headers:{"Content-Type":"application/json"},
+  body:b?JSON.stringify(b):undefined}); const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j;};
+
+async function init(){
+  SCHEMA=await api("/api/schema");
+  const meta=await api("/api/meta");
+  if(meta.loaded){ SPEC=await api("/api/spec"); srcLabel(meta.file||meta.source||"(in memory)"); }
+  if(meta.envs_dir){ $("envsDir").value=meta.envs_dir; loadEnvs(); }
+  await refreshFiles(meta.file);
+  nav();
+}
+function srcLabel(t){ $("srcLabel").textContent=t; }
+async function refreshFiles(sel){
+  const r=await api("/api/spec/files");
+  const s=$("fileSel"); s.innerHTML="";
+  const ph=document.createElement("option"); ph.value=""; ph.textContent="Select spec…";
+  ph.disabled=true; ph.selected=true; s.appendChild(ph);
+  for(const f of r.files){const o=document.createElement("option");o.value=f.name;o.textContent=f.name;s.appendChild(o);}
+  if(sel) s.value=sel;
+}
+function showNew(on){
+  $("openBar").style.display=on?"none":"inline-flex";
+  $("newBar").style.display=on?"inline-flex":"none";
+  if(on){ $("newName").value=""; $("newName").focus(); }
+}
+async function loadSpec(){
+  const name=$("fileSel").value;
+  if(!name){ toast("Pick a spec file in the dropdown first (or use New)","err"); return; }
+  try{ const r=await api("/api/spec/load","POST",{name});
+    SPEC=await api("/api/spec"); srcLabel(name);
+    const w=(r.warnings||[]);
+    toast("Loaded "+name+(w.length?" ("+w.length+" note(s))":""),"ok");
+    if(w.length) cards("results", w.map(x=>({sev:"note",msg:x})));
+    if(CUR)render();
+  }catch(e){ toast("Load failed: "+e.message,"err"); }
+}
+async function createSpec(){
+  const name=$("newName").value.trim(); if(!name)return;
+  try{ const r=await api("/api/spec/new","POST",{name});
+    SPEC=await api("/api/spec"); srcLabel(r.file+" (unsaved)");
+    showNew(false); await refreshFiles(); if(CUR)render();
+    toast("New spec "+r.file+" — fill it in, then Save","ok");
+  }catch(e){ toast("Create failed: "+e.message,"err"); }
+}
+async function saveSpec(){
+  try{ await pushSpec();
+    const name=$("saveAs").value.trim();
+    const r=await api("/api/spec/save","POST",name?{name}:{});
+    srcLabel(r.file||r.path); $("saveAs").value="";
+    await refreshFiles(r.file);
+    toast("Saved "+(r.file||r.path),"ok");
+    if(r.notes&&r.notes.length) cards("results", r.notes.map(x=>({sev:"note",msg:x})));
+  }catch(e){ toast("Save failed: "+e.message,"err"); }
+}
+function nav(){
+  const n=$("nav"); n.innerHTML="";
+  const lbl=document.createElement("div"); lbl.className="navlabel"; lbl.textContent="Spec sheets"; n.appendChild(lbl);
+  for(const s of SCHEMA.sheets){
+    const b=document.createElement("button");
+    b.dataset.sheet=s.name;
+    // "05_Network" -> numbered rail station: mono number + name
+    const m=/^(\d\d)_(.+)$/.exec(s.name);
+    const num=document.createElement("span"); num.className="num"; num.textContent=m?m[1]:"·";
+    b.appendChild(num);
+    b.appendChild(document.createTextNode(m?m[2]:(s.label||s.name)));
+    if(s.badge==="optional"){const p=document.createElement("span");p.className="pill opt";p.textContent="opt";p.title=s.badge_note||"";b.appendChild(p);}
+    b.onclick=()=>{CUR=s.name; render(); [...n.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b));};
+    n.appendChild(b);
+  }
+}
+function ensure(sheet,table,kind){
+  SPEC.sheets=SPEC.sheets||{}; const sd=SPEC.sheets[sheet]=SPEC.sheets[sheet]||{};
+  if(!(table in sd)) sd[table]=(kind==="scalar")?{}:[];
+  return sd[table];
+}
+// Badge pill: every table gets one — explicit badge, or MANDATORY by default.
+const BADGE_LABEL={optional:"OPTIONAL — billable",reserved:"RESERVED",auto:"AUTO",mandatory:"MANDATORY",fixed:"FIXED"};
+const BADGE_CLASS={optional:"opt",reserved:"rsv",auto:"auto",mandatory:"mand",fixed:"rsv"};
+function badgePill(badge,note){
+  const p=document.createElement("span");
+  p.className="pill "+(BADGE_CLASS[badge]||"mand");
+  p.textContent=BADGE_LABEL[badge]||BADGE_LABEL.mandatory;
+  if(note)p.title=note;
+  return p;
+}
+// Values currently defined in the FK source table(s) of the LIVE spec.
+function fkValues(srcs){
+  const out=[];
+  for(const s of (srcs||[])){
+    const [sheet,table,col,prefix]=s;
+    const rows=(SPEC&&SPEC.sheets&&SPEC.sheets[sheet]&&SPEC.sheets[sheet][table])||[];
+    if(!Array.isArray(rows))continue;
+    for(const r of rows){
+      const v=r&&r[col];
+      if(v!==null&&v!==undefined&&String(v).trim()!=="") out.push((prefix||"")+String(v).trim());
+    }
+  }
+  return [...new Set(out)];
+}
+function fkLabel(srcs){ return (srcs||[]).map(s=>s[1]+"."+s[2]).join(" + "); }
+function render(){
+  if(!SPEC){ $("editor").innerHTML="<p class='desc'>Load or create a spec first.</p>"; return; }
+  const s=SCHEMA.sheets.find(x=>x.name===CUR); const e=$("editor"); e.innerHTML="";
+  if(render.last!==CUR){ e.scrollTop=0; render.last=CUR; }
+  const h=document.createElement("h2"); h.textContent=(s.label||s.name).replace(/^(\d\d)_/,"$1 · ");
+  if(s.badge) h.appendChild(badgePill(s.badge,s.badge_note));
+  e.appendChild(h);
+  const d=document.createElement("p"); d.className="desc"; d.textContent=s.description; e.appendChild(d);
+  const notesAfter={}; for(const fn of (s.fixed_notes||[])) (notesAfter[fn.after]=notesAfter[fn.after]||[]).push(fn);
+  for(const t of s.tables){
+    const h3=document.createElement("h3"); h3.textContent=t.name;
+    const pill=document.createElement("span"); pill.className="pill";
+    pill.textContent=({scalar:"key/value","list-single":"list"})[t.kind]||"table"; h3.appendChild(pill);
+    h3.appendChild(badgePill(t.badge,t.badge_note));
+    e.appendChild(h3);
+    if(t.description){const td=document.createElement("p"); td.className="desc"; td.textContent=t.description; e.appendChild(td);}
+    if(t.kind==="scalar") renderScalar(e,s.name,t);
+    else if(t.kind==="list-single") renderList(e,s.name,t);
+    else renderTable(e,s.name,t);
+    for(const fn of (notesAfter[t.name]||[])) renderFixedNote(e,fn);
+  }
+}
+function renderFixedNote(e,fn){
+  const card=document.createElement("div"); card.className="fixedcard";
+  const h4=document.createElement("h4"); h4.textContent=fn.title;
+  h4.appendChild(badgePill("fixed","Fixed by the platform — set automatically, no input needed"));
+  card.appendChild(h4);
+  const tb=document.createElement("table");
+  for(const [k,v] of fn.rows){
+    const tr=tb.insertRow(); tr.insertCell().textContent=k; tr.insertCell().textContent=v;
+  }
+  card.appendChild(tb);
+  if(fn.note){const n=document.createElement("div"); n.className="note"; n.textContent=fn.note; card.appendChild(n);}
+  e.appendChild(card);
+}
+function inputFor(val,type,en,onch,fk,sample){
+  let el;
+  const cur=(val===null||val===undefined)?"":String(val===true?"TRUE":val===false?"FALSE":val);
+  if(fk){
+    el=document.createElement("select");
+    const vals=fkValues(fk);
+    const blank=document.createElement("option"); blank.value=""; blank.textContent="(blank)"; el.appendChild(blank);
+    for(const v of vals){const op=document.createElement("option");op.value=v;op.textContent=v;el.appendChild(op);}
+    if(cur&&!vals.includes(cur)){
+      const op=document.createElement("option"); op.value=cur; op.textContent=cur+" (missing)"; op.className="missing";
+      el.appendChild(op);
+    }
+    el.value=cur; el.title="from "+fkLabel(fk);
+  }else if(type==="bool"||en){
+    el=document.createElement("select");
+    const opts=en?["",...en]:["","TRUE","FALSE"];
+    for(const o of opts){const op=document.createElement("option");op.value=o;op.textContent=o||"(blank)";el.appendChild(op);}
+    el.value=cur;
+  }else{
+    el=document.createElement("input");
+    el.value=cur;
+    if(sample)el.placeholder=sample;
+  }
+  el.onchange=()=>onch(el.value===""?null:coerce(el.value,type));
+  return el;
+}
+function coerce(v,t){
+  if(t==="int"){const n=Number(v); return Number.isFinite(n)?n:v;}
+  if(t==="bool"){return v;}   // keep "TRUE"/"FALSE" strings - parser semantics
+  return v;
+}
+function renderScalar(e,sheet,t){
+  const data=ensure(sheet,t.name,"scalar");
+  const cond=t.conditional;
+  const condOK=!cond||String(data[cond.when[0]]||"").trim().toLowerCase()===cond.when[1];
+  const tb=document.createElement("table"); tb.className="kv";
+  let hidden=0;
+  for(const f of t.fields){
+    if(cond&&cond.fields.includes(f.name)&&!condOK){hidden++;continue;}
+    const tr=tb.insertRow(); tr.insertCell().textContent=f.name;
+    const td=tr.insertCell(); td.title=f.description;
+    const isCondSwitch=cond&&f.name===cond.when[0];
+    td.appendChild(inputFor(data[f.name],f.type,null,
+      v=>{data[f.name]=v; if(isCondSwitch)render();},f.fk,f.sample));
+    const dc=tr.insertCell(); dc.className="desc2"; dc.title=f.description;
+    dc.textContent=f.fk?("From "+fkLabel(f.fk)):(f.description||"");
+  }
+  e.appendChild(tb);
+  if(hidden){const h=document.createElement("p");h.className="hint";
+    h.textContent=hidden+" field(s) hidden — they only apply when "+cond.when[0]+" = "+cond.when[1];
+    e.appendChild(h);}
+}
+function renderList(e,sheet,t){
+  const sd=SPEC.sheets[sheet]=SPEC.sheets[sheet]||{};
+  const ta=document.createElement("textarea");
+  ta.value=(sd[t.name]||[]).join("\n");
+  ta.onchange=()=>sd[t.name]=ta.value.split("\n").map(x=>x.trim()).filter(Boolean);
+  e.appendChild(ta);
+}
+function renderTable(e,sheet,t){
+  const rows=ensure(sheet,t.name,"object");
+  const reserved=t.badge==="reserved";
+  // column guide: the requirements, visible without hovering
+  const g=document.createElement("details"); g.className="guide";
+  const sm=document.createElement("summary"); sm.textContent="Column guide"; g.appendChild(sm);
+  const ul=document.createElement("ul");
+  for(const c of t.columns){
+    const li=document.createElement("li");
+    const extra=c.fk?(" — pick from "+fkLabel(c.fk)):"";
+    li.textContent=c.name+" ("+c.type+")"+extra+(c.description?(" — "+c.description):"");
+    ul.appendChild(li);
+  }
+  g.appendChild(ul); e.appendChild(g);
+  const tb=document.createElement("table"); if(reserved)tb.className="rsv";
+  const hr=tb.insertRow();
+  for(const c of t.columns){const th=document.createElement("th");
+    th.textContent=c.name; th.title=(c.fk?("from "+fkLabel(c.fk)+"\n"):"")+(c.description||"");
+    hr.appendChild(th);}
+  hr.appendChild(document.createElement("th"));
+  for(const row of rows){
+    const tr=tb.insertRow();
+    for(const c of t.columns){
+      const td=tr.insertCell();
+      const el=inputFor(row[c.name],c.type,c.enum,v=>row[c.name]=v,c.fk,c.sample);
+      if(reserved)el.disabled=true;
+      td.appendChild(el);
+    }
+    const del=tr.insertCell();
+    if(!reserved){
+      const b=document.createElement("button"); b.className="rowbtn"; b.textContent="✕";
+      b.onclick=()=>{rows.splice(rows.indexOf(row),1); render();}; del.appendChild(b);
+    }
+  }
+  e.appendChild(tb);
+  // live hint for csv-list token columns (addrgroup:/svcgroup:/sg:/plain lists)
+  for(const c of t.columns){
+    if(!c.fk_hint)continue;
+    const vals=fkValues(c.fk_hint);
+    const h=document.createElement("p"); h.className="hint";
+    h.textContent=c.name+" values available: "+(vals.length?vals.join(", "):"(none yet — add rows to "+fkLabel(c.fk_hint)+")");
+    e.appendChild(h);
+  }
+  if(reserved){
+    const h=document.createElement("p"); h.className="hint";
+    h.textContent="Reserved — not implemented yet; input is disabled (rows marked Enabled fail validation).";
+    e.appendChild(h);
+  }else{
+    const add=document.createElement("div"); add.className="add"; add.textContent="+ Add row";
+    add.onclick=()=>{const r={}; for(const c of t.columns) r[c.name]=(c.name==="Enabled")?"TRUE":null; rows.push(r); render();};
+    e.appendChild(add);
+  }
+}
+async function pushSpec(){ await api("/api/spec","POST",SPEC); }
+
+// ── toasts + result cards ──────────────────────────────────────────────────
+function toast(msg,kind){
+  const t=document.createElement("div"); t.className="toast "+(kind||"info");
+  t.textContent=(kind==="ok"?"✓ ":kind==="err"?"✗ ":"")+msg;
+  t.onclick=()=>t.remove();
+  $("toasts").appendChild(t);
+  setTimeout(()=>t.remove(), kind==="err"?8000:4000);
+}
+function cards(id,items){
+  const box=$(id); box.innerHTML="";
+  for(const it of items){
+    const c=document.createElement("div"); c.className="card "+(it.sev==="ERROR"?"error":it.sev==="ok"?"okc":it.sev);
+    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=it.sev==="ok"?"PASS":it.sev.toUpperCase();
+    c.appendChild(chip);
+    const body=document.createElement("span");
+    // first sheet-name token anywhere in the message -> click-to-open link
+    const msg=it.msg||"";
+    const sheet=SCHEMA.sheets.map(s=>({s,i:msg.indexOf(s.name)}))
+                             .filter(x=>x.i>=0).sort((a,b)=>a.i-b.i)[0];
+    if(sheet){
+      const {s,i}=sheet;
+      body.appendChild(document.createTextNode(msg.slice(0,i)));
+      const a=document.createElement("a"); a.className="sheetlink"; a.textContent=s.name;
+      a.onclick=()=>{CUR=s.name; render();
+        [...$("nav").querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x.dataset.sheet===s.name));};
+      body.appendChild(a);
+      body.appendChild(document.createTextNode(msg.slice(i+s.name.length)));
+    }else body.textContent=msg;
+    c.appendChild(body);
+    box.appendChild(c);
+  }
+}
+async function validateSpec(){
+  try{ await pushSpec(); const r=await api("/api/spec/validate","POST",{});
+    const items=[...r.errors.map(x=>({sev:"ERROR",msg:x})),...r.warnings.map(x=>({sev:"warn",msg:x}))];
+    if(!items.length){
+      cards("results",[{sev:"ok",msg:"Validation passed — 0 errors, 0 warnings"}]);
+      toast("Validation passed","ok");
+    }else{
+      cards("results",items);
+      toast(`Validation: ${r.errors.length} error(s), ${r.warnings.length} warning(s)`,
+            r.errors.length?"err":"info");
+    }
+  }catch(e){ toast("Validation failed: "+e.message,"err"); }
+}
+let JOB={t0:0,verb:""};
+function jobHead(status,verb,elapsed){
+  const h=$("jobHead"); h.innerHTML="";
+  const name=document.createElement("b"); name.textContent=(JOBS_DEF[verb]||{}).label||verb; h.appendChild(name);
+  const chip=document.createElement("span");
+  if(status==="running"){
+    const sp=document.createElement("span"); sp.className="spin"; h.appendChild(sp);
+    chip.className="chip running"; chip.textContent="RUNNING";
+  }else if(status==="done"){ chip.className="chip okj"; chip.textContent="PASS"; }
+  else if(status==="warn"){ chip.className="chip warnj"; chip.textContent=verb==="drift"?"DRIFT FOUND":"CHANGES"; }
+  else{ chip.className="chip fail"; chip.textContent="FAILED"; }
+  h.appendChild(chip);
+  const el=document.createElement("span"); el.className="elapsed"; el.textContent=elapsed; h.appendChild(el);
+}
+// ── env picker (plan/apply only) ──────────────────────────────────────────
+let ENVS=[];
+async function loadEnvs(){
+  try{ ENVS=(await api("/api/envs?dir="+encodeURIComponent($("envsDir").value.trim()))).envs; }
+  catch(e){ ENVS=[]; }
+  const list=$("envPickList"); list.innerHTML="";
+  const all=document.createElement("label"); all.className="allrow";
+  const ac=document.createElement("input"); ac.type="checkbox"; ac.checked=true;
+  ac.onchange=()=>{list.querySelectorAll("input[data-env]").forEach(c=>c.checked=ac.checked); envSummary();};
+  all.appendChild(ac); all.appendChild(document.createTextNode("All environments"));
+  list.appendChild(all);
+  for(const e of ENVS){
+    const l=document.createElement("label");
+    const c=document.createElement("input"); c.type="checkbox"; c.checked=true; c.dataset.env=e;
+    c.onchange=envSummary;
+    l.appendChild(c); l.appendChild(document.createTextNode(e));
+    list.appendChild(l);
+  }
+  envSummary();
+}
+function pickedEnvs(){
+  return [...$("envPickList").querySelectorAll("input[data-env]:checked")].map(c=>c.dataset.env);
+}
+function envSummary(){
+  const n=pickedEnvs().length;
+  $("envPickSummary").textContent="Environments: "+(n===ENVS.length?"all ("+n+")":n+" of "+ENVS.length);
+}
+// ── per-job sections ───────────────────────────────────────────────────────
+const JOBS_DEF={
+  build:   {label:"Build specs", desc:"Generates the Terraform input files for every environment from the loaded spec. Writes local files only — nothing touches the cloud.",
+            envpick:false, creds:false, params:[]},
+  verify:  {label:"Schema check", desc:"Runs the full pipeline check: regenerates every output and compares it, runs terraform validate, then checks templates, platform rules, dependencies, formatting, and all unit tests. Read-only.",
+            envpick:false, creds:false, params:[]},
+  preflight:{label:"Preflight", desc:"Checks everything an apply needs: Terraform version, backend credentials, checksum settings, and the dependency file.",
+            envpick:false, creds:true, params:[]},
+  plan:    {label:"Plan", desc:"Runs terraform plan for each selected environment in dependency order, flags risky changes, and adds a cost summary. Reads the cloud, changes nothing.",
+            envpick:true, creds:true, params:[]},
+  apply:   {label:"Apply", desc:"Applies the selected environments in dependency order, backing up state and reviewing the plan before each one.",
+            envpick:true, creds:true,
+            params:[{k:"dry",t:"check",cap:"Dry run",def:true,
+                     note:"Unticked = a real apply that changes Huawei Cloud"},
+                    {k:"allow_destroy",t:"check",cap:"Allow destructive changes",def:false,
+                     note:"Ticked = resources may be replaced or deleted; leave off and the apply stops when a plan destroys anything"}]},
+  drift:   {label:"Drift", desc:"Compares live cloud resources against Terraform state for the selected environments and marks differences already known to be harmless.",
+            envpick:true, creds:true, params:[]},
+  export:  {label:"Export artifact", desc:"Regenerates the customer documents and packages the deliverable in one run.",
+            envpick:false, creds:false,
+            params:[{k:"inc_docs",t:"check",cap:"Document set (IP plan, configuration book, checklist) → dist/{profile}/docs",def:true},
+                    {k:"inc_workbook",t:"check",cap:"Excel spec workbook (generated from the spec, ships inside the package)",def:true},
+                    {k:"inc_package",t:"check",cap:"Terraform package → dist/{profile}/artifact",def:true}]},
+};
+let CURJOB="build";
+function jobTabs(){
+  const t=$("jobTabs"); t.innerHTML="";
+  for(const [v,d] of Object.entries(JOBS_DEF)){
+    const b=document.createElement("button"); b.textContent=d.label;
+    b.className=v===CURJOB?"active":"";
+    b.onclick=()=>{CURJOB=v; jobTabs(); renderJob();};
+    t.appendChild(b);
+  }
+}
+function prow(cap,el){
+  const r=document.createElement("div"); r.className="prow";
+  const l=document.createElement("label"); l.className="cap"; l.textContent=cap;
+  r.appendChild(l); r.appendChild(el); return r;
+}
+function renderJob(){
+  const d=JOBS_DEF[CURJOB];
+  $("jobDesc").textContent=d.desc;
+  $("envPick").style.display=d.envpick?"":"none";
+  const P=$("jobParams"); P.innerHTML="";
+  if(d.creds){
+    const det=document.createElement("details"); det.className="envpick";
+    const sm=document.createElement("summary"); sm.textContent="Backend credentials (leave blank to load from the secrets files)"; det.appendChild(sm);
+    const box=document.createElement("div"); box.style.padding="6px 9px";
+    for(const [id,cap,type] of [["credAk","Access key (AK)","password"],["credSk","Secret key (SK)","password"]]){
+      const i=document.createElement("input"); i.type=type; i.id=id; i.className="small";
+      i.autocomplete="off"; i.placeholder="(loaded from secrets file)";
+      box.appendChild(prow(cap,i));
+    }
+    for(const [id,cap] of [["credReq","Request checksum"],["credResp","Response checksum"]]){
+      const s=document.createElement("select"); s.id=id; s.className="small";
+      for(const o of ["when_required","when_supported"]){
+        const op=document.createElement("option"); op.value=o; op.textContent=o; s.appendChild(op);
+      }
+      box.appendChild(prow(cap,s));
+    }
+    det.appendChild(box); P.appendChild(det);
+  }
+  for(const p of d.params){
+    if(p.t==="check"){
+      const l=document.createElement("label"); l.style.cssText="display:flex;gap:6px;align-items:center;font-size:12px;margin:6px 0";
+      const c=document.createElement("input"); c.type="checkbox"; c.id="p_"+p.k; c.checked=!!p.def;
+      if(p.note) c.onchange=()=>renderWarn(p);
+      l.appendChild(c); l.appendChild(document.createTextNode(p.cap));
+      P.appendChild(l);
+      if(p.note){const w=document.createElement("div"); w.className="warnbox"; w.id="w_"+p.k;
+        w.textContent="⚠ "+p.note; w.style.display=c.checked?"none":""; P.appendChild(w);}
+    }
+  }
+  $("runNote").textContent="";
+}
+function renderWarn(p){
+  const c=$("p_"+p.k), w=$("w_"+p.k);
+  if(w) w.style.display=c.checked?"none":"";
+}
+
+// ── console renderer: plain text in, styled spans out ─────────────────────
+function renderLog(text){
+  const log=$("log"); log.textContent="";
+  for(const line of (text||"").split("\n")){
+    let el;
+    if(/^== .* ==$/.test(line)){
+      el=document.createElement("span"); el.className="sec"; el.textContent=line.replace(/^== | ==$/g,"");
+    }else if(/^\[[\w-]+\] \$ /.test(line)){
+      el=document.createElement("span"); el.className="cmdl";
+      const m=/^\[([\w-]+)\] \$ (.*)$/.exec(line);
+      const chip=document.createElement("span"); chip.className="envchip"; chip.textContent=m[1];
+      el.appendChild(chip); el.appendChild(document.createTextNode("  $ "+m[2]));
+    }else if(/^(wrote|exported|saved|backed up)/i.test(line.trim())){
+      el=document.createElement("span"); el.className="infol"; el.textContent=line;
+    }else{
+      el=document.createElement("span"); el.style.display="block";
+      // color OK/FAIL-family tokens inside the line
+      const parts=line.split(/\b(OK|PASS|SKIP|SKIPPED|FAIL|FAILED|ERROR)\b/);
+      for(let i=0;i<parts.length;i++){
+        if(i%2===1){
+          const t=document.createElement("span");
+          t.className=/^(OK|PASS|SKIP|SKIPPED)$/.test(parts[i])?"okt":"failt";
+          t.textContent=parts[i]; el.appendChild(t);
+        }else if(parts[i]) el.appendChild(document.createTextNode(parts[i]));
+      }
+      if(!line) el.innerHTML="&nbsp;";
+    }
+    log.appendChild(el);
+  }
+}
+async function runJob(){
+  try{ if(SPEC) await pushSpec();
+    const verb=CURJOB, d=JOBS_DEF[verb];
+    const args={envs_dir:$("envsDir").value.trim(), report:true, dry_run:false};
+    if(d.envpick){
+      const sel=pickedEnvs();
+      if(!sel.length){ toast("Pick at least one environment","err"); return; }
+      args.envs=sel;   // always explicit: hidden hand-managed envs are never swept in via --all
+    }
+    if(d.creds){
+      const ak=$("credAk")?.value.trim(), sk=$("credSk")?.value.trim();
+      if(ak&&sk) args.creds={ak,sk,req_checksum:$("credReq").value,resp_checksum:$("credResp").value};
+      else if(ak||sk){ toast("Enter both the access key and secret key, or leave both blank to load them from the secrets files","err"); return; }
+    }
+    if(verb==="apply"){
+      const dry=$("p_dry").checked, destroy=$("p_allow_destroy").checked;
+      args.confirm=!dry; args.allow_destroy=destroy;
+      if(!dry && !window.confirm("Real apply: this changes Huawei Cloud infrastructure in the selected environments."
+          +(destroy?"\n\nDestructive changes are ALLOWED - resources may be replaced or deleted.":"")+"\n\nContinue?")) return;
+    }
+    if(verb==="export"){
+      const inc=[];
+      if($("p_inc_docs").checked) inc.push("docs");
+      if($("p_inc_workbook").checked) inc.push("workbook");
+      if($("p_inc_package").checked) inc.push("package");
+      if(!inc.length){ toast("Select at least one component to export","err"); return; }
+      args.include=inc;
+    }
+    const r=await api("/api/job","POST",{verb,args});
+    JOB={t0:Date.now(),verb};
+    jobHead("running",verb,"0s"); $("jobBody").open=true; $("log").textContent="";
+    toast("Job started: "+JOBS_DEF[verb].label,"info");
+    poll(r.job);
+  }catch(e){ toast("Job failed to start: "+e.message,"err"); }
+}
+const LZCTL_VERBS=["preflight","plan","apply","drift"];
+async function poll(id){
+  const j=await api("/api/jobs/"+id);
+  const secs=Math.round((Date.now()-JOB.t0)/1000);
+  let text=j.output||"";
+  if(j.status!=="running"&&LZCTL_VERBS.includes(JOB.verb))
+    text+="\nFull log: "+$("envsDir").value.trim()+"/lzctl-logs/";
+  renderLog(text);
+  $("log").scrollTop=$("log").scrollHeight;
+  if(j.status==="running"){
+    jobHead("running",JOB.verb,secs+"s");
+    setTimeout(()=>poll(id),900);
+  }else{
+    const tfConv=(JOB.verb==="plan"||JOB.verb==="drift");
+    const ok=j.rc===0;
+    const warn=tfConv&&j.rc===2;                 // terraform convention: 2 = changes present
+    jobHead(ok?"done":warn?"warn":"fail",JOB.verb,secs+"s");
+    $("jobBody").open=true;                      // never auto-collapse
+    if(ok) toast("Job finished: "+JOBS_DEF[JOB.verb].label,"ok");
+    else if(warn) toast((JOB.verb==="drift"?"Drift found":"Changes present")+" — see the console","info");
+    else toast("Job failed: "+JOBS_DEF[JOB.verb].label+" (exit code "+j.rc+")","err");
+  }
+}
+init(); loadEnvs(); jobTabs(); renderJob();
+</script>
+</body>
+</html>

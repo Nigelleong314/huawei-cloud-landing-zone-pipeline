@@ -1,0 +1,147 @@
+# envs-v2/01-foundation/terraform.tfvars.example
+#
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+# Apply time: ~10-15 minutes.
+#
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │  IMMUTABLE FIELDS — verify before applying. Most changes after apply     │
+# │  trigger account/OU recreation.                                          │
+# │  Affects: account emails, account names, OU names, home_region.          │
+# └──────────────────────────────────────────────────────────────────────────┘
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REQUIRED — no defaults
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Primary deployment region. Use the Huawei region ID format
+# (e.g. cn-east-3, cn-north-4, ap-southeast-1, ap-southeast-3).
+home_region = "ap-southeast-3"
+
+# Huawei Cloud master-account AK/SK. Marked sensitive.
+# terraform.tfvars is gitignored — DO NOT commit real values.
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+# Core accounts to create. Map keyed by account name. Each entry needs a
+# UNIQUE email (Huawei requires one inbox per account) and an OU placement.
+core_accounts = {
+  lz-infra = {
+    email       = "lz-log-archive@yourcompany.com"
+    ou          = ""  # "" = root; Core OU is RGC-style and not auto-created here
+    description = "Log archive + ops + network hub"
+  }
+  lz-security = {
+    email       = "lz-security@yourcompany.com"
+    ou          = ""
+    description = "Security operations"
+  }
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RECOMMENDED — has a default but you usually want to set it
+# ═══════════════════════════════════════════════════════════════════════════
+
+environment = "shared"
+
+# Workload accounts (apps, environments). Same shape as core_accounts.
+workload_accounts = {
+  lz-app-prod = {
+    email       = "lz-netops@yourcompany.com"
+    ou          = "Workloads"
+    description = "Production application account"
+  }
+  lz-app-nonprod = {
+    email       = "lz-ops@yourcompany.com"
+    ou          = "Workloads"
+    description = "Non-production application account"
+  }
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OPTIONAL — defaults shown; uncomment + edit to override
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Organizational Units ───────────────────────────────────────────────────
+
+# Each OU created directly under the org root. Day-1 supports flat layout only.
+# organizational_units = {
+#   Workloads = {}
+# }
+
+
+# ── Cross-account agency name ──────────────────────────────────────────────
+
+# Auto-created server-side in every created account. Default matches RGC's
+# naming for compatibility with RGC-bootstrapped landing zones being migrated.
+# cross_account_agency_name = "OrganizationAccountAccessAgency"
+
+
+# ── Identity Center ────────────────────────────────────────────────────────
+
+# Optional alias for the IC instance (sets the URL prefix in the IC console).
+# identity_center_alias = ""
+
+
+# ── Trusted services ───────────────────────────────────────────────────────
+
+# Default ships a baseline of 3. Add others per your needs. Full list:
+#   service.AccessAnalyzer   service.HSS                    service.RGC
+#   service.AOM              service.IdentityCenter         service.RMSMultiAccountSetup
+#   service.CBR              service.LTS                    service.SecMaster
+#   service.CES              service.RAM
+#   service.CFW              service.RFStackSetsOrgMember
+#   service.COC
+#   service.CTS
+#   service.DSC
+# (Note: service.RGC removed from default — no longer used after RGC removal.)
+
+# trusted_services = [
+#   "service.CTS",
+#   "service.IdentityCenter",
+#   "service.RAM",
+# ]
+
+
+# ── Policy types enabled at root ───────────────────────────────────────────
+
+# Required before any SCP / tag policy / dry-run policy can attach.
+# enabled_policy_types = ["service_control_policy", "tag_policy"]
+
+
+# ── Tag policies ───────────────────────────────────────────────────────────
+#
+# Tag-key governance is expressed entirely via tag_policies (one entry per
+# policy). A policy with key-presence-only content (no value/scope restriction)
+# enforces that the key exists. REQUIRES tag_policy enabled at the org root:
+#   Huawei console > Organizations > Policies > Tag policies > Enable
+
+# tag_policies = [
+#   {
+#     name        = "lz-tag-allowed-values"
+#     description = "Restrict CostCenter and Environment to allowed values"
+#     content = <<-JSON
+#       {
+#         "tags": {
+#           "CostCenter": {
+#             "tag_key":   { "@@assign": "CostCenter" },
+#             "tag_value": { "@@assign": ["FIN-123", "FIN-456"] }
+#           },
+#           "Environment": {
+#             "tag_key":   { "@@assign": "Environment" },
+#             "tag_value": { "@@assign": ["production", "staging", "development"] }
+#           }
+#         }
+#       }
+#     JSON
+#   },
+# ]
+
+
+# ── Enterprise project (bootstrap) ─────────────────────────────────────────
+
+# Single bootstrap EP for landing zone resources. Module 8 creates additional
+# cost-center EPs (different module, different scope).
+# create_enterprise_project = false
+# enterprise_project_name   = "landing-zone"

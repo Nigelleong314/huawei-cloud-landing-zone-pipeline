@@ -1,0 +1,24 @@
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+foundation_state_bucket = "REPLACE_ME-lz-tfstate"
+
+# environment = "shared"
+
+# Cost-center EPs grouped by the account they are created in. This whole file
+# (plus providers.generated.tf / cost-centers.generated.tf) is normally produced
+# by build_envs.py from the 02_Finance sheet's CostCenters table — edit the sheet,
+# not this. Shown here for reference:
+#
+# cost_centers_by_account = {
+#   master = {
+#     finance = { description = "Finance BU", enterprise_project_type = "prod" }
+#   }
+#   "lz-app-prod" = {
+#     engineering = { description = "Engineering BU", enterprise_project_type = "prod" }
+#   }
+#   "lz-app-nonprod" = {
+#     engineering = { description = "Engineering BU", enterprise_project_type = "prod" }
+#   }
+# }

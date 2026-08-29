@@ -1,0 +1,368 @@
+"""Generate the example fixture IR: a synthetic non-customer customer.
+
+Deliberately different from the live deployment on every axis that could hide
+hardcoding: region ap-southeast-1, supernet 10.42.0.0/16, its own naming
+style, CFW and NAT disabled (feature-off paths), WAF enabled (a path the live
+customer does not use), one ER-attached spoke and one deliberately unattached
+spoke, one VPN connection in Terraform.
+
+Run:  py fixtures/make_example.py     (from lz_pipeline/)   -> example.spec.json
+"""
+
+import json
+from pathlib import Path
+
+S = {
+    "Global": {
+        "Settings": {"home_region": "ap-southeast-1",
+                     "state_bucket_name": "example-lz-obs-tfstate-01"},
+        "MasterDefaultTags": [{"Key": "org", "Value": "example"}],
+    },
+
+    "01_Foundation": {
+        "Settings": {
+            "identity_center_alias": "example-cloud",
+            "cross_account_agency_name": "OrganizationAccountAccessAgency",
+            "create_enterprise_project": True,
+            "enterprise_project_name": "example-shared",
+            "enforce_tag_keys_scp": False,
+        },
+        "EnabledPolicyTypes": [
+            {"Enabled": "TRUE", "Name": "service_control_policy", "Description": "SCPs"},
+            {"Enabled": "TRUE", "Name": "tag_policy", "Description": "Tag policies"},
+        ],
+        "OrganizationalUnits": [
+            {"Name": "Security", "Parent": "root", "Description": "Security accounts"},
+            {"Name": "Infrastructure", "Parent": "root", "Description": "Shared infra"},
+            {"Name": "Workloads", "Parent": "root", "Description": "Business workloads"},
+            {"Name": "Sandbox", "Parent": "Workloads", "Description": "Experiments"},
+        ],
+        "CoreAccounts": [
+            {"Name": "EXAMPLE-LogArchive", "Email": "cloud-logs@example.com", "OU": "Security",
+             "Description": "Central log archive account"},
+            {"Name": "EXAMPLE-Security", "Email": "cloud-sec@example.com", "OU": "Security",
+             "Description": "Security tooling and audit administration"},
+        ],
+        "WorkloadAccounts": [
+            {"Name": "EXAMPLE-SharedInfra", "Email": "cloud-infra@example.com", "OU": "Infrastructure",
+             "Description": "Hub network account"},
+            {"Name": "EXAMPLE-Prod-A", "Email": "cloud-prod-a@example.com", "OU": "Workloads",
+             "Description": "Production workload A"},
+            {"Name": "EXAMPLE-Sandbox1", "Email": "cloud-sbx@example.com", "OU": "Sandbox",
+             "Description": "Sandbox account (network detached)"},
+        ],
+        "TrustedServices": [
+            {"Name": "service.CTS", "Enabled": "TRUE", "DelegatedAdmin": "EXAMPLE-Security",
+             "Description": "Org audit"},
+            {"Name": "service.LTS", "Enabled": "TRUE", "DelegatedAdmin": "EXAMPLE-LogArchive",
+             "Description": "Org log aggregation"},
+            {"Name": "service.RAM", "Enabled": "TRUE", "DelegatedAdmin": None,
+             "Description": "Resource sharing"},
+            {"Name": "service.Config", "Enabled": "TRUE", "DelegatedAdmin": "EXAMPLE-Security",
+             "Description": "Org compliance"},
+        ],
+        "TagPolicies": [
+            {"Name": "tp-env", "TagKey": "env", "TagValue": "prd,dev,sbx", "Scope": "org"},
+        ],
+    },
+
+    "02_Finance": {
+        "Settings": {"enable_multi_ep": True},
+        "CostCenters": [
+            {"Enabled": "TRUE", "Name": "example-shared", "Description": "Shared platform",
+             "EnterpriseProjectType": "prod", "Accounts": "EXAMPLE-SharedInfra,EXAMPLE-Security,EXAMPLE-LogArchive"},
+            {"Enabled": "TRUE", "Name": "example-workloads", "Description": "Business workloads",
+             "EnterpriseProjectType": "prod", "Accounts": "EXAMPLE-Prod-A,EXAMPLE-Sandbox1"},
+        ],
+    },
+
+    "03_Identity": {
+        "Settings": {
+            "enable_identity_center_content": True,
+            "enable_iam_baseline": True,
+            "session_duration": "PT4H",
+            "ic_min_password_length": 14,
+            "ic_password_max_age_days": 90,
+            "ic_mfa_required": True,
+            "iam_session_timeout_minutes": 60,
+            "iam_lockout_duration_minutes": 30,
+        },
+        "Groups": [
+            {"Name": "example-platform-admins", "Description": "Platform administrators"},
+            {"Name": "example-auditors", "Description": "Read-only audit"},
+        ],
+        "Users": [
+            {"UserName": "ops.lead", "DisplayName": "Ops Lead", "FamilyName": "Lead",
+             "GivenName": "Ops", "Email": "ops.lead@example.com",
+             "GroupNames": "example-platform-admins"},
+        ],
+        "PermissionSets": [
+            {"Name": "Platform-Admin", "Description": "Full admin", "SessionDuration": "PT4H",
+             "SystemPolicies": "system_all_policy"},
+            {"Name": "Read-Only", "Description": "Auditor read-only", "SessionDuration": "PT8H",
+             "SystemPolicies": "system_all_read_only_policy"},
+        ],
+        "AccountAssignments": [
+            {"AccountName": "EXAMPLE-Prod-A", "GroupName": "example-platform-admins",
+             "PermissionSet": "Platform-Admin"},
+        ],
+        "RegisteredRegions": ["ap-southeast-1"],
+        "ServiceAgencies": [],
+    },
+
+    "04_Perimeter": {
+        "SCPs": [
+            {"Enabled": "TRUE", "Policy": "deny_leave_org", "Enforce": "TRUE",
+             "Name": "example-deny-leave-org"},
+            {"Enabled": "TRUE", "Policy": "deny_outside_allowed_region", "Enforce": "TRUE",
+             "Name": "example-region-lock", "AllowedRegions": "ap-southeast-1"},
+            {"Enabled": "TRUE", "Policy": "require_mandatory_tags", "Enforce": "FALSE",
+             "Name": "example-require-tags", "MandatoryTags": "env,owner"},
+        ],
+        "PredefinedTags": [
+            {"Enabled": "TRUE", "Key": "env", "Values": "prd,dev,sbx"},
+            {"Enabled": "TRUE", "Key": "owner", "Values": ""},
+        ],
+        "ConfigSetup": {
+            "config_admin_account": "EXAMPLE-Security",
+            "enable_config_recorder": True,
+            "recorder_agency_name": "rms_tracker_agency",
+            "create_recorder_agency": True,
+            "recorder_bucket_name": "example-lz-obs-configrec-01",
+            "create_recorder_bucket": True,
+            "recorder_bucket_region": "ap-southeast-1",
+            "recorder_all_supported": True,
+            "recorder_smn_topic_urn": None,
+            "enable_config_aggregator": True,
+            "aggregator_name": "example-org-aggregator",
+        },
+        "ConfigConformancePacks": [
+            {"Enabled": "TRUE", "Package": "Security Level 1", "Category": "Best practice",
+             "Name": "example-sec-l1", "TemplateKey": "Operational-Best-Practices-for-Security-Level1.tf.json",
+             "Vars": None, "Description": "Baseline security conformance",
+             "ExcludedAccounts": None},
+        ],
+    },
+
+    "05_Network": {
+        "Settings": {
+            "enable_hub": True,
+            "enable_spoke": True,
+            "hub_account": "EXAMPLE-SharedInfra",
+            "spoke_private_supernet": "10.42.0.0/16",
+            "enterprise_project_name": "example-shared",
+            "snat_vpc_attachment": None,
+            "subnet_dns_servers": None,
+            "enable_vpc_flow_logs": True,
+            "flow_log_retention_days": 30,
+        },
+        "HubVPCs": [
+            {"VPCName": "example-hub-core-vpc", "CIDR": "10.42.0.0/22"},
+            {"VPCName": "example-hub-edge-vpc", "CIDR": "10.42.4.0/22"},
+        ],
+        "HubSubnets": [
+            {"VPCName": "example-hub-core-vpc", "Name": "example-core-sub-a", "CIDR": "10.42.0.0/24"},
+            {"VPCName": "example-hub-core-vpc", "Name": "example-core-sub-b", "CIDR": "10.42.1.0/24"},
+            {"VPCName": "example-hub-core-vpc", "Name": "example-core-att", "CIDR": "10.42.3.240/28"},
+            {"VPCName": "example-hub-edge-vpc", "Name": "example-edge-sub-a", "CIDR": "10.42.4.0/24"},
+            {"VPCName": "example-hub-edge-vpc", "Name": "example-edge-att", "CIDR": "10.42.7.240/28"},
+        ],
+        "EnterpriseRouter": {
+            "er_name": "example-er-01",
+            "er_asn": 64513,
+            "er_flow_log_name": "example-er-flowlog",
+            "er_auto_accept_shared_attachments": True,
+            "er_share_name": "example-er-share",
+        },
+        "ERAvailabilityZones": ["ap-southeast-1a", "ap-southeast-1b"],
+        "HubERAttachments": [
+            {"Name": "example-hub-core-att", "VPC": "example-hub-core-vpc", "Subnet": "example-core-att",
+             "AutoAddRoute": "FALSE", "Description": "Core hub attachment"},
+            {"Name": "example-hub-edge-att", "VPC": "example-hub-edge-vpc", "Subnet": "example-edge-att",
+             "AutoAddRoute": "FALSE", "Description": "Edge hub attachment"},
+        ],
+        "CloudFirewall": {
+            "cfw_name": None,          # firewall disabled for this customer
+        },
+        "EIPs": [],
+        "NATGateways": [],
+        "SNATRules": [],
+        "DNATRules": [],
+        "ELBs": [],
+        "RAMSharePrincipals": [],
+        "SpokeVPCs": [
+            {"AccountName": "EXAMPLE-Prod-A", "VPCName": "example-prod-a-vpc",
+             "CIDR": "10.42.8.0/22", "Tags": "env=prd,owner=example-prod"},
+            {"AccountName": "EXAMPLE-Sandbox1", "VPCName": "example-sbx-vpc",
+             "CIDR": "10.42.12.0/22", "Tags": "env=sbx,owner=example-sbx"},
+        ],
+        "SpokeSubnets": [
+            {"VPCName": "example-prod-a-vpc", "Name": "example-prod-a-vpc-web", "CIDR": "10.42.8.0/24",
+             "Tags": "tier=web"},
+            {"VPCName": "example-prod-a-vpc", "Name": "example-prod-a-vpc-att", "CIDR": "10.42.11.240/28",
+             "Tags": "tier=att"},
+            {"VPCName": "example-sbx-vpc", "Name": "example-sbx-vpc-main", "CIDR": "10.42.12.0/24",
+             "Tags": "tier=main"},
+        ],
+        # example-sbx-vpc has NO attachment row -> spoke deploys UNATTACHED.
+        "SpokeERAttachments": [
+            {"Name": "example-prod-a-vpc-er-attach", "VPC": "example-prod-a-vpc", "Subnet": "example-prod-a-vpc-att",
+             "AutoAddRoute": "FALSE", "Description": "Prod A attachment"},
+        ],
+    },
+
+    "06_Observability": {
+        "AuditSettings": {
+            "cts_admin_account": "EXAMPLE-Security",
+            "audit_retention_days": 365,
+            "audit_cold_after_days": 90,
+            "lts_hot_retention_days": 30,
+            "audit_bucket_name": "example-lz-obs-audit-01",
+            "kms_audit_alias": "example-audit",
+            "cts_log_group_name": "example-audit-loggroup",
+            "cts_log_stream_name": "example-audit-stream",
+            "kms_pending_days": 7,
+            "audit_bucket_force_destroy": False,
+            "cts_no_transfer_accounts": "EXAMPLE-Sandbox1",
+        },
+        "LogAggregation": {
+            "enable_log_aggregation": True,
+            "archive_bucket_name": "example-lz-obs-logarchive-01",
+            "kms_archive_alias": "example-archive",
+            "archive_retention_days": 365,
+            "archive_cold_after_days": 90,
+            "converged_retention_days": 90,
+            "transfer_period": 30,
+            "transfer_period_unit": "min",
+            "archive_bucket_force_destroy": False,
+        },
+        "LogConverge": [
+            {"Enabled": "TRUE", "Account": "EXAMPLE-SharedInfra",
+             "SourceGroup": "example-hub-core-vpc-flowlog", "SourceStream": "example-hub-core-vpc-flowlog",
+             "TargetGroup": None, "Description": "Hub core flow logs"},
+            {"Enabled": "TRUE", "Account": "EXAMPLE-SharedInfra",
+             "SourceGroup": "example-hub-edge-vpc-flowlog", "SourceStream": "example-hub-edge-vpc-flowlog",
+             "TargetGroup": None, "Description": "Hub edge flow logs"},
+            {"Enabled": "TRUE", "Account": "EXAMPLE-Prod-A",
+             "SourceGroup": "example-prod-a-vpc-flowlog", "SourceStream": "example-prod-a-vpc-flowlog",
+             "TargetGroup": None, "Description": "Prod A flow logs"},
+            {"Enabled": "TRUE", "Account": "EXAMPLE-Sandbox1",
+             "SourceGroup": "example-sbx-vpc-flowlog", "SourceStream": "example-sbx-vpc-flowlog",
+             "TargetGroup": None, "Description": "Sandbox flow logs"},
+        ],
+        "OpsSettings": {
+            "accounts": "EXAMPLE-Security,EXAMPLE-Prod-A",
+            "topic_name": "example-ops-alerts",
+        },
+        "Subscribers": [
+            {"Enabled": "TRUE", "Protocol": "email", "Endpoint": "noc@example.com"},
+        ],
+        "OneClickNamespaces": [
+            {"Enabled": "TRUE", "Namespace": "SYS.ECS", "EventEnabled": "TRUE",
+             "Description": "Compute alarms"},
+            {"Enabled": "TRUE", "Namespace": "SYS.VPC", "EventEnabled": "TRUE",
+             "Description": "Network alarms"},
+        ],
+    },
+
+    "08_DNS": {
+        "Settings": {"dns_account": "EXAMPLE-SharedInfra",
+                     "enterprise_project_name": "example-shared"},
+        "PublicZones": [],
+        "PrivateZones": [
+            {"Enabled": "TRUE", "Name": "corp.example.internal", "VPCs": "example-hub-core-vpc",
+             "TTL": 300, "Recursive": "TRUE", "Description": "Internal apps zone"},
+        ],
+        "RecordSets": [
+            {"Enabled": "TRUE", "Zone": "corp.example.internal", "Name": "app.corp.example.internal",
+             "Type": "A", "Records": "10.42.8.10", "TTL": 300, "Description": "App VIP"},
+        ],
+        "ResolverEndpoints": [
+            {"Enabled": "TRUE", "Name": "example-resolver-in", "Direction": "inbound",
+             "VPC": "example-hub-core-vpc", "Subnets": "example-core-sub-a", "IPs": None},
+            {"Enabled": "TRUE", "Name": "example-resolver-out", "Direction": "outbound",
+             "VPC": "example-hub-core-vpc", "Subnets": "example-core-sub-a", "IPs": None},
+        ],
+        "ResolverRules": [
+            {"Enabled": "TRUE", "Name": "ad-forward", "Endpoint": "example-resolver-out",
+             "DomainName": "ad.example.com", "TargetIPs": "10.10.1.53,10.10.2.53",
+             "VPCs": "example-hub-core-vpc"},
+        ],
+        "AccessLogs": [
+            {"Enabled": "TRUE", "Name": "example-dns-qlog", "LTSGroup": "example-dns-qlog",
+             "LTSStream": "example-dns-qlog", "VPCs": "example-hub-core-vpc"},
+        ],
+    },
+
+    "09_CFW": {
+        "Settings": {"cfw_account": "EXAMPLE-SharedInfra"},
+        "AddressGroups": [],
+        "DomainGroups": [],
+        "ServiceGroups": [],
+        "ACLRules": [],
+        "BlackWhiteLists": [],
+    },
+
+    "10_VPN": {
+        "Settings": {"vpn_account": "EXAMPLE-SharedInfra",
+                     "enterprise_project_name": "example-shared"},
+        "Gateways": [
+            {"Enabled": "TRUE", "Name": "example-vpngw-01", "Attachment": "er", "VPC": None,
+             "ConnectSubnet": None, "LocalSubnets": "10.42.0.0/16", "NetworkType": "public",
+             "HAMode": "active-standby", "Flavor": "Professional1",
+             "AZs": "ap-southeast-1a,ap-southeast-1b", "ASN": 64515, "BandwidthSize": 300,
+             "ERAssocRouteTable": "er-hybrid", "ERPropRouteTable": "er-outbound"},
+        ],
+        "CustomerGateways": [
+            {"Enabled": "TRUE", "Name": "example-dc-gw", "IP": "203.0.113.10", "ASN": 65000,
+             "RouteMode": "static"},
+        ],
+        "Connections": [
+            {"Enabled": "TRUE", "Name": "example-dc-tunnel-1", "Gateway": "example-vpngw-01",
+             "CustomerGateway": "example-dc-gw", "VPNType": "static",
+             "PeerSubnets": "10.10.0.0/16", "HARole": "master", "PSK": None},
+        ],
+    },
+
+    "07_Security": {
+        "Settings": {
+            "security_account": "EXAMPLE-Security",
+            "secmaster_workspace_name": "example-secops",
+            "enable_hss": False,
+            "hss_quota_count": 0,
+            "enable_dbss": False,
+            "enable_member_workspaces": False,
+        },
+        "SecMasterModules": [],
+        "AlertRules": [],
+        "AntiDDoS": [],
+        # WAF ENABLED: exercises a path the live customer does not use.
+        "WAF": {
+            "enable_waf": True,
+            "waf_instance_name": "example-waf-01",
+            "waf_specification_code": "waf.instance.professional",
+            "waf_availability_zone": "ap-southeast-1a",
+            "waf_vpc": "example-hub-edge-vpc",
+            "waf_subnet": "example-edge-sub-a",
+            "waf_policy_name": "example-waf-policy",
+        },
+        "WAFDomains": [
+            {"Enabled": "TRUE", "Domain": "app.example.com", "ClientProtocol": "HTTPS",
+             "ServerProtocol": "HTTP", "OriginAddress": "10.42.8.10", "OriginPort": 8080},
+        ],
+    },
+
+    "_meta": {"Meta": {"schema_version": "1.1", "customer_name": "example"}},
+}
+
+IR = {
+    "format": "lz-spec-ir/1",
+    "schema_version": "1.1",
+    "customer": "example",
+    "source": {"workbook": "(synthetic fixture)", "exported": "2026-07-13"},
+    "sheets": S,
+}
+
+out = Path(__file__).parent / "example.spec.json"
+out.write_text(json.dumps(IR, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+print(f"wrote {out}")

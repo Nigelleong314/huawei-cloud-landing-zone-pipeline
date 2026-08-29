@@ -1,0 +1,6 @@
+bucket = "REPLACE_ME-lz-tfstate"
+region = "ap-southeast-3"
+
+endpoints = {
+  s3 = "https://obs.ap-southeast-3.myhuaweicloud.com"
+}

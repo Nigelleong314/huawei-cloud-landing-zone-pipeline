@@ -1,0 +1,14 @@
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+foundation_state_bucket    = "REPLACE_ME-lz-tfstate"
+observability_state_bucket = "REPLACE_ME-lz-tfstate"
+
+# enable_secmaster = true
+
+# enable_hss  = false  # paid; defer to Day-2 when workloads exist
+# enable_dbss = false  # paid; defer to Day-2 when audited DBs exist
+
+# enable_member_workspaces  = false  # Pattern B upgrade — defer
+# member_workspace_bindings = []

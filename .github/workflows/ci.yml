@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: install deps
+        # deliberately NOT `pip install -e .`: the suite exercises the plain
+        # checkout via conftest.py, including the runtime-only degrade path
+        run: pip install openpyxl pytest
+      - name: pytest
+        run: python -X utf8 -m pytest tests/unit -q
+        env:
+          PYTHONIOENCODING: utf-8
+
+  harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: install deps
+        run: pip install openpyxl
+      - name: regression harness (all 7 checks)
+        run: python -X utf8 -m lz_spec.verify_pipeline all
+        env:
+          PYTHONPATH: ${{ github.workspace }}/pipeline:${{ github.workspace }}/app
+          PYTHONIOENCODING: utf-8

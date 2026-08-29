@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "huawei-cloud-landing-zone-pipeline"
+version = "0.1.0"
+description = "Config-driven pipeline for building, operating, and delivering Huawei Cloud landing zones, with an agent skill for design and validation."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = ["openpyxl>=3.1"]
+
+[project.scripts]
+lzctl = "lz_pipeline.lzctl:main"
+lz-app = "lz_app.server:main"
+
+[project.urls]
+Repository = "https://github.com/OWNER/huawei-cloud-landing-zone-pipeline"
+
+[tool.setuptools]
+package-dir = { lz_pipeline = "pipeline/lz_pipeline", lz_spec = "pipeline/lz_spec", lz_app = "app/lz_app" }
+packages = [
+    "lz_pipeline",
+    "lz_pipeline.core",
+    "lz_pipeline.core.emitters",
+    "lz_pipeline.tools",
+    "lz_pipeline.fixtures",
+    "lz_pipeline.profiles",
+    "lz_spec",
+    "lz_app",
+]
+
+[tool.setuptools.package-data]
+"lz_pipeline.fixtures" = ["*.json"]
+"lz_pipeline.profiles" = ["*.json"]
+"lz_pipeline.tools" = ["pricing/*.json"]
+"lz_app" = ["static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["eval: model-evaluation tests (cost real tokens; opt-in)"]
+addopts = "-m 'not eval'"

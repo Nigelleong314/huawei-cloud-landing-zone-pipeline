@@ -1,0 +1,13 @@
+provider "huaweicloud" {
+  alias      = "${alias}"
+  region     = var.home_region
+  access_key = var.master_access_key
+  secret_key = var.master_secret_key
+
+  assume_role {
+    agency_name = local.foundation.cross_account_agency_name
+    domain_name = "${account}"
+  }
+  # Required by the organization tag guardrails; per-resource tags override.
+  default_tags = var.default_tags
+}

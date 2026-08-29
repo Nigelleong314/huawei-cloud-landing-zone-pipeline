@@ -1,0 +1,6 @@
+module "${module_name}" {
+  source    = "${src}"
+${providers_line}
+  enable_multi_ep = true
+  cost_centers    = var.cost_centers_by_account["${account}"]
+}

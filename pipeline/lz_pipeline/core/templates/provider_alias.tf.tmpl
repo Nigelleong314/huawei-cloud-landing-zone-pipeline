@@ -1,0 +1,11 @@
+provider "huaweicloud" {
+  alias              = "${alias}"
+  region             = var.home_region
+  access_key         = var.master_access_key
+  secret_key         = var.master_secret_key
+  domain_name        = local.foundation.master_account_name
+  domain_id          = local.foundation.accounts["${account}"].id
+  agency_name        = local.foundation.cross_account_agency_name
+  agency_domain_name = "${account}"
+  default_tags       = var.default_tags
+}

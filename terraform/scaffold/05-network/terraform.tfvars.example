@@ -1,0 +1,137 @@
+# envs-v2/05-network/terraform.tfvars.example
+
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+foundation_state_bucket    = "REPLACE_ME-lz-tfstate"
+
+# ── Hub VPCs (REQUIRED) ────────────────────────────────────────────────────
+#
+# Recommended sizing:
+#   vpc-dmz       /20+ (NAT + ELB + per-AZ ingress subnets)
+#   vpc-access    /23+ (DC/VPN termination, future)
+#   vpc-shared    /22+ (shared services future expansion)
+#   vpc-inspection /24 reserved — DO NOT create here (CFW attaches to ER)
+
+hub_vpcs = {
+  vpc-dmz = {
+    cidr = "10.0.0.0/20"
+    subnets = [
+      { name = "dmz-nat-az1", cidr = "10.0.0.0/24",  az = "ap-southeast-3a" },
+      { name = "dmz-nat-az2", cidr = "10.0.1.0/24",  az = "ap-southeast-3b" },
+      { name = "dmz-elb-az1", cidr = "10.0.2.0/24",  az = "ap-southeast-3a" },
+      { name = "dmz-elb-az2", cidr = "10.0.3.0/24",  az = "ap-southeast-3b" },
+    ]
+  }
+  vpc-access = {
+    cidr = "10.0.16.0/23"
+    subnets = [
+      { name = "access-dc-az1",  cidr = "10.0.16.0/26",  az = "ap-southeast-3a" },
+      { name = "access-vpn-az1", cidr = "10.0.16.64/26", az = "ap-southeast-3a" },
+    ]
+  }
+  vpc-shared = {
+    cidr = "10.0.32.0/22"
+    subnets = [
+      { name = "shared-dns-az1", cidr = "10.0.32.0/24", az = "ap-southeast-3a" },
+    ]
+  }
+}
+
+# create_vpc_shared = false  # uncomment to defer
+
+# inspection_cidr_reservation = "10.0.99.0/24"
+
+# ── ER ─────────────────────────────────────────────────────────────────────
+# hub_account           = "lz-infra"
+# er_asn                = 64512
+# er_availability_zones = ["az1", "az5"]
+#
+# ER attachments (one per hub VPC) + route tables + associations/propagations.
+# attachment_type: vpc (-> er_attachments name) | cfw (CFW attachment) | spoke.
+# er_attachments = [
+#   { name = "vpc-dmz-att",    vpc = "vpc-dmz",    subnet = "dmz-er-attach",    auto_add_route = false },
+#   { name = "vpc-access-att", vpc = "vpc-access", subnet = "access-er-attach", auto_add_route = false },
+# ]
+# er_route_tables = [
+#   { name = "er-inbound",  description = "everything -> CFW" },
+#   { name = "er-outbound", description = "CFW -> post-inspection delivery" },
+# ]
+# ER routing is FULLY auto-wired from these 3 fields: every hub + spoke VPC
+# associates to inbound_route_table (auto static route 0.0.0.0/0 -> CFW) and
+# propagates into outbound_route_table (CFW associated; auto static route
+# 0.0.0.0/0 -> snat_vpc_attachment, the egress NAT VPC attachment).
+# inbound_route_table  = "er-inbound"
+# outbound_route_table = "er-outbound"
+# snat_vpc_attachment  = "vpc-dmz-att"
+# VPC default-route tables are auto-wired too: the SNAT VPC gets 0.0.0.0/0 -> its
+# NAT + <spoke_private_supernet> -> ER; every other VPC gets 0.0.0.0/0 -> ER.
+# spoke_private_supernet = "10.0.0.0/8"
+
+# ── Enterprise project ─────────────────────────────────────────────────────
+# enterprise_project_name = "landing-zone"  # blank = default project
+
+# ── CFW (the only hub resource with a billing choice) ──────────────────────
+# cfw_flavor        = "standard"      # or "professional"
+# cfw_charging_mode = "pay-per-use"   # pay-per-use | subscription
+# cfw_period_unit   = "month"         # subscription only
+# cfw_period        = 1               # subscription only
+# cfw_auto_renew    = false           # subscription only
+# cfw_acl_rules = []                  # see module 3 variables.tf for shape
+# cfw_address_groups = []
+# cfw_service_groups = []
+
+# ── EIPs (referenced by NAT SNAT/DNAT and ELBs) ────────────────────────────
+# eips = [
+#   { name = "nat-eip-1",     type = "5_bgp", billed_by = "bandwidth", bandwidth_size = 100 },
+#   { name = "ingress-eip-1", type = "5_bgp", billed_by = "bandwidth", bandwidth_size = 100 },
+# ]
+
+# ── NAT (public, multi-instance) ───────────────────────────────────────────
+# nat_gateways = [
+#   { name = "lz-hub-nat", spec = "Small", vpc = "vpc-dmz", subnet = "dmz-nat" },
+# ]
+# snat_rules = [{ nat_name = "lz-hub-nat", cidr = "10.1.0.0/16", eip = "nat-eip-1", description = "lz-app-prod egress" }]
+
+# ── DNAT rules (named EIP -> internal target) ──────────────────────────────
+# dnat_rules = [
+#   { nat_name = "lz-hub-nat", eip = "nat-eip-1", external_port = 443, internal_ip = "10.0.2.10", internal_port = 443, protocol = "tcp", description = "HTTPS ingress" },
+# ]
+
+# ── ELB (dedicated, IPv4, elastic spec, multi-instance) ────────────────────
+# elbs = [
+#   { name = "lz-ingress-elb", azs = ["az1","az5"], vpc = "vpc-dmz",
+#     frontend_subnet = "dmz-elb", backend_subnet = "dmz-elb", ip_as_backend = false, eip = "ingress-eip-1" },
+# ]
+# elb_listeners = []  # add loadbalancer_name = "<elb>" per row when >1 ELB
+# elb_pools     = []
+
+# ── RAM ────────────────────────────────────────────────────────────────────
+# ram_share_principals = []  # empty = auto-derive from foundation outputs (Workloads OU + all workload accounts)
+
+# ── Spokes (deployed in the SAME apply as the hub) ─────────────────────────
+# Keyed by spoke VPC NAME; "account" tells the generated fan-out which member
+# account to deploy into (any number of VPCs per account). Each spoke
+# auto-associates to inbound_route_table + auto-propagates into
+# outbound_route_table, and its VPC default route (0.0.0.0/0 -> hub ER) is
+# auto-wired. Spoke resources are tagged ONLY by their per-resource tags.
+# The providers + module calls are GENERATED from the SpokeVPCs table.
+# spokes = {
+#   lz-app-prod-vpc = {
+#     account            = "lz-app-prod"
+#     vpc_name           = "lz-app-prod-vpc"
+#     vpc_cidr           = "10.1.0.0/16"
+#     er_attachment_name = "spoke-lz-app-prod-att"  # SpokeERAttachments.Name; blank = att-<vpc_name>
+#     er_attach_subnet   = "spoke-er-attach"        # SpokeERAttachments.Subnet; blank = first subnet
+#     auto_add_route     = false                    # SpokeERAttachments.AutoAddRoute
+#     vpc_tags           = { CostCenter = "app-prod", Owner = "appteam" }
+#     subnets = [
+#       { name = "spoke-er-attach", cidr = "10.1.0.0/28", tags = { CostCenter = "app-prod", Tier = "mgmt" } },
+#       { name = "workload",        cidr = "10.1.1.0/24", tags = { CostCenter = "app-prod", Tier = "workload" } },
+#     ]
+#   }
+#   # two VPCs in one account just means two entries with the same account:
+#   # app-prod-vpc    = { account = "lz-app", ... }
+#   # app-nonprod-vpc = { account = "lz-app", ... }
+# }

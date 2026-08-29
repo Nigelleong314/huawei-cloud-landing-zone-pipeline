@@ -1,0 +1,6 @@
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+# Globally-unique name. Recommend: <orgname>-lz-tfstate
+state_bucket_name = "REPLACE_ME-lz-tfstate"

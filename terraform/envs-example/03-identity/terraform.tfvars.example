@@ -1,0 +1,38 @@
+# envs-v2/03-identity/terraform.tfvars.example
+#
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+# OBS bucket holding the 01-foundation tfstate. Created by env 00-bootstrap.
+foundation_state_bucket = "REPLACE_ME-lz-tfstate"
+
+# environment = "shared"
+
+# ── IC content overrides (leave null to use module 2 defaults) ─────────────
+
+# groups          = null
+# users           = null
+# permission_sets = null
+
+# Explicit account_assignments override. Empty = bind defaults (lz-admins +
+# lz-readonly on every created account from module 1 outputs).
+# account_assignments = []
+
+# IC-issued credentials work in these regions only.
+# registered_regions = ["ap-southeast-3"]
+
+# ── Service agencies (per-account) ─────────────────────────────────────────
+
+# Leave null to use module 2 defaults (cts-to-lz-audit-bucket + lts-to-lz-archive-bucket).
+# Override below to customize per-deployment.
+# service_agencies = [
+#   {
+#     name              = "cts-to-lz-audit-bucket"
+#     description       = "Allow CTS to write events to lz-audit OBS bucket"
+#     delegated_service = "service.CTS"
+#     policies          = ["OBS OperateAccess"]
+#   },
+# ]

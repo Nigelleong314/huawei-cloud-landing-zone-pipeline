@@ -1,0 +1,2195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/lz.spec.schema.json",
+  "title": "Landing Zone spec IR",
+  "description": "Generated from lz_spec.schema v2.2. The python schema is authoritative; regenerate after any schema change (python -m lz_pipeline.tools.gen_jsonschema).",
+  "type": "object",
+  "required": [
+    "format",
+    "schema_version",
+    "customer",
+    "sheets"
+  ],
+  "properties": {
+    "format": {
+      "type": "string",
+      "pattern": "^lz-spec-ir/"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "customer": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "sheets": {
+      "type": "object",
+      "properties": {
+        "Global": {
+          "type": "object",
+          "description": "Workspace-wide inputs. AK/SK never live here — pass via $env:HW_ACCESS_KEY and $env:HW_SECRET_KEY.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Required for every env.",
+              "properties": {
+                "home_region": {
+                  "type": "string",
+                  "description": "Primary deployment region (Huawei region ID)."
+                },
+                "state_bucket_name": {
+                  "type": "string",
+                  "description": "Globally unique OBS bucket name for tfstate. Created by 00-bootstrap."
+                }
+              },
+              "additionalProperties": true
+            },
+            "MasterDefaultTags": {
+              "type": "array",
+              "description": "The SINGLE default-tag set applied to taggable resources in EVERY account — the master (management) account AND all member accounts (via cross-account provider aliases). Each row is one Key/Value pair. Add/remove rows freely (e.g. owner, costcenter, bu, env, compliance). EXCEPTION: huaweicloud_organizations_account resources (the vended accounts themselves, 01-foundation) are deliberately UNTAGGED — that env's provider carries no default_tags.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Key": {
+                    "description": "Tag key."
+                  },
+                  "Value": {
+                    "description": "Tag value."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "01_Foundation": {
+          "type": "object",
+          "description": "Env 01-foundation (module 1): Organization, OUs, accounts, Identity Center bootstrap.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Org-level scalars. Core accounts (log-archive, security) are MANDATORY and live in the CoreAccounts table.",
+              "properties": {
+                "identity_center_alias": {
+                  "type": "string",
+                  "description": "Optional IC alias; '' = no alias set."
+                },
+                "cross_account_agency_name": {
+                  "type": "string",
+                  "description": "Trust agency name auto-created in each vended account."
+                },
+                "create_enterprise_project": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create the bootstrap EP. M8 creates additional cost-center EPs."
+                },
+                "enterprise_project_name": {
+                  "type": "string",
+                  "description": "Name of the bootstrap EP."
+                },
+                "enforce_tag_keys_scp": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Fold a 9th guardrail into the consolidated SCP (04-perimeter) that DENIES create actions unless the request tag keys are in the TagPolicies TagKey set (g:TagKeys, case-sensitive). Tag policies alone only flag; this blocks."
+                }
+              },
+              "additionalProperties": true
+            },
+            "EnabledPolicyTypes": {
+              "type": "array",
+              "description": "Org root policy types. CLOSED ENUM — only the two rows below are valid. Toggle Enabled, do not add new rows.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Policy type name (do not edit)"
+                  },
+                  "Enabled": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE to enable at org root"
+                  },
+                  "Description": {
+                    "description": "Effect (do not edit)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "OrganizationalUnits": {
+              "type": "array",
+              "description": "Every row here is created. Delete rows you don't want. Parent='root' (or blank) attaches under the org root; Parent='<OUName>' nests under another row's Name. Cycles fail at plan time. Org root itself is implicit — do not add a row for it.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "OU name (also used as the Terraform map key)"
+                  },
+                  "Parent": {
+                    "description": "'root' / blank = under org root; or another OU's Name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "CoreAccounts": {
+              "type": "array",
+              "description": "MANDATORY core accounts (logging + security). At minimum: lz-infra + lz-security.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Account name (used as map key)"
+                  },
+                  "Email": {
+                    "description": "UNIQUE email per Huawei requirement"
+                  },
+                  "OU": {
+                    "description": "OU name from OrganizationalUnits; '' = root"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "WorkloadAccounts": {
+              "type": "array",
+              "description": "Workload accounts. Every row here is created — delete rows you don't want. Each row gets vended with a cross-account agency.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Account name"
+                  },
+                  "Email": {
+                    "description": "UNIQUE email"
+                  },
+                  "OU": {
+                    "description": "OU placement (must match an OU Name or be blank for root)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "TrustedServices": {
+              "type": "array",
+              "description": "Huawei Organizations trusted services. Toggle Enabled per row. DelegatedAdmin = account name (must match a Name from CoreAccounts or WorkloadAccounts above) to delegate org-wide administration of that service to a member account; leave blank to keep admin in master. Append rows for services Huawei adds after this list was generated; verify the principal via data \"huaweicloud_organizations_trusted_services_options\" {}. AccessAnalyzer and COC support max 1 delegated admin; the rest are unlimited.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Service principal — exactly as listed by the Huawei discovery data source"
+                  },
+                  "Enabled": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE to enable org-wide integration"
+                  },
+                  "DelegatedAdmin": {
+                    "description": "Optional — account Name to be the delegated admin for this service; blank = none"
+                  },
+                  "Description": {
+                    "description": "What enabling this service does"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "TagPolicies": {
+              "type": "array",
+              "description": "Custom tag policies beyond the default one. Every row = one policy enforcing one tag key. TagValue is a comma-separated allowed-value list; blank = any value allowed (key presence + casing only). Scope is a comma-separated list of '<service>:<resourceType>' (e.g. 'ecs:instance,rds:db'); BLANK = applies to ALL taggable resource types across every service. Tag policies are ADVISORY (flag non-compliance); for hard blocking use M4 BroadSCP 4.0.5. Requires tag_policy enabled in EnabledPolicyTypes.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Policy name (lowercase-hyphenated; becomes the Huawei policy resource name)"
+                  },
+                  "TagKey": {
+                    "description": "Tag key (lowercase — keys are normalized to lowercase to match the applied tags)"
+                  },
+                  "TagValue": {
+                    "description": "Comma-separated allowed values; blank = any value allowed"
+                  },
+                  "Scope": {
+                    "description": "Comma-separated '<service>:<resourceType>' list; blank = all services"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "02_Finance": {
+          "type": "object",
+          "description": "Env 02-finance (module 8): Multi-EP (cost-center enterprise projects).",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "enable_multi_ep": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create cost-center EPs (02-finance)."
+                }
+              },
+              "additionalProperties": true
+            },
+            "CostCenters": {
+              "type": "array",
+              "description": "Cost-center enterprise projects (additive to M1's bootstrap EP). Accounts = where to create each EP (Huawei EPs are account-scoped, not org-wide): comma-separated account names from 01_Foundation, the literal 'master' for the management account, or 'all' (master + every 01_Foundation account). Blank = master only. build_envs generates a provider alias + module call per target account.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "EP name (map key within each account)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "EnterpriseProjectType": {
+                    "description": "prod | dev | uat"
+                  },
+                  "Accounts": {
+                    "description": "Target accounts: names, 'master', or 'all'. Blank = master."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "03_Identity": {
+          "type": "object",
+          "description": "Env 03-identity (module 2): Identity Center content + per-account IAM baseline.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "enable_identity_center_content": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create IC users/groups/permission_sets in master."
+                },
+                "enable_iam_baseline": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Apply per-account IAM hardening (password/login/protection policies + agencies)."
+                },
+                "session_duration": {
+                  "type": "string",
+                  "description": "ISO-8601 duration for permission-set sessions."
+                },
+                "ic_min_password_length": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "IC password policy minimum length."
+                },
+                "ic_password_max_age_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "IC password expiry in days."
+                },
+                "ic_mfa_required": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Require MFA for IC users."
+                },
+                "iam_session_timeout_minutes": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Per-account IAM console session timeout."
+                },
+                "iam_lockout_duration_minutes": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Per-account IAM lockout duration after failed logins."
+                }
+              },
+              "additionalProperties": true
+            },
+            "Groups": {
+              "type": "array",
+              "description": "IC workforce groups.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Group name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "Users": {
+              "type": "array",
+              "description": "IC users. GroupNames is comma-separated; values must exist in the Groups table.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "UserName": {
+                    "description": "Login name"
+                  },
+                  "DisplayName": {
+                    "description": "Display name"
+                  },
+                  "FamilyName": {
+                    "description": "Family name"
+                  },
+                  "GivenName": {
+                    "description": "Given name"
+                  },
+                  "Email": {
+                    "description": "Email"
+                  },
+                  "GroupNames": {
+                    "description": "Comma-separated group names"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "PermissionSets": {
+              "type": "array",
+              "description": "Permission sets. SystemPolicies is comma-separated v2012 policy names.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "PS name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "SessionDuration": {
+                    "description": "ISO-8601; '' = inherit Settings.session_duration"
+                  },
+                  "SystemPolicies": {
+                    "description": "Comma-separated v2012 system policy names"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "AccountAssignments": {
+              "type": "array",
+              "description": "(Group → PermissionSet → Account) bindings. AccountName must match an account from M1.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "AccountName": {
+                    "description": "Account name (from M1 CoreAccounts/WorkloadAccounts)"
+                  },
+                  "GroupName": {
+                    "description": "Group name from Groups"
+                  },
+                  "PermissionSet": {
+                    "description": "PS name from PermissionSets"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "AppPermissionSets": {
+              "type": "array",
+              "description": "Application-scoped Identity Center permission sets. Each row's CustomPolicy (a complete v5.0 custom identity policy with EP IDs baked in - see the EP_Scoping sheet for how to build one) is attached verbatim to the permission set, emitted as the env-level app-permission-sets.generated.tf. Account/EnterpriseProjects document which member account and EP names the policy targets. One row per permission set; the Terraform resource key is the Name lower-cased with non-alphanumerics as underscores (App-Admin -> app_admin). Leave the whole table empty if you have none.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Permission set name (also the resource key), e.g. App-Admin"
+                  },
+                  "Account": {
+                    "description": "Member account (Name from 01_Foundation) whose enterprise projects scope the policy"
+                  },
+                  "EnterpriseProjects": {
+                    "description": "Comma-separated EP names in Account to scope g:EnterpriseProjectId to"
+                  },
+                  "SessionDuration": {
+                    "description": "ISO-8601 session duration (default PT8H)"
+                  },
+                  "Description": {
+                    "description": "Permission set description"
+                  },
+                  "CustomPolicy": {
+                    "description": "Complete v5.0 custom identity policy JSON, attached verbatim (EP IDs baked in; see EP_Scoping sheet). Blank = permission set created without a custom policy."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "RegisteredRegions": {
+              "type": "array",
+              "description": "Regions where IC can issue session credentials. Blank = same as home_region.",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "ServiceAgencies": {
+              "type": "array",
+              "description": "Per-account service agencies (Huawei service → account trust). Policies is comma-separated.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Agency name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "DelegatedService": {
+                    "description": "service.<NAME> (e.g. service.CTS)"
+                  },
+                  "Policies": {
+                    "description": "Comma-separated system policy names"
+                  },
+                  "AllResources": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE for org-wide; FALSE requires ProjectName"
+                  },
+                  "ProjectName": {
+                    "description": "Required when AllResources=FALSE"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "04_Perimeter": {
+          "type": "object",
+          "description": "Module 4: Data perimeter SCPs (the 8 identity guardrails) + per-account predefined tags. Feeds 04-perimeter.",
+          "properties": {
+            "SCPs": {
+              "type": "array",
+              "description": "The 8 Landing Zone identity guardrails (Service Control Policies). One row per policy. Enabled = create the SCP; Enforce = promote from dry-run to enforced; Name = explicit policy name. The remaining columns are each policy's own settings — fill only the cells relevant to that policy, leave the rest blank. Do NOT rename the Policy keys. Validated against Huawei org_03_0081 and a customer identity-guardrails review.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Policy": {
+                    "description": "Policy key (fixed — do not rename)"
+                  },
+                  "Enforce": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE = attach the SCP (LIVE/enforced); FALSE = created but not attached (staged/inert)"
+                  },
+                  "Name": {
+                    "description": "Explicit SCP name"
+                  },
+                  "AllowedOrgPath": {
+                    "description": "RAM-share / RMS-aggregation only: '<org-id>/<root-id>/*'. Blank = derive from org_id + root_id."
+                  },
+                  "MandatoryTags": {
+                    "description": "require_mandatory_tags only: required tag keys (e.g. Project,Owner,Environment,BU)."
+                  },
+                  "ExceptionTagKey": {
+                    "description": "deny_public_obs only: exception RESOURCE-tag key. BLANK = no exception (public denied outright). Create the bucket private + tagged first, THEN its ACL/policy can be made public."
+                  },
+                  "ExceptionTagValue": {
+                    "description": "deny_public_obs only: exception tag value (default 'approved')."
+                  },
+                  "AdminPrincipalURNs": {
+                    "description": "protect_cts_tracker only: principal URN(s) allowed to modify CTS. BLANK = no exception."
+                  },
+                  "AllowedRegions": {
+                    "description": "deny_outside_allowed_region only: allowed region code(s) e.g. ap-southeast-3."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "PredefinedTags": {
+              "type": "array",
+              "description": "TMS predefined tag dictionary, applied to EVERY account (master + each M1 account). build_envs generates a provider alias + per-account module call from the M1 account list, so adding an account in M1 auto-applies these tags. Values comma-separated; blank Values = free-form.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Key": {
+                    "description": "Tag key"
+                  },
+                  "Values": {
+                    "description": "Comma-separated allowed values; '' = free-form"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ConfigSetup": {
+              "type": "object",
+              "description": "Config service (RMS) org setup. Config is a GLOBAL service: org-wide resources (aggregator, conformance packs below) run from ONE account — set ConfigAdminAccount to the account they deploy on, typically the service.RMSMultiAccountSetup delegated admin (Sheet 01 TrustedServices). build_envs generates a provider alias + module call for that account. Leave ConfigAdminAccount blank to skip all Config setup. The resource recorder is the per-account 'turn Config on' tracker (records to an OBS bucket / SMN); the org aggregator pulls every member's compliance data into the admin account for a single-pane view.",
+              "properties": {
+                "config_admin_account": {
+                  "type": "string",
+                  "description": "Account (Name from Sheet 01) to run org-wide Config on. BLANK = skip all Config setup. Should be the RMSMultiAccountSetup delegated admin."
+                },
+                "enable_config_recorder": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create the resource recorder (Config tracker) in the admin account. Required before any rule/pack can evaluate."
+                },
+                "recorder_agency_name": {
+                  "type": "string",
+                  "description": "Name of the recorder trust agency Terraform creates (mirrors Huawei's rms_tracker_trust_agency: service.Config trust + ConfigTrackAgencyPolicy/OBSFullAccessPolicy). Use a name distinct from the system rms_tracker_trust_agency to avoid a clash."
+                },
+                "create_recorder_agency": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "TRUE = Terraform creates the v5 trust agency (huaweicloud_identity_trust_agency). Works because the Config env uses an assume_role provider (temporary member AK/SK) — the agency-token alias fails v5 IAM with PAP5.0046. FALSE = reference an existing agency by recorder_agency_name."
+                },
+                "recorder_bucket_name": {
+                  "type": "string",
+                  "description": "OBS bucket for recorder snapshots. Required when enable_config_recorder = TRUE."
+                },
+                "create_recorder_bucket": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "TRUE = create the bucket (private, versioned, KMS-encrypted, public-access blocked). FALSE = reference recorder_bucket_name as already-existing (e.g. reuse the Sheet 05 audit bucket)."
+                },
+                "recorder_bucket_region": {
+                  "type": "string",
+                  "description": "Region of the recorder OBS bucket. BLANK = home_region."
+                },
+                "recorder_all_supported": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "TRUE = record all supported resource types. FALSE = restrict (advanced; not exposed as a cell)."
+                },
+                "recorder_smn_topic_urn": {
+                  "type": "string",
+                  "description": "Optional SMN topic URN for change notifications. BLANK = no SMN channel (OBS only)."
+                },
+                "enable_config_aggregator": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create an ORGANIZATION-type resource aggregator in the admin account (aggregated multi-account compliance view)."
+                },
+                "aggregator_name": {
+                  "type": "string",
+                  "description": "Name of the org resource aggregator."
+                }
+              },
+              "additionalProperties": true
+            },
+            "ConfigConformancePacks": {
+              "type": "array",
+              "description": "Config service (RMS) setup — conformance packages to enforce. These are DETECTIVE/audit controls: Config continuously evaluates resources against the package's rules and reports violations (complementary to the preventive SCPs above — they report, they do not block). Set Enabled = TRUE on each package to deploy; it is created org-wide as huaweicloud_rms_organizational_assignment_package at the org root. TemplateKey is the predefined template id — leave blank to resolve it by name from the Config conformance-package templates data source. Catalog validated against Huawei Config 'Conformance Package Templates' (usermanual-rms).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Package": {
+                    "description": "Conformance package (fixed name — do not rename)"
+                  },
+                  "Category": {
+                    "description": "Cloud best practice | Industry standard | Security config guide"
+                  },
+                  "Name": {
+                    "description": "Org conformance-pack resource name (the one name it carries org-wide). Blank = slug of Package."
+                  },
+                  "TemplateKey": {
+                    "description": "Predefined template key; blank = resolve by name from the templates data source"
+                  },
+                  "Vars": {
+                    "description": "Optional parameter overrides as 'key=value' (comma-separated); values are JSON-encoded as strings. Needed where a template default is invalid — e.g. PCI DSS needs 'trackBucket=<cts-audit-bucket>' (default '' fails minLength 3). Blank = template defaults."
+                  },
+                  "Description": {
+                    "description": "What the package evaluates"
+                  },
+                  "ExcludedAccounts": {
+                    "description": "Accounts to EXEMPT from this pack - they skip the rule rollout entirely (fewer resources, and avoids a member whose RFS deployment keeps failing, e.g. Huawei edge-WAF 418 on read-back). Account Names from Sheet 01 OR raw 32-hex domain IDs, comma-separated. The management (master) account is always excluded automatically. Blank = no extra exemptions."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "05_Network": {
+          "type": "object",
+          "description": "Env 05-network (module 3): the hub (ER + VPCs + CFW + NAT + ELB + EIP + RAM share) AND the spokes, deployed together in ONE apply. Spokes attach to the hub ER (created in the same run) and self-wire their ER associations/propagations.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Hub-wide toggles + the landing-zone enterprise project. ER/CFW are in their own scalar tables; NAT/ELB/EIP are multi-instance tables.",
+              "properties": {
+                "enable_hub": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create the hub (ER + VPCs + CFW + NAT + ELB)."
+                },
+                "enable_spoke": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create spoke VPCs in the workload accounts."
+                },
+                "hub_account": {
+                  "type": "string",
+                  "description": "Account name (must match M1) the hub network resources deploy into. The env assumes this account's OrganizationAccountAccessAgency."
+                },
+                "spoke_private_supernet": {
+                  "type": "string",
+                  "description": "Supernet covering ALL spoke + hub private CIDRs. The SNAT VPC auto-gets a <supernet> -> ER route (return path to spokes, more specific than its 0.0.0.0/0 -> NAT default). Must not overlap the SNAT VPC's own subnets."
+                },
+                "enterprise_project_name": {
+                  "type": "string",
+                  "description": "Landing-zone enterprise project for the hub account. Every EPS-capable hub resource (ER, CFW, NAT, ELB, EIP, LTS) is assigned to it. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."
+                },
+                "snat_vpc_attachment": {
+                  "type": "string",
+                  "description": "Hub ER VPC attachment (from HubERAttachments.Name) that hosts the egress NAT gateway. The FIXED er-outbound route table's auto static route 0.0.0.0/0 points here for post-inspection internet egress. Blank = no outbound default route."
+                },
+                "subnet_dns_servers": {
+                  "type": "string",
+                  "description": "DNS server IPs (max 2, comma-separated) set on EVERY hub + spoke subnet via DHCP. Point these at the 08_DNS INBOUND resolver endpoint IPs so all accounts resolve the central private zones + on-prem forwarding rules (private zones can't associate cross-account). Blank = Huawei default DNS. Safe to set before 08-network-dns is applied (resolution starts once the endpoint exists); updates subnets in place."
+                },
+                "enable_vpc_flow_logs": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create a VPC flow log (ALL traffic) for EVERY hub + spoke VPC, each with its own LTS group + stream named '<vpc>-flowlog'. Aggregate them to the archive bucket by adding 06_Observability LogConverge rows (SourceGroup/SourceStream = <vpc>-flowlog); apply 05-network BEFORE re-applying 06-observability so the streams exist for the converge lookups."
+                },
+                "flow_log_retention_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Hot LTS retention (days) of the per-VPC '<vpc>-flowlog' groups/streams."
+                }
+              },
+              "additionalProperties": true
+            },
+            "HubVPCs": {
+              "type": "array",
+              "description": "Hub VPCs. Subnets live in HubSubnets keyed by VPCName. vpc-dmz is required when enable_hub=true.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "VPCName": {
+                    "description": "VPC name (vpc-dmz, vpc-access, vpc-shared)"
+                  },
+                  "CIDR": {
+                    "description": "VPC CIDR"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "HubSubnets": {
+              "type": "array",
+              "description": "Subnets joined to HubVPCs by VPCName. (AZ is not pinned — Huawei places the subnet automatically.)",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "VPCName": {
+                    "description": "FK -> HubVPCs.VPCName"
+                  },
+                  "Name": {
+                    "description": "Subnet name"
+                  },
+                  "CIDR": {
+                    "description": "Subnet CIDR"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "EnterpriseRouter": {
+              "type": "object",
+              "description": "The single hub Enterprise Router (one per hub). AZs are in the ERAvailabilityZones table.",
+              "properties": {
+                "er_name": {
+                  "type": "string",
+                  "description": "Name of the hub Enterprise Router."
+                },
+                "er_asn": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Enterprise Router ASN."
+                },
+                "er_flow_log_name": {
+                  "type": "string",
+                  "description": "Name of the hub ER flow log."
+                },
+                "er_auto_accept_shared_attachments": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Auto-accept ER attachments from RAM-shared principals (spoke accounts)."
+                },
+                "er_share_name": {
+                  "type": "string",
+                  "description": "Name of the RAM resource share for the ER attachment."
+                }
+              },
+              "additionalProperties": true
+            },
+            "ERAvailabilityZones": {
+              "type": "array",
+              "description": "AZs where the ER deploys. One per row. Use the region's full AZ identifiers as the ER API returns them (e.g. ap-southeast-3a, ap-southeast-3e) — NOT short aliases like az1/az5, or Terraform will try to change AZs (immutable) on subsequent applies.",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "HubERAttachments": {
+              "type": "array",
+              "description": "HUB ER VPC attachments — one row per hub-account attachment. Each joins a hub VPC to the ER via a subnet, and is AUTO-associated to the inbound RT + AUTO-propagated to the outbound RT (Settings.inbound/outbound_route_table); the VPC also auto-gets its default route to the ER (or NAT, for the SNAT VPC). AutoAddRoute=TRUE lets the ER auto-create the VPC-side route back to the ER. The egress attachment is named in Settings.snat_vpc_attachment. (Spoke attachments live in SpokeERAttachments.)",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Attachment name (auto-wired; Settings.snat_vpc_attachment target)"
+                  },
+                  "VPC": {
+                    "description": "FK -> HubVPCs.VPCName"
+                  },
+                  "Subnet": {
+                    "description": "Subnet name (from HubSubnets) carrying the attachment. Blank = VPC's first subnet."
+                  },
+                  "AutoAddRoute": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE = ER auto-creates the VPC-side return route (auto_create_vpc_routes)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "CloudFirewall": {
+              "type": "object",
+              "description": "The single hub Cloud Firewall (one per hub).",
+              "properties": {
+                "cfw_name": {
+                  "type": "string",
+                  "description": "Name of the hub Cloud Firewall."
+                },
+                "cfw_flavor": {
+                  "type": "string",
+                  "description": "standard | professional."
+                },
+                "cfw_ips_protection_mode": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "IPS protection mode on the hub firewall: 0 observe | 1 strict (intercept) | 2 medium (intercept) | 3 loose. Blank = console-managed (Terraform leaves it untouched). Updates in place."
+                },
+                "cfw_ips_patch_enabled": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "IPS virtual patching (basic-defense patch switch) on the hub firewall. Blank = console-managed. Updates in place."
+                },
+                "inspection_cidr_reservation": {
+                  "type": "string",
+                  "description": "CIDR CFW consumes for its ER-mode inspection attachment. Must NOT overlap any VPC CIDR."
+                },
+                "cfw_charging_mode": {
+                  "type": "string",
+                  "description": "CFW billing: pay-per-use | subscription. CFW is the only hub resource with a billing choice; everything else is pay-per-use."
+                },
+                "cfw_period_unit": {
+                  "type": "string",
+                  "description": "Subscription period unit: month | year. Only used when cfw_charging_mode=subscription."
+                },
+                "cfw_period": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Subscription period count (e.g. 1). Only used when cfw_charging_mode=subscription."
+                },
+                "cfw_auto_renew": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Auto-renew the subscription CFW at period end. Only used when cfw_charging_mode=subscription."
+                },
+                "cfw_lts_log_enable": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Stream CFW logs to LTS. The hub module creates the log group + stream below."
+                },
+                "cfw_lts_log_group_name": {
+                  "type": "string",
+                  "description": "Name of the LTS log group the hub creates for CFW logs (used when cfw_lts_log_enable=true)."
+                },
+                "cfw_lts_traffic_stream_name": {
+                  "type": "string",
+                  "description": "LTS stream name for CFW traffic/flow logs (also used for the ER attachment flow log)."
+                },
+                "cfw_lts_access_stream_name": {
+                  "type": "string",
+                  "description": "LTS stream name for CFW access logs."
+                },
+                "cfw_lts_attack_stream_name": {
+                  "type": "string",
+                  "description": "LTS stream name for CFW attack logs."
+                }
+              },
+              "additionalProperties": true
+            },
+            "EIPs": {
+              "type": "array",
+              "description": "Elastic IPs — one row per EIP. Each gets its own dedicated bandwidth. NAT (via SNAT/DNAT) and ELBs reference an EIP by Name. All EIPs are pay-per-use; BilledBy selects how the bandwidth is metered.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "EIP name (referenced by SNATRules/DNATRules/ELBs)"
+                  },
+                  "Type": {
+                    "description": "Public IP type: 5_bgp (dynamic BGP) | 5_sbgp (static BGP)"
+                  },
+                  "BilledBy": {
+                    "description": "Bandwidth metering: bandwidth | traffic"
+                  },
+                  "BandwidthSize": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Bandwidth size (Mbit/s)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "NATGateways": {
+              "type": "array",
+              "description": "Hub public NAT gateways — one row per gateway. SNATRules/DNATRules reference a gateway by Name and supply the EIP. Typical hub = a single NAT in vpc-dmz.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Specification": {
+                    "description": "Small | Medium | Large | Extra-large"
+                  },
+                  "Name": {
+                    "description": "NAT gateway name (FK target for SNAT/DNAT rows)"
+                  },
+                  "VPC": {
+                    "description": "FK -> HubVPCs.VPCName the NAT deploys into"
+                  },
+                  "Subnet": {
+                    "description": "FK -> HubSubnets.Name the NAT deploys into"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "SNATRules": {
+              "type": "array",
+              "description": "NAT SNAT rules. CIDR is the source subnet, NAT'd to the named EIP via the named NAT gateway. NATName blank = sole NAT.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "NATName": {
+                    "description": "FK -> NATGateways.Name (blank = sole NAT)"
+                  },
+                  "CIDR": {
+                    "description": "Source CIDR"
+                  },
+                  "EIP": {
+                    "description": "FK -> EIPs.Name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "DNATRules": {
+              "type": "array",
+              "description": "NAT DNAT rules (named EIP -> internal target). NATName blank = sole NAT.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "NATName": {
+                    "description": "FK -> NATGateways.Name (blank = sole NAT)"
+                  },
+                  "EIP": {
+                    "description": "FK -> EIPs.Name"
+                  },
+                  "ExternalPort": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "External port"
+                  },
+                  "InternalIP": {
+                    "description": "Internal target IP"
+                  },
+                  "InternalPort": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Internal port"
+                  },
+                  "Protocol": {
+                    "description": "tcp | udp"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ELBs": {
+              "type": "array",
+              "description": "Hub dedicated load balancers (IPv4), elastic (pay-per-use) spec — one row per ELB. AZ is a comma-separated list. EIP names an entry in EIPs for public access (blank = internal). IPAsBackend enables cross-VPC IP backends. Listeners/pools are wired at the env level.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "ELB name"
+                  },
+                  "AZ": {
+                    "description": "AZ ids, comma-separated (e.g. az1,az5)"
+                  },
+                  "VPC": {
+                    "description": "FK -> HubVPCs.VPCName"
+                  },
+                  "FrontendSubnet": {
+                    "description": "FK -> HubSubnets.Name for the ELB's IPv4 VIP"
+                  },
+                  "BackendSubnet": {
+                    "description": "FK -> HubSubnets.Name for backend members (blank = none)"
+                  },
+                  "IPAsBackend": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE = allow IP-as-backend (cross-VPC backends)"
+                  },
+                  "EIP": {
+                    "description": "FK -> EIPs.Name for public access (blank = internal-only)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "RAMSharePrincipals": {
+              "type": "array",
+              "description": "Principals to share the hub ER with. One per row: an account NAME (must match M1 — resolved to its ID via the 01-foundation outputs), a raw 32-hex account ID, or an OU ID (ou-*). Empty = auto-derive (workloads OU + every workload account from M1).",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "SpokeVPCs": {
+              "type": "array",
+              "description": "Spoke VPCs — one row per VPC (typically one per account). Subnets live in SpokeSubnets keyed by VPCName; the ER attachment is defined in SpokeERAttachments. The baseline security group and flow log are derived from VPCName. Tagging: the spoke provider carries the Global default tags (REQUIRED — the enforced require_mandatory_tags SCP denies untagged creates), and the Tags column overrides per key — define the full mandatory set (project,owner,env,bu) here so row tags win outright.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "AccountName": {
+                    "description": "Spoke account name (must match M1)"
+                  },
+                  "VPCName": {
+                    "description": "VPC name"
+                  },
+                  "CIDR": {
+                    "description": "VPC CIDR"
+                  },
+                  "Tags": {
+                    "description": "Per-VPC tags, comma-delimited key=value (e.g. CostCenter=app,Owner=appteam). Also applied to the spoke ER attachment."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "SpokeSubnets": {
+              "type": "array",
+              "description": "Subnets joined to SpokeVPCs by VPCName. (AZ is not pinned — Huawei places the subnet automatically.) The first subnet of each VPC carries the spoke ER attachment. Tags are per-subnet (no Global default tags).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "VPCName": {
+                    "description": "FK -> SpokeVPCs.VPCName"
+                  },
+                  "Name": {
+                    "description": "Subnet name"
+                  },
+                  "CIDR": {
+                    "description": "Subnet CIDR"
+                  },
+                  "Tags": {
+                    "description": "Per-subnet tags, comma-delimited key=value (e.g. CostCenter=app,Tier=db)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "SpokeERAttachments": {
+              "type": "array",
+              "description": "SPOKE ER VPC attachments — one row per spoke VPC (created in the spoke's own member account). Mirrors HubERAttachments. Each is AUTO-associated to the inbound RT + AUTO-propagated to the outbound RT, and the spoke VPC auto-gets 0.0.0.0/0 -> ER. AutoAddRoute=TRUE lets the ER auto-create the VPC-side route. Use a distinct Name scheme (e.g. spoke-*) to tell hub vs spoke attachments apart. OMIT the row for a SpokeVPCs entry to create that spoke UNATTACHED (isolated sandbox: VPC/subnets/SG exist, no ER attachment/route — unreachable from the hub and other spokes).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Attachment name (blank = att-<VPC>)"
+                  },
+                  "VPC": {
+                    "description": "FK -> SpokeVPCs.VPCName"
+                  },
+                  "Subnet": {
+                    "description": "Subnet name (from SpokeSubnets) carrying the attachment. Blank = VPC's first subnet."
+                  },
+                  "AutoAddRoute": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE = ER auto-creates the VPC-side return route (auto_create_vpc_routes)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "06_Observability": {
+          "type": "object",
+          "description": "Env 06-observability (modules 6 + 7): CTS + buckets + KMS + LTS (audit) and SMN + CES (ops).",
+          "properties": {
+            "AuditSettings": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "cts_admin_account": {
+                  "type": "string",
+                  "description": "REQUIRED. Delegated-admin account (name from 01_Foundation) where the CENTRAL audit module deploys: org CTS tracker + audit bucket + KMS + CTS log group/stream. {account-name} in the names below resolves to this account."
+                },
+                "audit_retention_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "CTS event bucket retention."
+                },
+                "audit_cold_after_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Days before CTS audit bucket objects move to the COLD storage class (0 = never)."
+                },
+                "lts_hot_retention_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "LTS hot retention (CTS log stream)."
+                },
+                "audit_bucket_name": {
+                  "type": "string",
+                  "description": "REQUIRED. CTS audit OBS bucket (globally unique). Supports the {account-name} token."
+                },
+                "kms_audit_alias": {
+                  "type": "string",
+                  "description": "REQUIRED. KMS alias for the audit-bucket key. Supports {account-name}."
+                },
+                "cts_log_group_name": {
+                  "type": "string",
+                  "description": "CTS LTS log group name. Supports {account-name}."
+                },
+                "cts_log_stream_name": {
+                  "type": "string",
+                  "description": "CTS LTS log stream name. Supports {account-name}."
+                },
+                "kms_pending_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "KMS pending-delete window (production should be 30)."
+                },
+                "audit_bucket_force_destroy": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "DANGER: allow Terraform to delete the audit OBS bucket even when non-empty. Needed only to RECREATE the bucket on an audit_bucket_name change (a rename = destroy + create) — this DELETES stored audit logs. Leave FALSE unless you intend that."
+                },
+                "cts_no_transfer_accounts": {
+                  "type": "string",
+                  "description": "Account names (from 01_Foundation), comma-separated, that get a CTS tracker with NO OBS/LTS transfer (audit on, console-only ~7-day retention, no storage charges). The central org tracker already aggregates everything; use this only to turn CTS on in extra accounts cheaply. Excludes cts_admin_account."
+                }
+              },
+              "additionalProperties": true
+            },
+            "LogAggregation": {
+              "type": "object",
+              "description": "Org-wide LTS log aggregation (module 12): member-account log streams CONVERGE into the lts_admin_account (the 01_Foundation TrustedServices service.LTS DelegatedAdmin), then each converged group transfers to an archive OBS bucket on a cycle. Hot LTS retention = converged_retention_days; bucket retention = archive_retention_days. The streams to converge are the LogConverge rows below.",
+              "properties": {
+                "enable_log_aggregation": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Enable the whole aggregation stack (converge switch + target groups + converge + archive bucket + transfers). Default TRUE. The admin account is NOT input: it is derived from 01_Foundation TrustedServices service.LTS DelegatedAdmin."
+                },
+                "archive_bucket_name": {
+                  "type": "string",
+                  "description": "Archive OBS bucket (globally unique) receiving the LTS transfers. Supports {account-name} (= the LTS delegated-admin account). Blank = auto '{account-name}-lz-obs-logarchive-01'."
+                },
+                "kms_archive_alias": {
+                  "type": "string",
+                  "description": "KMS alias for the archive-bucket key. Supports {account-name}. Blank = auto '{account-name}-lz-logarchive-key'."
+                },
+                "archive_retention_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Archive bucket object expiration (days)."
+                },
+                "archive_cold_after_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Days before archive objects move to the COLD storage class (0 = never)."
+                },
+                "converged_retention_days": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Hot LTS retention of the converged target groups/streams (days)."
+                },
+                "transfer_period": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "OBS transfer interval length. Valid with transfer_period_unit: 2|5|30 min, 1|3|6|12 hour."
+                },
+                "transfer_period_unit": {
+                  "type": "string",
+                  "description": "OBS transfer interval unit: min | hour."
+                },
+                "archive_bucket_force_destroy": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "DANGER: allow Terraform to delete the archive bucket even when non-empty (deletes archived logs). Only for an archive_bucket_name rename."
+                }
+              },
+              "additionalProperties": true
+            },
+            "LogConverge": {
+              "type": "array",
+              "description": "NO INPUT NEEDED: leave EMPTY and every LZ-created stream is derived on build — the CTS stream (cts_admin_account), DNS query logs (08_DNS AccessLogs, dns_account), the CFW traffic/access/attack streams (hub_account) and one <vpc>-flowlog per VPC. Add rows only to CURATE (extra app-team streams, or to exclude a source) — a non-empty table is authoritative and fully replaces the derivation. Account is the SOURCE account name (from 01_Foundation); SourceGroup/SourceStream are LTS group/stream NAMES in that account (resolved to IDs via generated per-account lookups). TargetGroup blank = agg-<account>-<sourcegroup>. Rows whose Account IS the LTS admin transfer straight to the archive bucket (no converge).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Account": {
+                    "description": "SOURCE account name (from 01_Foundation) owning the log group"
+                  },
+                  "SourceGroup": {
+                    "description": "LTS log group NAME in that account"
+                  },
+                  "SourceStream": {
+                    "description": "LTS log stream NAME within SourceGroup"
+                  },
+                  "TargetGroup": {
+                    "description": "Converged group name in the admin account. Blank = agg-<account>-<sourcegroup>."
+                  },
+                  "Description": {
+                    "description": "What the stream carries"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "OpsSettings": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "accounts": {
+                  "type": "string",
+                  "description": "REQUIRED. Accounts to deploy ops to (SMN topic + subscribers + one-click alarms), comma-separated names from 01_Foundation, or 'all'. Each account gets its own topic/subscriptions/alarms; {account-name} in topic_name resolves per account."
+                },
+                "topic_name": {
+                  "type": "string",
+                  "description": "SMN central topic name. Supports {account-name}."
+                }
+              },
+              "additionalProperties": true
+            },
+            "Subscribers": {
+              "type": "array",
+              "description": "SMN subscribers. Email subscribers require out-of-band confirmation.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Protocol": {
+                    "description": "email | sms | http | https | functionstage | callnotify | dms"
+                  },
+                  "Endpoint": {
+                    "description": "Address (email / phone / URL)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "OneClickNamespaces": {
+              "type": "array",
+              "description": "Cloud Eye one-click monitoring bundles. Toggle Enabled per service - enabled bundles are deployed (huaweicloud_ces_one_click_alarm) and notify the SMN topic. The bundle ID is resolved automatically from Namespace via the ces_one_click_alarms data source. A bundle applies to all existing and to-be-created resources of that service; EventEnabled toggles its event alarm rules.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Namespace": {
+                    "description": "Cloud Eye namespace (SYS.*)."
+                  },
+                  "EventEnabled": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "Include event alarms for this bundle."
+                  },
+                  "Description": {
+                    "description": "Service the namespace covers."
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "07_Security": {
+          "type": "object",
+          "description": "Env 07-security: SecMaster (module 5, security account) + edge protection (module 13: Basic Anti-DDoS on hub EIPs + dedicated WAF in the hub DMZ VPC, deployed via a hub provider alias).",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "",
+              "properties": {
+                "security_account": {
+                  "type": "string",
+                  "description": "Account name (must match M1) the SecMaster workspace deploys into (the security-ops account)."
+                },
+                "secmaster_workspace_name": {
+                  "type": "string",
+                  "description": "Name of the SecMaster workspace."
+                },
+                "enable_hss": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "DEFERRED. Host Security Service."
+                },
+                "hss_quota_count": {
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
+                  "description": "Number of HSS quotas to purchase."
+                },
+                "enable_dbss": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "DEFERRED. Database Security Service."
+                },
+                "enable_member_workspaces": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Future Pattern B upgrade."
+                }
+              },
+              "additionalProperties": true
+            },
+            "SecMasterModules": {
+              "type": "array",
+              "description": "SecMaster functional modules to enable.",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "AlertRules": {
+              "type": "array",
+              "description": "Baseline SecMaster detection rules.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Rule name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "Severity": {
+                    "description": "tips | low | medium | high | fatal"
+                  },
+                  "RuleType": {
+                    "description": "e.g. log"
+                  },
+                  "Query": {
+                    "description": "Detection query"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "AntiDDoS": {
+              "type": "array",
+              "description": "Basic (Cloud Native) Anti-DDoS traffic-cleaning per EIP — pay-per-use tuning of the free per-EIP protection; nothing is purchased and 'destroy' just resets the default threshold. EIP references a 05_Network EIPs row by Name (resolved from 05-network state; deployed into the hub account). AlarmTopic optionally names a 06_Observability SMN topic for cleaning alarms (resolved from 06-observability state; blank = no notification). CNAD Advanced / AAD need pre-purchased instances and are configured in console, not here.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Row name (unique)"
+                  },
+                  "EIP": {
+                    "description": "FK -> 05_Network EIPs.Name (the protected EIP)"
+                  },
+                  "ThresholdMbps": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Traffic-cleaning threshold: 10|30|50|70|100|120|150|200|250|300|1000"
+                  },
+                  "AlarmTopic": {
+                    "description": "SMN topic NAME from 06_Observability (in the hub account). Blank = no alarm."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "WAF": {
+              "type": "object",
+              "description": "Dedicated WAF instance (module 13, postPaid — fully Terraform-provisioned, no pre-purchase). Deploys into the hub DMZ VPC next to the ingress ELB; domains below route through it. VPC/Subnet/SecurityGroup are 05_Network names resolved from 05-network state.",
+              "properties": {
+                "enable_waf": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Create the dedicated WAF instance + policy + domains."
+                },
+                "waf_instance_name": {
+                  "type": "string",
+                  "description": "Dedicated WAF instance name."
+                },
+                "waf_specification_code": {
+                  "type": "string",
+                  "description": "waf.instance.professional (WI-500) | waf.instance.enterprise (WI-100)."
+                },
+                "waf_availability_zone": {
+                  "type": "string",
+                  "description": "REQUIRED when enabled. AZ for the WAF engine ECS."
+                },
+                "waf_vpc": {
+                  "type": "string",
+                  "description": "REQUIRED when enabled. 05_Network HubVPCs name the instance lives in (the DMZ VPC)."
+                },
+                "waf_subnet": {
+                  "type": "string",
+                  "description": "REQUIRED when enabled. 05_Network HubSubnets name (within waf_vpc)."
+                },
+                "waf_policy_name": {
+                  "type": "string",
+                  "description": "Shared WAF protection policy all domains attach to."
+                }
+              },
+              "additionalProperties": true
+            },
+            "WAFDomains": {
+              "type": "array",
+              "description": "Domains protected by the dedicated WAF. Origin is typically the hub ingress ELB private VIP (05-network ingress_elb_private_ips) or a backend IP reachable from the WAF VPC. CertificateId (a WAF certificate ID) is required when ClientProtocol=HTTPS.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Domain": {
+                    "description": "Protected domain, e.g. app.example.com (or *.example.com)"
+                  },
+                  "ClientProtocol": {
+                    "description": "Browser -> WAF: HTTP | HTTPS (default HTTP)"
+                  },
+                  "ServerProtocol": {
+                    "description": "WAF -> origin: HTTP | HTTPS (default HTTP)"
+                  },
+                  "OriginAddress": {
+                    "description": "Origin server IP/hostname (e.g. the ingress ELB VIP)"
+                  },
+                  "OriginPort": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Origin port (default 80)"
+                  },
+                  "CertificateId": {
+                    "description": "WAF certificate ID (HTTPS only; blank for HTTP)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "08_DNS": {
+          "type": "object",
+          "description": "Env 08-network-dns (DNS module): Cloud DNS — public + private zones with record sets, plus the hybrid resolver (inbound + outbound endpoints, outbound forwarding rules, query access logging). Applied AFTER 05-network: zones/endpoints/rules reference 05_Network VPCs and subnets by NAME (resolved from the 05-network state). All resources deploy into ONE account (Settings.dns_account). Needed Terraform resources: dns_zone, dns_recordset, dns_private_zone_associate, dns_endpoint, dns_resolver_rule, dns_resolver_rule_associate, dns_resolver_access_log.\nHOW PRIVATE DNS RESOLVES ORG-WIDE: a private zone is only visible to VPCs explicitly associated to it, and association is SAME-ACCOUNT only (the provider has no zone sharing). The LZ therefore uses the HUB-RESOLVER pattern: every hub + spoke subnet's DHCP hands out the INBOUND endpoint IPs (05_Network Settings.subnet_dns_servers), so all queries resolve through the resolver VPC — private zones, the on-prem forwarding rules (associate each ResolverRules row to the resolver VPC!), and public fall-through (Recursive=TRUE). Zone names are arbitrary domains (internal TLDs fine); records must sit at/under the zone apex — use additional zones for other apexes.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Which account the DNS resources deploy into + the enterprise project. The env assumes this account's OrganizationAccountAccessAgency.",
+              "properties": {
+                "dns_account": {
+                  "type": "string",
+                  "description": "Account name (must match M1) the DNS resources deploy into — typically the shared-services / hub account that owns the resolver VPC. The env assumes this account's OrganizationAccountAccessAgency."
+                },
+                "enterprise_project_name": {
+                  "type": "string",
+                  "description": "Enterprise project for the private zones / endpoints / resolver rules. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."
+                }
+              },
+              "additionalProperties": true
+            },
+            "PublicZones": {
+              "type": "array",
+              "description": "Public DNS zones (internet-resolvable). One row per zone; toggle Enabled. Records live in RecordSets keyed by Zone. Name MUST end with a trailing dot (e.g. 'example.com.'). Huawei assigns the authoritative nameservers — delegate to them at your registrar.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Zone apex FQDN with trailing dot (e.g. example.com.)"
+                  },
+                  "Email": {
+                    "description": "SOA contact email (blank = Huawei default)"
+                  },
+                  "TTL": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Zone SOA TTL in seconds (blank = 300)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "PrivateZones": {
+              "type": "array",
+              "description": "Private DNS zones (resolvable only inside associated VPCs). One row per zone; toggle Enabled. VPCs is a comma-separated list of VPC NAMES (05_Network hub or spoke VPCs) to associate — the FIRST is the zone's primary router (huaweicloud_dns_zone.router); the rest are attached via huaweicloud_dns_private_zone_associate. Name ends with a trailing dot. Records live in RecordSets keyed by Zone. Recursive = the proxy_pattern: FALSE (default) = AUTHORITY (the zone owns its whole namespace in-VPC; names you don't record return NXDOMAIN); TRUE = RECURSIVE (names not in the zone fall through to public DNS - use this to override only a few names under a broad domain, e.g. a private myhuaweicloud.com zone that overrides just one endpoint).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Private zone FQDN with trailing dot (e.g. internal.example.)"
+                  },
+                  "VPCs": {
+                    "description": "VPC names to associate (from 05_Network). First = primary router; rest via private_zone_associate."
+                  },
+                  "TTL": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Zone SOA TTL in seconds (blank = 300)"
+                  },
+                  "Recursive": {
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
+                    "description": "TRUE = proxy_pattern RECURSIVE (unmatched names fall through to public); blank/FALSE = AUTHORITY"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "RecordSets": {
+              "type": "array",
+              "description": "DNS record sets inside the zones above. One row per record set; toggle Enabled. Zone is the FK -> a PublicZones.Name or PrivateZones.Name. Name is the record FQDN (trailing dot) and must sit within the zone (e.g. 'app.internal.example.'). Records is a comma-separated value list (IPs for A/AAAA; target FQDN for CNAME; 'priority host' for MX; quoted text for TXT).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Zone": {
+                    "description": "FK -> PublicZones.Name or PrivateZones.Name"
+                  },
+                  "Name": {
+                    "description": "Record FQDN with trailing dot, within the zone"
+                  },
+                  "Type": {
+                    "description": "A | AAAA | CNAME | MX | TXT | NS | SRV | CAA"
+                  },
+                  "Records": {
+                    "description": "Comma-separated record values"
+                  },
+                  "TTL": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Record TTL in seconds (blank = 300)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ResolverEndpoints": {
+              "type": "array",
+              "description": "Hybrid-DNS resolver endpoints (huaweicloud_dns_endpoint), one row each; toggle Enabled. Direction = 'inbound' (lets on-premises resolvers query Huawei private zones — point on-prem forwarders at the endpoint IPs) or 'outbound' (lets cloud VPCs forward queries out via ResolverRules). VPC + Subnets name where the endpoint's resolver IPs live. Huawei REQUIRES >=2 resolver IPs: either list >=2 Subnets (ideally different AZs for HA), OR list 1 Subnet and >=2 IPs. One ip_addresses block is created per IP (or per subnet when IPs is blank).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Endpoint name"
+                  },
+                  "Direction": {
+                    "description": "inbound | outbound"
+                  },
+                  "VPC": {
+                    "description": "FK -> 05_Network VPC name hosting the endpoint subnets"
+                  },
+                  "Subnets": {
+                    "description": "Subnet name(s) within VPC (>=1). Use >=2 (different AZs) for HA, or 1 with >=2 IPs."
+                  },
+                  "IPs": {
+                    "description": "Optional fixed IPs. Provide >=2 here to satisfy the min when using a single subnet; blank = auto-assign (needs >=2 subnets)."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ResolverRules": {
+              "type": "array",
+              "description": "Outbound forwarding rules / endpoint rules (huaweicloud_dns_resolver_rule + _rule_associate). One row per rule; toggle Enabled. For queries under DomainName the cloud resolver forwards to TargetIPs (on-premises / external DNS servers) via the named OUTBOUND endpoint. VPCs is a comma-separated list of VPC names the rule applies to (each associated via huaweicloud_dns_resolver_rule_associate). DomainName ends with a trailing dot.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Resolver rule name"
+                  },
+                  "Endpoint": {
+                    "description": "FK -> ResolverEndpoints.Name (must be Direction=outbound)"
+                  },
+                  "DomainName": {
+                    "description": "Domain to forward, trailing dot (e.g. corp.onprem.)"
+                  },
+                  "TargetIPs": {
+                    "description": "Comma-separated target DNS server IPs (on-prem/external)"
+                  },
+                  "VPCs": {
+                    "description": "VPC names (from 05_Network) to associate the rule with"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "AccessLogs": {
+              "type": "array",
+              "description": "DNS query access logging to LTS (huaweicloud_dns_resolver_access_log). One row per log config; toggle Enabled. LTSGroup / LTSStream are the LTS log group / stream names the module CREATES for the query logs (one group per distinct name). VPCs is a comma-separated list of VPC names whose resolver queries are logged.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Label for this access-log config (informational)"
+                  },
+                  "LTSGroup": {
+                    "description": "LTS log group name to write query logs to"
+                  },
+                  "LTSStream": {
+                    "description": "LTS log stream (topic) name to write query logs to"
+                  },
+                  "VPCs": {
+                    "description": "VPC names (from 05_Network) whose DNS queries are logged"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "09_CFW": {
+          "type": "object",
+          "description": "Env 09-network-cfw (CFW module): Cloud Firewall rule plane on the hub firewall created in 05-network — object groups (IP address groups, app/network domain name groups, service groups), internet-border rules (EIP/NAT ACL rules + black/white lists) and VPC-border rules (protection ACL rules + black/white lists). Applied AFTER 05-network: the firewall instance ID is read from the 05-network state and its protect-object IDs (0=internet / north-south, 1=VPC / east-west) are resolved via the cfw_firewalls data source. Runs in Settings.cfw_account (the hub account). Required Terraform resources: cfw_address_group (+_member), cfw_domain_name_group, cfw_service_group (+_member), cfw_acl_rule, cfw_black_white_list.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Account hosting the hub CFW (= 05_Network Settings.hub_account). The env assumes its OrganizationAccountAccessAgency and resolves the firewall by ID from the 05-network state.",
+              "properties": {
+                "cfw_account": {
+                  "type": "string",
+                  "description": "Account name (must match M1) that owns the hub CFW (= 05_Network Settings.hub_account). The env assumes this account's OrganizationAccountAccessAgency."
+                },
+                "enable_anti_virus": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Antivirus on the internet protected object: all protocols (HTTP/SMTP/POP3/IMAP4/FTP/SMB/Malicious Access Control), action block."
+                },
+                "enable_reverse_shell_defense": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Set every reverse-shell advanced IPS rule on the internet protected object to block+enabled. Action-style API: re-apply reasserts; console changes are not detected as drift."
+                },
+                "alarm_topic_name": {
+                  "type": "string",
+                  "description": "SMN topic NAME in the CFW account that receives firewall alarm notifications (06-observability creates the ops topics). Required when any enable_*_alarm toggle is on."
+                },
+                "enable_attack_alarm": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Notify the alarm topic on CRITICAL/HIGH attack detections, all day, every occurrence (cfw_alarm_config type 0)."
+                },
+                "enable_traffic_alarm": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Notify the alarm topic when firewall bandwidth utilisation crosses 80% (cfw_alarm_config type 1)."
+                },
+                "enable_eip_unprotected_alarm": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Notify the alarm topic when an EIP exists that the firewall does not protect (cfw_alarm_config type 2)."
+                },
+                "enable_threat_intel_alarm": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "Notify the alarm topic on CRITICAL/HIGH threat-intelligence hits (cfw_alarm_config type 3)."
+                }
+              },
+              "additionalProperties": true
+            },
+            "AddressGroups": {
+              "type": "array",
+              "description": "User-defined IP address groups (huaweicloud_cfw_address_group + _member). One row per group; toggle Enabled. Border selects the protected object the group attaches to (internet = north-south, vpc = east-west). Members is a comma-separated list of IPs / CIDRs / ranges; each becomes a group member. AddressType applies to the whole group.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Address group name"
+                  },
+                  "Border": {
+                    "description": "internet | vpc — which protected object the group lives on. USE internet: groups bound to the vpc object work in rules but are INVISIBLE in the console object-group list (confirmed live 2026-07-08); rules on either border accept internet-bound groups"
+                  },
+                  "AddressType": {
+                    "description": "ipv4 | ipv6 (default ipv4)"
+                  },
+                  "Members": {
+                    "description": "Comma-separated IPs / CIDRs / ranges"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "DomainGroups": {
+              "type": "array",
+              "description": "Domain name groups (huaweicloud_cfw_domain_name_group). One row per group; toggle Enabled. Type = application (matched by ACL rules on HTTP/HTTPS/TLS-SNI) or network (resolved to IPs; used as a rule destination). Border selects the protected object. Domains is a comma-separated domain list.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Domain group name"
+                  },
+                  "Border": {
+                    "description": "internet | vpc"
+                  },
+                  "Type": {
+                    "description": "application | network"
+                  },
+                  "Domains": {
+                    "description": "Comma-separated domain names (e.g. *.example.com,api.example.com)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ServiceGroups": {
+              "type": "array",
+              "description": "User-defined service groups (huaweicloud_cfw_service_group + _member). One row per group; toggle Enabled. Members is a comma-separated list of 'protocol/srcport/dstport' (protocol = tcp|udp|icmp|icmpv6; ports may be a single port, a range a-b, or 'any'), e.g. 'tcp/any/443,tcp/any/8080'.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Service group name"
+                  },
+                  "Border": {
+                    "description": "internet | vpc. USE internet — vpc-bound groups are invisible in the console list (see AddressGroups.Border)"
+                  },
+                  "Members": {
+                    "description": "Comma-separated 'protocol/srcport/dstport' entries"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ACLRules": {
+              "type": "array",
+              "description": "CFW ACL rules (huaweicloud_cfw_acl_rule). One row per rule; toggle Enabled. Kind selects the protected object + rule type: 'eip' (internet border, EIP rule), 'nat' (internet border, NAT rule) or 'vpc' (VPC border, protection rule). Action = allow | deny. Source / Destination are comma-separated tokens: a bare IP/CIDR, 'addrgroup:<Name>' (AddressGroups), 'domaingroup:<Name>' (DomainGroups; destination only), or 'any'. Service is comma-separated: 'any', an inline 'protocol/srcport/dstport', 'svcgroup:<Name>' (ServiceGroups), or 'app:<APP>' (L7 application, e.g. app:HTTPS). Rules are added in row order; reorder in the console if precedence matters.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Rule name"
+                  },
+                  "Kind": {
+                    "description": "eip | nat | vpc"
+                  },
+                  "Action": {
+                    "description": "allow | deny"
+                  },
+                  "Source": {
+                    "description": "Comma-separated: IP/CIDR | addrgroup:<Name> | any"
+                  },
+                  "Destination": {
+                    "description": "Comma-separated: IP/CIDR | addrgroup:<Name> | domaingroup:<Name> | any"
+                  },
+                  "Service": {
+                    "description": "Comma-separated: any | protocol/srcport/dstport | svcgroup:<Name> | app:<APP>"
+                  },
+                  "Status": {
+                    "description": "enable | disable (default enable)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "Direction": {
+                    "description": "inbound | outbound — internet border (eip/nat) only; blank = nat->outbound, eip->inbound. Inbound rules cannot use domain groups (CFW.00400028). Ignored for vpc."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "BlackWhiteLists": {
+              "type": "array",
+              "description": "CFW black / white lists (huaweicloud_cfw_black_white_list). One row per entry; toggle Enabled. ListType = blacklist | whitelist. Border selects the protected object. Direction = source | destination (which address the entry matches). Protocol = tcp | udp | icmp | icmpv6 | any. AddressType = ipv4 | ipv6 | domain. Address is a single IP / CIDR / domain. Port applies only to tcp/udp.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Label (informational — the resource has no name)"
+                  },
+                  "Border": {
+                    "description": "internet | vpc"
+                  },
+                  "ListType": {
+                    "description": "blacklist | whitelist"
+                  },
+                  "Direction": {
+                    "description": "source | destination"
+                  },
+                  "Protocol": {
+                    "description": "tcp | udp | icmp | icmpv6 | any"
+                  },
+                  "AddressType": {
+                    "description": "ipv4 | ipv6 | domain"
+                  },
+                  "Address": {
+                    "description": "Single IP / CIDR / domain"
+                  },
+                  "Port": {
+                    "description": "Destination port (tcp/udp only); blank otherwise"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "10_VPN": {
+          "type": "object",
+          "description": "Env 10-network-vpn (VPN module): Enterprise Site-to-Cloud (S2C) VPN — VPN gateways, customer gateways (on-prem devices), and IPsec connections. Applied AFTER 05-network: a gateway attaches to either a 05_Network VPC (vpc_id + connect subnet) or the hub ER (er_id), resolved from the 05-network remote state. Runs in Settings.vpn_account (the hub account). Required Terraform resources: vpn_gateway, vpn_customer_gateway, vpn_connection.",
+          "properties": {
+            "Settings": {
+              "type": "object",
+              "description": "Account hosting the VPN (typically the 05-network hub account). The env assumes its OrganizationAccountAccessAgency.",
+              "properties": {
+                "vpn_account": {
+                  "type": "string",
+                  "description": "Account name (must match M1) the VPN resources deploy into (usually the hub account). The env assumes this account's OrganizationAccountAccessAgency."
+                },
+                "enterprise_project_name": {
+                  "type": "string",
+                  "description": "Enterprise project for the VPN resources. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."
+                }
+              },
+              "additionalProperties": true
+            },
+            "Gateways": {
+              "type": "array",
+              "description": "S2C VPN gateways (huaweicloud_vpn_gateway). One row per gateway; toggle Enabled. Attachment = 'vpc' (bind to a 05_Network VPC) or 'er' (bind to the hub Enterprise Router). EITHER WAY, VPC + ConnectSubnet are REQUIRED: for vpc they are the gateway's vpc_id + connect_subnet; for er they are the access_vpc_id + access_subnet_id (the gateway's interconnection plane — Huawei rejects an ER gateway without one). NetworkType = public (2 EIPs are created at BandwidthSize Mbit/s) or private. HAMode = active-active | active-standby. AZs: LEAVE BLANK to auto-select 2 AZs that actually stock the chosen flavor+attachment (recommended — hardcoding AZs that don't offer the flavor causes 'VPN.0001: resource not enough'). Only set AZs to pin specific zones. ASN is the gateway BGP ASN. Flavor blank = API default (Professional1).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Gateway name"
+                  },
+                  "Attachment": {
+                    "description": "vpc | er"
+                  },
+                  "VPC": {
+                    "description": "REQUIRED. 05_Network VPC name (vpc attach -> vpc_id; er attach -> access_vpc_id)"
+                  },
+                  "ConnectSubnet": {
+                    "description": "REQUIRED. Subnet name within VPC (vpc attach -> connect_subnet; er attach -> access_subnet_id)"
+                  },
+                  "LocalSubnets": {
+                    "description": "vpc attachment only: local CIDRs the gateway advertises to on-prem"
+                  },
+                  "NetworkType": {
+                    "description": "public | private (default public)"
+                  },
+                  "HAMode": {
+                    "description": "active-active | active-standby (default active-standby)"
+                  },
+                  "Flavor": {
+                    "description": "Gateway flavor (e.g. Basic, Professional1); blank = API default"
+                  },
+                  "AZs": {
+                    "description": "Blank = auto-select 2 valid AZs for flavor+attachment (recommended). Only fill to pin zones (e.g. ap-southeast-3a,ap-southeast-3b)."
+                  },
+                  "ASN": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "Gateway BGP ASN (default 64512)"
+                  },
+                  "BandwidthSize": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "public only: bandwidth (Mbit/s) for each created EIP"
+                  },
+                  "ERAssocRouteTable": {
+                    "description": "er attach only: FIXED ER route table (er-inbound | er-outbound | er-hybrid) the gateway's ER attachment ASSOCIATES to — the table that steers traffic ARRIVING from on-prem (use er-hybrid so DC traffic is CFW-inspected). Blank = no association."
+                  },
+                  "ERPropRouteTable": {
+                    "description": "er attach only: FIXED ER route table (er-inbound | er-outbound | er-hybrid) the attachment PROPAGATES into — where on-prem routes land (BGP-learned, or PeerSubnets for static tunnels; typically er-outbound). This is the ONLY way on-prem routes enter ER — static routes to VPN attachments are rejected (ER.04006105). Blank = no propagation."
+                  },
+                  "EIPChargeMode": {
+                    "description": "public only: EIP billing mode - bandwidth (default) or traffic. FORCENEW on the gateway: to switch on a LIVE gateway, change billing in the EIP console first, then set this to match and refresh state - never apply the diff."
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "CustomerGateways": {
+              "type": "array",
+              "description": "Customer gateways (huaweicloud_vpn_customer_gateway) — the on-premises VPN devices. One row per device; toggle Enabled. IP is the on-prem public IP. ASN is the device's BGP ASN (used when RouteMode=bgp). RouteMode = static | bgp.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Customer gateway name"
+                  },
+                  "IP": {
+                    "description": "On-premises public IP"
+                  },
+                  "ASN": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "description": "On-prem BGP ASN (for RouteMode=bgp; default 65000)"
+                  },
+                  "RouteMode": {
+                    "description": "static | bgp"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "Connections": {
+              "type": "array",
+              "description": "IPsec VPN connections (huaweicloud_vpn_connection) — the tunnels binding a Gateway to a CustomerGateway. One row per connection; toggle Enabled. Gateway / CustomerGateway are FKs to the tables above. VPNType = policy | static | bgp. PeerSubnets is a comma-separated list of on-prem CIDRs. HARole = master | slave (which gateway EIP the tunnel binds to; active-standby gateways use master, active-active use both). PSK is the IPsec pre-shared key (SENSITIVE - written to the gitignored tfvars, never commit).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Connection name"
+                  },
+                  "Gateway": {
+                    "description": "FK -> Gateways.Name"
+                  },
+                  "CustomerGateway": {
+                    "description": "FK -> CustomerGateways.Name"
+                  },
+                  "VPNType": {
+                    "description": "policy | static | bgp"
+                  },
+                  "PeerSubnets": {
+                    "description": "On-prem CIDRs reachable over the tunnel"
+                  },
+                  "HARole": {
+                    "description": "master | slave (default master)"
+                  },
+                  "PSK": {
+                    "description": "IPsec pre-shared key (sensitive)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "11_SGACL": {
+          "type": "object",
+          "description": "Env 11-network-sgacl (secgroups module 15): workload security groups + rules, one module call per member account named in SecurityGroups.Account (assume_role provider). Groups are created with delete_default_rules=true - NO implicit allows; every permit (including egress) is an explicit SGRules row. Security groups are region-scoped (no VPC binding); attaching them to ECS NICs is the workload/migration team's step. SG-to-SG references (Remote = sg:<Name>) work only within one account. The NetworkACLs / ACLRules tables are RESERVED for subnet network ACLs - not implemented yet; enabled rows there fail validation (LZR-031). Required Terraform resources: networking_secgroup, networking_secgroup_rule.",
+          "properties": {
+            "SecurityGroups": {
+              "type": "array",
+              "description": "Security groups (huaweicloud_networking_secgroup, delete_default_rules=true). One row per group; toggle Enabled. Account is the owning member account (must match a 01_Foundation account name). Tags as k=v comma list - include the mandatory tag set (project/bu/owner/env), the tag SCP denies untagged creates.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Account": {
+                    "description": "Owning member account name (01_Foundation)"
+                  },
+                  "Name": {
+                    "description": "Security group name"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  },
+                  "Tags": {
+                    "description": "k=v,k=v - mandatory tag set required by the tag SCP"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "SGRules": {
+              "type": "array",
+              "description": "Security group rules (huaweicloud_networking_secgroup_rule). One row per rule; toggle Enabled. SG names a SecurityGroups row (rules inherit its account). Remote: a CIDR, sg:<Name> (another group in the SAME account) or self. Ports: single (443), range (5985-5986), list (80,443) or blank = all ports. Protocol tcp | udp | icmp | any (icmp ignores Ports). Groups have no default rules, so give every group an explicit egress row (standard: any/0.0.0.0/0 - CFW governs the destinations).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "SG": {
+                    "description": "SecurityGroups.Name this rule belongs to"
+                  },
+                  "Direction": {
+                    "description": "ingress | egress"
+                  },
+                  "Protocol": {
+                    "description": "tcp | udp | icmp | any (default any)"
+                  },
+                  "Ports": {
+                    "description": "443 | 5985-5986 | 80,443 | blank = all"
+                  },
+                  "Remote": {
+                    "description": "CIDR | sg:<Name> (same account) | self"
+                  },
+                  "Action": {
+                    "description": "allow | deny (default allow)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "NetworkACLs": {
+              "type": "array",
+              "description": "RESERVED - subnet network ACLs (huaweicloud_vpc_network_acl) are not implemented yet. Keep this table empty: enabled rows fail validation (LZR-031). When implemented, ACLs will associate to spoke subnets as a second, subnet-level enforcement layer (stateful; unmatched traffic denied once associated).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Account": {
+                    "description": "Owning member account name"
+                  },
+                  "Name": {
+                    "description": "Network ACL name"
+                  },
+                  "VPC": {
+                    "description": "Spoke VPC name (05_Network)"
+                  },
+                  "Subnets": {
+                    "description": "Subnet names to associate"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "ACLRules": {
+              "type": "array",
+              "description": "RESERVED - rules for NetworkACLs; not implemented yet. Keep empty (LZR-031).",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ACL": {
+                    "description": "NetworkACLs.Name"
+                  },
+                  "Direction": {
+                    "description": "ingress | egress"
+                  },
+                  "Action": {
+                    "description": "allow | deny"
+                  },
+                  "Protocol": {
+                    "description": "tcp | udp | icmp | any"
+                  },
+                  "Source": {
+                    "description": "Source CIDR"
+                  },
+                  "SourcePorts": {
+                    "description": "Source ports (blank = all)"
+                  },
+                  "Destination": {
+                    "description": "Destination CIDR"
+                  },
+                  "DestPorts": {
+                    "description": "Destination ports (blank = all)"
+                  },
+                  "Description": {
+                    "description": "Purpose"
+                  }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,164 @@
+"""lz_app gates.
+
+  1. Workbook round-trip: normalize(example IR) -> xlsx -> import == exact.
+     the customer: same, with only the two documented legacy drops
+     (GatewayRoutes table, cts_tracker_region field).
+  2. API end-to-end against a live server (ephemeral port): meta/schema,
+     load IR, validate (example clean), save (json-only; xlsx rejected),
+     run a plan job (env subset, dry-run) to completion.
+
+Run: py tests/test_app.py     (from lz_app/)
+"""
+
+import json
+import sys
+import tempfile
+import threading
+import time
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent      # app/
+REPO = HERE.parent                                  # repo root
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(REPO / "pipeline"))
+
+from lz_app import find_workspace, wire
+from lz_app import workbook_io
+
+FAILED = []
+
+
+def check(name, cond, detail=""):
+    if cond:
+        print(f"  ok   {name}")
+    else:
+        print(f"  FAIL {name}  {str(detail)[:300]}")
+        FAILED.append(name)
+
+
+# The app's workspace is a DATA directory now: build a throwaway one from
+# the repo's example assets, exactly as a new user would get after `assess`.
+import shutil as _sh
+_ws_tmp = Path(tempfile.mkdtemp(prefix="lz-app-ws-"))
+(_ws_tmp / "specs").mkdir()
+_FIXTURE = REPO / "pipeline/lz_pipeline/fixtures/example.spec.json"
+_sh.copy2(_FIXTURE, _ws_tmp / "specs" / "lz.spec.example.json")
+_sh.copytree(REPO / "terraform/envs-example", _ws_tmp / "envs",
+             ignore=_sh.ignore_patterns(".terraform"))
+WS = find_workspace(str(_ws_tmp))
+wire(WS)
+ENVS_DIR = "envs"
+
+print("== workbook round-trip ==")
+example = json.loads(_FIXTURE.read_text(encoding="utf-8"))
+norm = workbook_io.normalize_ir(example)
+with tempfile.TemporaryDirectory() as td:
+    x = Path(td) / "example.xlsx"
+    notes = workbook_io.export_workbook(norm, x)
+    check("example exports with no drops", not notes, notes)
+    back = workbook_io.normalize_ir(workbook_io.import_workbook(x))
+    check("example round-trip exact", back["sheets"] == norm["sheets"],
+          [k for k in norm["sheets"] if back["sheets"].get(k) != norm["sheets"][k]])
+
+# A second, denser spec exercises the same round-trip when present locally;
+# the packaged app ships only the example spec, so this block is optional.
+from lz_pipeline import model
+_dense = next((p for p in sorted((WS / "specs").glob("lz.spec.*.json"))
+               if p.name != "lz.spec.example.json"
+               and not p.name.endswith(".decisions.json")), None)
+if _dense is not None:
+    dense = model.load(_dense)
+    fnorm = workbook_io.normalize_ir(dense)
+    with tempfile.TemporaryDirectory() as td:
+        x = Path(td) / "dense.xlsx"
+        notes = workbook_io.export_workbook(fnorm, x)
+        check("dense spec exports with no drops", not notes, notes)
+        back = workbook_io.normalize_ir(workbook_io.import_workbook(x))
+        diffs = []
+        for sheet in fnorm["sheets"]:
+            a, b = fnorm["sheets"][sheet], back["sheets"].get(sheet, {})
+            for t in a:
+                if t == "GatewayRoutes" or (sheet == "Global" and t == "Settings"):
+                    continue
+                if a[t] != b.get(t):
+                    diffs.append(f"{sheet}.{t}")
+        check("dense spec round-trip exact", not diffs, diffs)
+
+print("== API end-to-end ==")
+from lz_app import server
+
+
+def req(path, method="GET", body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}", data=data, method=method,
+                               headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(r, timeout=30) as resp:
+        return json.loads(resp.read())
+
+
+httpd = server.serve(str(WS), port=0)
+PORT = httpd.server_address[1]
+threading.Thread(target=httpd.serve_forever, daemon=True).start()
+
+meta = req("/api/meta")
+check("meta serves", meta["workspace"] == str(WS), meta)
+sch = req("/api/schema")
+check("schema has 13 sheets", len(sch["sheets"]) == 13, len(sch["sheets"]))
+enum_ok = any(c.get("enum") == ["vpc", "nat", "eip"]
+              for s in sch["sheets"] if s["name"] == "09_CFW"
+              for t in s["tables"] if t["name"] == "ACLRules"
+              for c in t.get("columns", []))
+check("schema carries enums", enum_ok)
+n5 = next(s for s in sch["sheets"] if s["name"] == "05_Network")
+fk_ok = any(c.get("fk") == [["05_Network", "HubVPCs", "VPCName"]]
+            for t in n5["tables"] if t["name"] == "HubERAttachments"
+            for c in t.get("columns", []) if c["name"] == "VPC")
+check("schema carries fk metadata", fk_ok)
+check("EIPs badged optional",
+      next(t for t in n5["tables"] if t["name"] == "EIPs").get("badge") == "optional")
+check("05_Network ships fixed notes (ERRouteTables card)",
+      any("ERRouteTables" in f["title"] for f in n5.get("fixed_notes", [])))
+check("10_VPN sheet badged optional",
+      next(s for s in sch["sheets"] if s["name"] == "10_VPN").get("badge") == "optional")
+sfk_ok = any(f.get("fk") for t in n5["tables"] if t["name"] == "Settings"
+             for f in t.get("fields", []) if f["name"] == "hub_account")
+check("scalar fields carry fk metadata", sfk_ok)
+
+r = req("/api/spec/load", "POST", {"name": "lz.spec.example.json"})
+check("load example IR", r.get("ok") is True, r)
+v = req("/api/spec/validate", "POST", {})
+check("example validates clean via API", not v["errors"], v["errors"][:3])
+
+try:
+    req("/api/spec/save", "POST", {"path": "should-fail.xlsx"})
+    check("xlsx save rejected (json-only store)", False, "expected HTTP 400")
+except urllib.error.HTTPError as e:
+    check("xlsx save rejected (json-only store)", e.code == 400, e.code)
+
+e = req(f"/api/envs?dir={ENVS_DIR}")
+check("/api/envs returns apply-ordered envs", e["envs"][0] == "00-bootstrap"
+      and "07-security" in e["envs"] and len(e["envs"]) >= 11, e)
+
+# dry-run plan over an env SUBSET: exercises the comma-list selection path,
+# and the order in the output must be apply order (05 before 08).
+r = req("/api/job", "POST", {"verb": "plan", "args": {
+    "envs_dir": ENVS_DIR, "dry_run": True,
+    "envs": ["09-network-cfw", "05-network"]}})
+jid = r["job"]
+for _ in range(40):
+    j = req(f"/api/jobs/{jid}")
+    if j["status"] != "running":
+        break
+    time.sleep(0.3)
+check("plan job (env subset, dry-run) completes", j["status"] == "done", j)
+out = j["output"]
+check("subset runs in apply order", 0 <= out.find("[05-network]") < out.find("[09-network-cfw]"),
+      out[:200])
+
+httpd.shutdown()
+print()
+if FAILED:
+    print(f"FAILED: {len(FAILED)} -> {FAILED}")
+    sys.exit(1)
+print("all lz_app tests passed")

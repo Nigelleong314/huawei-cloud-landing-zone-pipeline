@@ -1,0 +1,39 @@
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# terraform - state and caches never enter the repo
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+tf.plan
+*.tfplan
+errored.tfstate
+crash.log
+
+# pipeline runtime artifacts
+secrets.auto.tfvars.json
+state-backups/
+lzctl-logs/
+evidence/
+.lzctl.lock
+*.bak
+*.backup
+drift-report.md
+
+# local env
+.env
+.venv/
+venv/
+
+# editors / os
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+~$*

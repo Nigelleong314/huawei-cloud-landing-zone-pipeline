@@ -1,0 +1,15 @@
+# Copy to backend.hcl and fill in real values.
+# Then: terraform init -backend-config=backend.hcl
+#
+# bucket should be the OBS bucket created by env 00-bootstrap.
+
+bucket = "REPLACE_ME-lz-tfstate"
+region = "ap-southeast-3"
+
+endpoints = {
+  s3 = "https://obs.ap-southeast-3.myhuaweicloud.com"
+}
+
+# Optional — pin AK/SK for the backend (else picks from env)
+# access_key = "REPLACE_ME"
+# secret_key = "REPLACE_ME"

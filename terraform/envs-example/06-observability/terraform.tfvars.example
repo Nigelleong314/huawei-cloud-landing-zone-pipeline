@@ -1,0 +1,47 @@
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+foundation_state_bucket = "REPLACE_ME-lz-tfstate"
+
+# environment      = "shared"
+
+# ── Required: globally-unique OBS bucket names + KMS aliases (no defaults) ──
+audit_bucket_name       = "REPLACE_ME-audit"
+access_bucket_name      = "REPLACE_ME-access"
+lts_archive_bucket_name = "REPLACE_ME-lts-archive"
+kms_audit_alias         = "REPLACE_ME-audit-bucket"
+kms_access_alias        = "REPLACE_ME-access-bucket"
+kms_lts_archive_alias   = "REPLACE_ME-lts-archive"
+# lts_stream_suffix = "-stream"
+
+# Note: the org-wide CTS tracker is created in home_region. Huawei's org tracker
+# is a global service; if home_region doesn't support it, creation fails at apply.
+
+# Retention
+# audit_retention_days       = 365     # CTS event bucket
+# access_log_retention_days  = 3650    # OBS access log bucket (10y for compliance)
+# lts_archive_retention_days = 365     # LTS → OBS archive bucket
+# lts_hot_retention_days     = 90      # LTS hot retention
+
+# kms_pending_days = 7  # production should be 30
+
+# ── SMN subscribers ────────────────────────────────────────────────────────
+# subscribers = [
+#   { protocol = "email", endpoint = "lz-oncall@yourcompany.com" },
+# ]
+
+# ── CES one-click namespaces ───────────────────────────────────────────────
+# one_click_namespaces = ["SYS.ECS", "SYS.EVS", "SYS.ELB", "SYS.NAT", "SYS.VPC", "SYS.EIP", "SYS.CFW"]
+
+# ── LTS keyword alarms ─────────────────────────────────────────────────────
+# Per-alarm config; references LTS groups owned by module 6.
+# lts_keyword_alarms = [
+#   {
+#     name      = "denied-actions"
+#     severity  = "Major"
+#     keywords  = ["DENIED", "unauthorized"]
+#     log_group = "cts-audit"
+#     smn_topic_urn = ""  # filled in after first apply; or set manually
+#   },
+# ]

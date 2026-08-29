@@ -1,0 +1,8 @@
+module "iam_baseline_${suffix}" {
+${source_line}
+${providers_line}
+  environment         = var.environment
+  enable_iam_baseline = true
+  service_agencies    = var.service_agencies != null ? var.service_agencies : null
+  iam_login_policy    = var.iam_login_policy
+}

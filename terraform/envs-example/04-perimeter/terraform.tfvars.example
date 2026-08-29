@@ -1,0 +1,67 @@
+# envs-v2/04-perimeter/terraform.tfvars.example
+
+home_region       = "ap-southeast-3"
+master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
+master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
+
+foundation_state_bucket = "REPLACE_ME-lz-tfstate"
+
+# environment = "shared"
+
+# ════════════════════════════════════════════════════════════════════════════
+# The 8 guardrail SCPs (var.scps)
+# ════════════════════════════════════════════════════════════════════════════
+#
+# One block per policy. Omit a block to leave that guardrail OFF. Each block:
+#   enforce = false → ships as a DRY-RUN policy (observe, then promote)
+#   enforce = true  → promoted to an ENFORCED policy
+#   name            → explicit policy name
+#   + that policy's own settings (see below)
+#
+# Recommendation: ship everything in dry-run first, observe 1-2 weeks via the
+# dry-run reports, then flip enforce = true one guardrail at a time.
+
+scps = {
+  deny_leave_org = { name = "deny-leave-organization", enforce = false }
+  deny_root_user = { name = "deny-root-user", enforce = false }
+
+  # org path defaults to '<org_id>/<root_ou_id>/*' from foundation; override
+  # with allowed_org_path = "o-xxxx/r-yyyy/*" if needed.
+  deny_unauthorized_ram_share       = { name = "deny-unauthorized-ram-share", enforce = false }
+  deny_unauthorized_rms_aggregation = { name = "deny-unauthorized-rms-aggregation", enforce = false }
+
+  require_mandatory_tags = {
+    name           = "deny-create-without-mandatory-tags"
+    enforce        = false
+    mandatory_tags = ["Project", "Owner", "Environment", "BU"]
+  }
+
+  # exception_tag_key = "" → public OBS denied outright (non-overridable).
+  # Set a key (e.g. "PublicAccessException") to allow a tagged exception.
+  deny_public_obs = {
+    name              = "deny-public-obs"
+    enforce           = false
+    exception_tag_key = ""
+  }
+
+  # admin_principal_urns = [] → unconditional protection (no one may modify the
+  # default tracker). Add the LzAdministrator permission-set / agency URN(s)
+  # (from env 03-identity outputs) to carve out a break-glass admin.
+  protect_cts_tracker = {
+    name                 = "protect-cts-tracker"
+    enforce              = false
+    admin_principal_urns = []
+  }
+
+  deny_outside_allowed_region = {
+    name            = "deny-outside-allowed-region"
+    enforce         = false
+    allowed_regions = ["ap-southeast-3"]
+  }
+}
+
+# ── Predefined-tag dictionary (applied to master + every M1 account) ─────────
+# predefined_tags = [
+#   { key = "project", values = [] },
+#   { key = "env",     values = ["production", "staging", "development", "shared"] },
+# ]

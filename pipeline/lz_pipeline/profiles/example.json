@@ -1,0 +1,7 @@
+{
+  "customer": "example",
+  "features": {"secmaster": true},
+  "envs_dir": "terraform/envs-example",
+  "docs_dir": null,
+  "ir": "pipeline/lz_pipeline/fixtures/example.spec.json"
+}
