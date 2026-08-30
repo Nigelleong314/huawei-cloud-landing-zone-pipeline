@@ -1,4 +1,4 @@
-# DNS: the hub-resolver pattern [REUSABLE]
+# DNS: the hub-resolver pattern [PLATFORM]
 
 ## Pattern
 

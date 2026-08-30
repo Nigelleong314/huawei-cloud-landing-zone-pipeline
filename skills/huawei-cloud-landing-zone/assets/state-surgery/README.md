@@ -1,4 +1,4 @@
-# State surgery [REUSABLE]
+# State surgery [RUNBOOK]
 
 Moving resources between states, splitting envs, and absorbing console
 changes — without touching the cloud.

@@ -1,4 +1,4 @@
-# Provider block and authentication [REUSABLE]
+# Provider block and authentication [PLATFORM]
 
 Every auth method the provider supports, and which one to use where. The
 provider docs' `index.md` is the source of truth for argument names — check

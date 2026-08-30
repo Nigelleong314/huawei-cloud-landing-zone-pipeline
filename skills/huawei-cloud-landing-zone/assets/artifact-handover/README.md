@@ -1,4 +1,4 @@
-# The handover artifact [REUSABLE]
+# The handover artifact [RUNBOOK]
 
 ## The artifact model
 

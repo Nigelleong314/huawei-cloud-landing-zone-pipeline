@@ -1,4 +1,4 @@
-# Silent-failure traps [REUSABLE]
+# Silent-failure traps [PLATFORM]
 
 Configurations that produce **no error** — the plan is clean, the apply
 succeeds — while doing the wrong thing. These are the highest-value checks

@@ -1,4 +1,4 @@
-# Backup and DR [REUSABLE]
+# Backup and DR [DOMAIN]
 
 ## CBR is a Day-1 spec item, not an afterthought
 

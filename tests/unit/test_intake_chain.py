@@ -57,8 +57,8 @@ def test_assess_is_deterministic_and_never_guesses(blank_questionnaire, tmp_path
     assert "DRAFT" in draft["source"]
     decisions = (ws / "specs" / "lz.spec.unittest.decisions.md").read_text(encoding="utf-8")
     # blank questionnaire: nothing answered, so every question is defaulted or open
-    assert "## Answered (0)" in decisions
-    assert "## Open questions" in decisions
+    assert "## ANSWERED (0)" in decisions
+    assert "## OPEN" in decisions
     # a second run must refuse to clobber without --force
     r2 = run("lz_pipeline.lzctl", "assess", str(dump), "--customer", "unittest",
              "--workspace", str(ws))

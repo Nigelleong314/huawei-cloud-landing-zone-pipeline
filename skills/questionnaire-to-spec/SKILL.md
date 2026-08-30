@@ -1,6 +1,6 @@
 ---
 name: questionnaire-to-spec
-description: Convert a filled LZ Assessment Questionnaire (xlsx) into a draft lz.spec.<customer>.json plus a decisions-needed list. Use when the user hands over a completed assessment questionnaire or asks to turn questionnaire answers into a spec.
+description: Convert a filled LZ Assessment Questionnaire (xlsx) into a draft lz.spec.<customer>.json plus a decisions-needed list. Use when the user provides a completed assessment questionnaire or asks to turn questionnaire answers into a spec.
 ---
 
 # Questionnaire → draft spec
@@ -9,6 +9,8 @@ Input: a filled `HuaweiCloud-LZ-Assessment-Questionnaire.xlsx` (any path) and a
 customer slug (lowercase, e.g. `acme`). Ask for the slug if not given.
 
 Output: `lz_spec/lz.spec.<slug>.json` (draft) + `lz_spec/lz.spec.<slug>.decisions.md`.
+
+This skill applies the huawei-cloud-landing-zone skill's intake doctrine (assets/intake-questionnaire, assets/discovery-protocol); load that skill alongside.
 
 ## Steps
 

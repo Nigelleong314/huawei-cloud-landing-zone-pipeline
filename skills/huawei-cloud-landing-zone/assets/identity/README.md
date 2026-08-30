@@ -1,4 +1,4 @@
-# Identity [REUSABLE]
+# Identity [DOMAIN]
 
 ## Structure
 

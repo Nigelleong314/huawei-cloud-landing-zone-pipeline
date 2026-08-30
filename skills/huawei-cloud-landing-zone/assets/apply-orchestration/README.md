@@ -1,4 +1,4 @@
-# Apply orchestration [REUSABLE]
+# Apply orchestration [RUNBOOK]
 
 - Order = numeric env order, derived from `deps.json` — never hardcoded in
   CI. Later envs read earlier outputs via `terraform_remote_state`.

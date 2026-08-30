@@ -1,20 +1,20 @@
 # Huawei Cloud Landing Zone Pipeline
 
-> A config-driven pipeline and agent skill that turn one reviewed specification into a complete, governed Huawei Cloud landing zone — deterministically, with a human on every gate.
+> A config-driven pipeline and agent skill that turn one reviewed specification into a complete, governed Huawei Cloud landing zone — deterministically, with explicit approval gates for high-impact actions.
 
 License: Apache-2.0.
 
 ## Why this exists
 
-Manual landing-zone delivery is weeks of console work: dozens of accounts, OUs, SCPs, VPCs, router attachments, trackers, and buckets, each clicked into place and none of it reproducible. This repo replaces that with a spec-driven flow:
+Manual landing-zone delivery can take weeks of console work: dozens of accounts, OUs, SCPs, VPCs, router attachments, trackers, and buckets, each configured by hand and difficult to reproduce consistently. This repo replaces that with a spec-driven flow:
 
 - **One canonical input.** A JSON spec IR (`lz.spec.<customer>.json`) is the single configuration store. The Excel workbook customers see is a *generated artifact* of that spec, never an input.
-- **Deterministic generation.** The same spec always produces byte-identical Terraform inputs (`terraform.tfvars.json`, `*.generated.tf`) — enforced by a regression harness, not by convention.
+- **Deterministic generation.** For a fixed generator, schema, module snapshot, and input spec, generation is byte-identical (`terraform.tfvars.json`, `*.generated.tf`) — enforced by a regression harness, not by convention.
 - **Handover-safe output.** The generated estate is plain, readable HCL. A customer who receives only the Terraform tree and the runner can operate it without the pipeline, the skill, or any AI.
 
 ## What it deploys
 
-The 9 governance domains of the Cloud Adoption Framework, as 12 ordered Terraform environments composing 15 modules (`terraform/modules/`):
+The reference implementation composes 12 ordered Terraform environments across the 9 governance domains of the Cloud Adoption Framework, from 15 modules (`terraform/modules/`). Other estates may enable fewer domains or different compositions — the spec decides:
 
 | Domain | Env(s) | Covers |
 |---|---|---|
@@ -70,7 +70,7 @@ The model reasons and interprets; the skill provides workflow and doctrine; the 
 
 ## How the skill and pipeline work together
 
-The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically buckets every questionnaire answer as answered / defaulted / open — it never guesses), then the agent interprets the *prose* answers into the draft spec using the skill's doctrine, then `lzctl validate` gates the result mechanically. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (`decisions.md`, the spec diff) a human reviews.
+The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically buckets every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses), then the agent interprets the *prose* answers into the draft spec using the skill's doctrine, then `lzctl validate` gates the result mechanically. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (`decisions.md`, the spec diff) a human reviews.
 
 ## Which models can be used
 

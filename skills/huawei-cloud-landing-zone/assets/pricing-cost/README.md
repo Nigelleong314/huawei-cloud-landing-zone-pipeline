@@ -1,4 +1,4 @@
-# Cost estimation: the rate card and its limits [REUSABLE]
+# Cost estimation: the rate card and its limits [IMPLEMENTATION]
 
 A plan's cost summary exists so the approver sees money, not just resource
 counts (assets/plan-triage-drift). It is an **advisory estimate** — it never

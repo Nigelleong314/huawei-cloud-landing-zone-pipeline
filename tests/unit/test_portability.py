@@ -54,6 +54,15 @@ def test_committed_schema_is_fresh():
         "schema drifted: python -m lz_pipeline.tools.gen_jsonschema"
 
 
+def test_example_spec_copies_identical():
+    """One canonical example spec (the fixture); the lz_spec copy exists for
+    the app's legacy spec-folder fallback and must never drift from it."""
+    canon = (REPO / "pipeline/lz_pipeline/fixtures/example.spec.json").read_bytes()
+    copy = (REPO / "pipeline/lz_spec/lz.spec.example.json").read_bytes()
+    assert canon == copy, ("lz_spec/lz.spec.example.json drifted from the "
+                           "canonical fixture - copy the fixture over it")
+
+
 def test_transient_matcher_is_specific():
     from lz_pipeline import lzctl
     assert lzctl._is_transient("Error: LTS.2101 something")

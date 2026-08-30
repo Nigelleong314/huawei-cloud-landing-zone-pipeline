@@ -14,7 +14,7 @@ description: >
   resource), defer to the huawei-cloud-terraform-generator skill instead.
 ---
 
-# Huawei Cloud Landing Zone [REUSABLE]
+# Huawei Cloud Landing Zone
 
 Landing-zone-level knowledge distilled from a production landing-zone
 delivery: a 12-environment Terraform estate covering the 9 governance
@@ -23,41 +23,49 @@ organization. The companion skill `huawei-cloud-terraform-generator`
 covers per-service resource authoring; this skill covers how the services
 compose into a landing zone.
 
+The `questionnaire-to-spec` skill drives the Intake phase and depends on this skill's doctrine; the dependency direction is questionnaire-to-spec -> huawei-cloud-landing-zone, never the reverse.
+
 ## How to use this skill
 
-Load only the asset(s) for the topic at hand:
+Load only the asset(s) for the topic at hand.
 
-| Phase | Topic | Asset |
-|---|---|---|
-| Intake | Questionnaire → draft spec, gap tracking, review loop | [assets/intake-questionnaire/](assets/intake-questionnaire/README.md) |
-| Intake | Ad-hoc requests: required facts, never-invent rule | [assets/discovery-protocol/](assets/discovery-protocol/README.md) |
-| Design | Accounts, OUs, delegated admin, enterprise projects | [assets/accounts-ous/](assets/accounts-ous/README.md) |
-| Design | ER hub-and-spoke, route tables, centralized inspection | [assets/network-topology/](assets/network-topology/README.md) |
-| Design | Hybrid connectivity: VPN automated, DC/CC boundary | [assets/hybrid-connectivity/](assets/hybrid-connectivity/README.md) |
-| Design | Hub-resolver DNS + the unattached-spoke hazard | [assets/dns/](assets/dns/README.md) |
-| Design | SCP guardrails: packing, tag SCPs, tenant quirks | [assets/scp-guardrails/](assets/scp-guardrails/README.md) |
-| Design | Identity Center, EP-scoped permission sets, policy language | [assets/identity/](assets/identity/README.md) |
-| Design | Log convergence, CTS, observability | [assets/observability/](assets/observability/README.md) |
-| Design | CBR vaults/policies, OBS lifecycle, DR boundary | [assets/backup-dr/](assets/backup-dr/README.md) |
-| Design | Firewall rule plane: groups, rule symmetry, SG interaction | [assets/cfw-rule-plane/](assets/cfw-rule-plane/README.md) |
-| Design | Edge security: WAF, Anti-DDoS, SecMaster pending | [assets/edge-security/](assets/edge-security/README.md) |
-| Build | Repo shape, codegen split, module/env patterns, tagging | [assets/repo-codegen/](assets/repo-codegen/README.md) |
-| Build | Provider block: all six auth methods, provider arguments | [assets/provider-auth/](assets/provider-auth/README.md) |
-| Build | OBS state backend, locking, state-key contracts | [assets/state-backend/](assets/state-backend/README.md) |
-| Build | Cross-account providers: the two assume-role modes | [assets/cross-account/](assets/cross-account/README.md) |
-| Build | Apply orchestration, runner, retries | [assets/apply-orchestration/](assets/apply-orchestration/README.md) |
-| Build | CI credentials: OIDC → short-lived AK/SK, trust agencies | [assets/ci-credentials-oidc/](assets/ci-credentials-oidc/README.md) |
-| Build | State surgery: env splits, moves, refresh-only, key contracts | [assets/state-surgery/](assets/state-surgery/README.md) |
-| Build | Billing modes: charging_mode doctrine, BSS conversions | [assets/billing/](assets/billing/README.md) |
-| Verify | Fresh-account preflight: what doesn't exist yet, capacity vs quota | [assets/fresh-account-preflight/](assets/fresh-account-preflight/README.md) |
-| Verify | Spec validation, LZR rules, regression harness | [assets/validation-gates/](assets/validation-gates/README.md) |
-| Verify | Cost estimation: rate card, what it can't price | [assets/pricing-cost/](assets/pricing-cost/README.md) |
-| Verify | Plan triage, drift classes, review gates | [assets/plan-triage-drift/](assets/plan-triage-drift/README.md) |
-| Verify | Silent-failure traps (no-error wrong behavior) | [assets/silent-failures/](assets/silent-failures/README.md) |
-| Deliver | Artifact model, handover checklist, comment hygiene | [assets/artifact-handover/](assets/artifact-handover/README.md) |
-| Deliver | Generated documents, LLD contract, Day-2 operations | [assets/documents-day2/](assets/documents-day2/README.md) |
+Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud behavior · [IMPLEMENTATION] how this pipeline behaves · [RUNBOOK] operational procedure.
 
-## Non-negotiable constraints (memorize; details in the assets)
+| Phase | Capability | Input | Output | Asset |
+|---|---|---|---|---|
+| Intake | Convert questionnaire to spec | filled questionnaire | draft spec + decisions file | [assets/intake-questionnaire/](assets/intake-questionnaire/README.md) |
+| Intake | Extract facts from ad-hoc asks | chat/email/ticket request | gap list + questions to ask | [assets/discovery-protocol/](assets/discovery-protocol/README.md) |
+| Design | Structure accounts and OUs | org + governance requirements | account/OU/EP decisions | [assets/accounts-ous/](assets/accounts-ous/README.md) |
+| Design | Design hub-spoke network | spec network sheets | ER + route-table decisions | [assets/network-topology/](assets/network-topology/README.md) |
+| Design | Wire on-prem connectivity | site/peer details | VPN design, DC/CC boundary | [assets/hybrid-connectivity/](assets/hybrid-connectivity/README.md) |
+| Design | Design hub-resolver DNS | zones + spoke attachment map | DNS env design | [assets/dns/](assets/dns/README.md) |
+| Design | Author SCP guardrails | governance requirements | packed v5 SCP set | [assets/scp-guardrails/](assets/scp-guardrails/README.md) |
+| Design | Scope identity and permission sets | roles/groups requirements | permission-set decisions | [assets/identity/](assets/identity/README.md) |
+| Design | Converge logs and audit | log sources + account map | log-convergence design | [assets/observability/](assets/observability/README.md) |
+| Design | Size backup and DR | retention/RPO requirements | vault + policy spec fields | [assets/backup-dr/](assets/backup-dr/README.md) |
+| Design | Compose firewall rule plane | traffic flow matrix | group/rule composition | [assets/cfw-rule-plane/](assets/cfw-rule-plane/README.md) |
+| Design | Protect the internet edge | exposed domains/EIPs | WAF + Anti-DDoS design | [assets/edge-security/](assets/edge-security/README.md) |
+| Build | Shape repo and codegen | spec + module library | generated env tree | [assets/repo-codegen/](assets/repo-codegen/README.md) |
+| Build | Configure provider auth | execution context | provider block choice | [assets/provider-auth/](assets/provider-auth/README.md) |
+| Build | Configure OBS state backend | backend.tf, init errors | working backend config | [assets/state-backend/](assets/state-backend/README.md) |
+| Build | Pick cross-account assume mode | env's resource types | correct provider config | [assets/cross-account/](assets/cross-account/README.md) |
+| Build | Run ordered applies | built tree + deps.json | safe apply run | [assets/apply-orchestration/](assets/apply-orchestration/README.md) |
+| Build | Wire OIDC CI credentials | CI platform + account map | trust-agency chain | [assets/ci-credentials-oidc/](assets/ci-credentials-oidc/README.md) |
+| Build | Move state without cloud changes | state files + target layout | state-mv runbook | [assets/state-surgery/](assets/state-surgery/README.md) |
+| Build | Absorb billing-mode changes | console conversion + plan diff | per-resource code/state fix | [assets/billing/](assets/billing/README.md) |
+| Verify | Preflight a fresh tenant | new account access | preflight checklist results | [assets/fresh-account-preflight/](assets/fresh-account-preflight/README.md) |
+| Verify | Validate spec and estate | spec + generated tree | rule findings, gate verdicts | [assets/validation-gates/](assets/validation-gates/README.md) |
+| Verify | Estimate plan cost | plan JSON + rate card | advisory cost summary | [assets/pricing-cost/](assets/pricing-cost/README.md) |
+| Verify | Triage plans and drift | plan JSON | triage verdicts | [assets/plan-triage-drift/](assets/plan-triage-drift/README.md) |
+| Verify | Catch no-error wrong behavior | clean plan/apply | trap findings | [assets/silent-failures/](assets/silent-failures/README.md) |
+| Deliver | Build handover artifact | working tree | release artifact | [assets/artifact-handover/](assets/artifact-handover/README.md) |
+| Deliver | Generate delivery documents | tfvars + pulled state | doc set + LLD workbook | [assets/documents-day2/](assets/documents-day2/README.md) |
+
+## Companion skill (optional)
+
+The `huawei-cloud-terraform-generator` skill (separate distribution, not included in this repository) generates single-service resources with per-service references and region-availability verification. It is optional — this skill and the pipeline are fully usable without it; without it, author single-resource HCL from the provider docs per the evidence hierarchy below.
+
+## Non-negotiable constraints — check these before proposing or executing any change
 
 1. Provider `huaweicloud/huaweicloud ~> 1.87`, Terraform `>= 1.6.3`.
 2. The Cloud Trace Service (CTS) **org tracker region is hard-coded** (`cn-north-4` or `ap-southeast-1`) — never a variable.
@@ -75,10 +83,11 @@ Load only the asset(s) for the topic at hand:
 
 1. **Constraint first**: check the non-negotiables above before proposing
    anything; most "creative" designs die on a platform cap.
-2. **Provider docs are the source of truth**: consult the
-   `terraform-provider-huaweicloud` repo's `docs/` tree before memory or web;
-   the Go source (`huaweicloud/services/<svc>`) is the last resort — its Read
-   functions decide drift behavior, and several diagnoses below came from it.
+2. **Evidence hierarchy**: (1) current Huawei Cloud service documentation,
+   (2) current Terraform provider documentation, (3) provider source when the
+   docs are silent — its Read functions decide drift behavior, (4) verified
+   live-API behavior, (5) this pipeline's implementation constraints,
+   (6) historical incident knowledge. Cite the level you used.
 3. **Domain isolation**: a change belongs to exactly one domain module; if it
    needs two, it's probably an env-level composition concern.
 4. **Blast-radius ordering**: keep replace-sensitive resources (VPN gateway
@@ -127,4 +136,6 @@ Load only the asset(s) for the topic at hand:
 | Verify | built tree | clean plan triage + passing harness | apply with untriaged destructive changes |
 | Deliver | applied + verified estate | evidence bundle + handover artifact | handover without verification evidence |
 
-No phase may be skipped forward; stopping at any phase is always safe.
+No phase may be skipped forward. A workflow may stop at any GATE, but an interrupted deployment can leave a partially applied estate and must be resumed through verification (lzctl verify) before further changes.
+
+The same phase graph is machine-readable at `schemas/phases.json`; skill, CLI docs, and eval fixtures share it.

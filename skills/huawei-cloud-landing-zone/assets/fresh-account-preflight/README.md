@@ -1,4 +1,4 @@
-# Fresh-account preflight [REUSABLE]
+# Fresh-account preflight [RUNBOOK]
 
 A fresh tenant is not a small version of a mature one. Several things that
 always work on an established account **do not exist yet** on a new one, and

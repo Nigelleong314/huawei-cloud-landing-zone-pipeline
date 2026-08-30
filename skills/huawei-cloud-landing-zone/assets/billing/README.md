@@ -1,4 +1,4 @@
-# Billing modes: charging_mode doctrine [REUSABLE]
+# Billing modes: charging_mode doctrine [PLATFORM]
 
 Pay-per-use → monthly (prePaid) conversions are placed in the BSS console;
 whether Terraform notices depends on whether the resource's Read sets

@@ -1,4 +1,4 @@
-# Observability [REUSABLE]
+# Observability [PLATFORM]
 
 ## Log convergence
 

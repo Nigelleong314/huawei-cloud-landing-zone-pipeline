@@ -1,4 +1,4 @@
-# State backend: OBS, S3-compatible [REUSABLE]
+# State backend: OBS, S3-compatible [PLATFORM]
 
 ```hcl
 terraform {

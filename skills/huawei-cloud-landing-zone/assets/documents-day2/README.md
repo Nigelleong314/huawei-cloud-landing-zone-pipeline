@@ -1,4 +1,4 @@
-# Generated documents and Day-2 operations [REUSABLE]
+# Generated documents and Day-2 operations [IMPLEMENTATION]
 
 ## Document set (all generated from tfvars + state, never hand-written)
 

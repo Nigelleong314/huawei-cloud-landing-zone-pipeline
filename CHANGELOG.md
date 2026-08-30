@@ -2,7 +2,7 @@
 
 ## 0.1.0 — 2026-08-30
 
-Initial public-ready assembly of tooling proven in a production landing-zone engagement.
+Initial public-ready assembly.
 
 ### Capabilities
 

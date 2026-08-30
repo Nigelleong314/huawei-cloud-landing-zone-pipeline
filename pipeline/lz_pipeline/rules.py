@@ -55,6 +55,37 @@ class Rule:
     enforced_by: str = ""   # for check="runtime": where it lives
     fn: object = None       # callable for spec/tree rules
 
+    @property
+    def origin(self) -> str:
+        return ORIGINS.get(self.rule_id, "IMPLEMENTATION")
+
+
+# What KIND of constraint each rule encodes, so an implementation choice is
+# never mistaken for a Huawei Cloud requirement:
+#   PLATFORM       - hard behavior of Huawei Cloud itself
+#   PROVIDER       - behavior of the Terraform provider
+#   SAFETY         - a deliberate safety gate of this framework
+#   IMPLEMENTATION - a choice of this reference implementation
+#   OPERATIONAL    - an operating procedure the runner/CI enforces
+ORIGINS = {
+    "LZR-001": "PLATFORM",  "LZR-002": "PLATFORM",  "LZR-003": "PLATFORM",
+    "LZR-004": "PROVIDER",  "LZR-005": "PROVIDER",  "LZR-006": "PLATFORM",
+    "LZR-007": "PLATFORM",  "LZR-008": "IMPLEMENTATION",
+    "LZR-009": "PLATFORM",  "LZR-010": "PLATFORM",
+    "LZR-011a": "PLATFORM", "LZR-011b": "PLATFORM", "LZR-011c": "PROVIDER",
+    "LZR-011d": "IMPLEMENTATION", "LZR-011e": "IMPLEMENTATION",
+    "LZR-012": "PLATFORM",  "LZR-013": "PLATFORM",
+    "LZR-014": "PLATFORM",  "LZR-014b": "IMPLEMENTATION",
+    "LZR-015": "PLATFORM",  "LZR-015b": "IMPLEMENTATION",
+    "LZR-016": "PLATFORM",  "LZR-017": "PLATFORM",
+    "LZR-018": "OPERATIONAL", "LZR-019": "PROVIDER",
+    "LZR-020": "PLATFORM",  "LZR-021": "IMPLEMENTATION",
+    "LZR-022": "SAFETY",    "LZR-023": "SAFETY",   "LZR-024": "SAFETY",
+    "LZR-025": "SAFETY",    "LZR-026": "IMPLEMENTATION",
+    "LZR-027": "SAFETY",    "LZR-030": "IMPLEMENTATION",
+    "LZR-031": "IMPLEMENTATION",
+}
+
 REGISTRY: list = []
 
 
@@ -588,7 +619,7 @@ def main():
     if args.list:
         for r in sorted(REGISTRY, key=lambda x: x.rule_id):
             how = r.check if r.fn else f"runtime -> {r.enforced_by}"
-            print(f"{r.rule_id:9} {r.severity:5} [{how}] {r.title}")
+            print(f"{r.rule_id:9} {r.severity:5} {r.origin:14} [{how}] {r.title}")
         return 0
 
     findings = []

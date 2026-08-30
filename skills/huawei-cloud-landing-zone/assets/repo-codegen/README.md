@@ -1,4 +1,4 @@
-# Repository shape and the codegen split [REUSABLE]
+# Repository shape and the codegen split [IMPLEMENTATION]
 
 ## Repository shape
 

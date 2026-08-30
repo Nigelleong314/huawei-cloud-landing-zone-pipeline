@@ -1,4 +1,4 @@
-# Plan triage, drift, review gates [REUSABLE]
+# Plan triage, drift, review gates [IMPLEMENTATION]
 
 ## Plan triage (before every apply)
 

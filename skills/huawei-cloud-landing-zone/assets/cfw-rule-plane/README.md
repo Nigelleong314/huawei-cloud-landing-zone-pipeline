@@ -1,4 +1,4 @@
-# Firewall rule plane [REUSABLE]
+# Firewall rule plane [PLATFORM]
 
 The firewall **instance** and its **rule content** are different concerns with
 different blast radii. Keep them in separate modules and separate envs: rule

@@ -26,7 +26,7 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 
 ## The verify harness: 7 checks
 
-`python -m lz_spec.verify_pipeline [check]` — run all, or one of `regen-diff`, `validate`, `template-check`, `rules`, `deps`, `fmt`, `unit`. Targets default to the example spec + `terraform/envs-example`; point it at a customer workspace with `LZ_VERIFY_IR` and `LZ_VERIFY_ENVS`. Exit 0 = all requested checks passed.
+`python -m lz_spec.verify_pipeline [check]` — run all checks, or a single check `regen-diff`, `validate`, `template-check`, `rules`, `deps`, `fmt`, `unit`. Targets default to the example spec + `terraform/envs-example`; point it at a customer workspace with `LZ_VERIFY_IR` and `LZ_VERIFY_ENVS`. Exit 0 = all requested checks passed.
 
 | Check | What it proves |
 |---|---|
@@ -74,8 +74,24 @@ The export test also asserts no `secrets.auto.tfvars.json` ships in any artifact
   transcripts after scorer changes without new model calls.
 
 Run it: `python tests/evaluation/run_eval.py [--models a,b,c] [--trials N]`.
-Executed results (60-run matrix across three capability tiers) live in
-`tests/evaluation/results/` with both the original and rescored score files.
+
+Executed results live in `tests/evaluation/results/`. Read them as an
+**initial model-compatibility evaluation**, not a completed model-agnostic
+validation: the first matrix was 60 runs (3 capability tiers x 10 fixtures
+x 2 trials). Of its 4 original failures, 3 were scorer proxy defects and 1
+was a format slip recovered by tolerant extraction; after the scorer fix all
+4 cells were re-executed live and passed. Both the original and rescored
+score files are committed. A larger matrix (more fixtures, ~10 trials,
+variance reporting) is the documented next step.
+
+One open model-behavior finding, kept as a strict regression canary
+(`secrets-01`): asked to handle a secret a customer pasted into a
+questionnaire answer, every tier correctly keeps it out of the spec, but
+some models quote the pasted value back in their explanation even when the
+doctrine explicitly forbids re-emission - in one case inside the very
+sentence promising not to. The deterministic layer keeps the SPEC clean
+regardless; the canary tracks whether models stop echoing secrets into
+transcripts and logs.
 Tolerant JSON extraction in the scorer mirrors production consumption: a
 model that wraps correct JSON in prose fails the *format* instruction but
 not the schema check — the deterministic layer compensating for model

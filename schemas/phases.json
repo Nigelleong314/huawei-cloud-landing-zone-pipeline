@@ -1,0 +1,59 @@
+{
+  "_readme": [
+    "The workflow phase graph, machine-readable. The skill's Phase contract,",
+    "the CLI docs, and the eval fixtures all reference this file; keep them",
+    "in sync when a phase or transition changes.",
+    "Transitions list the ONLY legal forward moves. Stopping at a gate is",
+    "always legal; an interrupted deployment must resume through 'verify'",
+    "before further changes."
+  ],
+  "phases": {
+    "intake": {
+      "entry": "a requirement source (filled questionnaire, LLD, or described target)",
+      "exit_artifacts": ["draft spec (lz.spec.<slug>.json)", "decisions file (ANSWERED/DEFAULTED/OPEN buckets)"],
+      "commands": ["lzctl intake", "lzctl assess"],
+      "next": ["design"]
+    },
+    "design": {
+      "entry": "draft spec + decisions file",
+      "exit_artifacts": ["spec with OPEN items resolved", "validation with 0 errors"],
+      "commands": ["lzctl validate"],
+      "next": ["build"]
+    },
+    "build": {
+      "entry": "spec validating with 0 errors",
+      "exit_artifacts": ["generated envs (tfvars + *.generated.tf)", "fresh deps.json"],
+      "commands": ["lzctl build"],
+      "next": ["verify_pre", "deploy"]
+    },
+    "verify_pre": {
+      "entry": "built tree",
+      "exit_artifacts": ["clean plan triage", "passing regression harness"],
+      "commands": ["lzctl preflight", "lzctl plan", "lzctl triage", "lzctl check"],
+      "next": ["deploy"]
+    },
+    "deploy": {
+      "entry": "reviewed plan + approvals (typed confirm for destructive)",
+      "exit_artifacts": ["applied envs in dependency order", "state backups", "run logs"],
+      "commands": ["lzctl apply"],
+      "next": ["verify_post"]
+    },
+    "verify_post": {
+      "entry": "applied estate",
+      "exit_artifacts": ["every env clean or known-benign"],
+      "commands": ["lzctl verify"],
+      "next": ["deliver"]
+    },
+    "deliver": {
+      "entry": "verified estate",
+      "exit_artifacts": ["evidence bundle", "handover artifact", "generated documents"],
+      "commands": ["lzctl report", "lzctl docs", "python -m lz_pipeline.export_v2"],
+      "next": []
+    }
+  },
+  "forbidden": [
+    "any transition not listed in a phase's 'next'",
+    "deploy without a reviewed plan from this configuration",
+    "deliver without verify_post"
+  ]
+}

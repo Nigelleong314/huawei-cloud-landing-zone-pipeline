@@ -1,4 +1,4 @@
-# Intake: questionnaire → draft spec [REUSABLE]
+# Intake: questionnaire → draft spec [IMPLEMENTATION]
 
 The stage before design. An open-ended questionnaire the customer fills
 **alone**, converted into a draft spec plus an explicit list of what is still
@@ -57,11 +57,11 @@ is not at risk.
 
 ## Every field lands in exactly one of three buckets
 
-| Bucket | Source | Recorded where |
+| Bucket | Meaning | Recorded where |
 |---|---|---|
-| Answered | the customer's response | the draft spec |
-| Defaulted | the question's `default_if_silent` | *Defaults applied* in the decisions file |
-| Gap | nothing supplies it | *Open questions*, citing the question ref |
+| ANSWERED | the customer's response supplies it | the draft spec |
+| DEFAULTED | the source is silent and a documented, authorized default exists (`default_if_silent`) | *Defaults applied* in the decisions file |
+| OPEN | the value is required and no authorized default exists | *Open questions*, citing the question ref |
 
 **Never invent a value.** A missing CIDR, email pattern, or retention number
 is a decisions-file entry, not a guess — a guess is indistinguishable from a
@@ -77,9 +77,11 @@ answers; treat both as signal.
   exclusions, security groups, account assignments, SNAT/DNAT) are now
   dangling. Rebuild or empty them; referential integrity is enforced
   downstream and will list every miss.
-- **No secrets in the spec.** A pre-shared key or credential pasted into an
-  answer stays out of the spec; write a placeholder and flag it for
-  out-of-band handover.
+- **No secrets in the spec — and never re-emit one.** A pre-shared key or
+  credential pasted into an answer stays out of the spec; write a placeholder
+  and flag it for out-of-band handover. Do not quote the pasted value back in
+  any output either — transcripts and logs are also channels; refer to it as
+  "the pasted value".
 - Stamp provenance on the draft: which questionnaire version and which source
   file it came from.
 

@@ -1,4 +1,4 @@
-# Cross-account providers: the two assume-role modes [REUSABLE]
+# Cross-account providers: the two assume-role modes [PLATFORM]
 
 Both use master AK/SK + the member's `OrganizationAccountAccessAgency`;
 they yield DIFFERENT credentials:

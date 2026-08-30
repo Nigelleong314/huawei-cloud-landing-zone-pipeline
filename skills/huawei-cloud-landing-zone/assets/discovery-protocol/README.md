@@ -1,4 +1,4 @@
-# Discovery protocol for ad-hoc requirements [REUSABLE]
+# Discovery protocol for ad-hoc requirements [DOMAIN]
 
 The intake questionnaire (assets/intake-questionnaire) handles the formal
 path. This asset covers everything else: a request arriving as chat, email,
@@ -35,13 +35,13 @@ Mirroring assets/intake-questionnaire:
 
 | Bucket | Meaning | Recorded where |
 |---|---|---|
-| Answered | requester supplied it | the spec |
-| Defaulted | framework default applied | *Defaults applied* in the decisions file |
-| Open | nobody supplied it | *Open questions* in the decisions file |
+| ANSWERED | requester supplied it | the spec |
+| DEFAULTED | the source is silent and a documented, authorized default exists | *Defaults applied* in the decisions file |
+| OPEN | the value is required and no authorized default exists | *Open questions* in the decisions file |
 
-## When the requester insists on proceeding with gaps
+## When the requester insists on proceeding with OPEN items
 
 Proceed only with each assumption **written into the decisions file** as an
 explicit line item ("assumed 10.x.y.0/24 — unverified against the IP plan,
-owner: <requester>"). Never fill a gap silently; a silent assumption
-surfaces later as an outage or a re-IP project.
+owner: <requester>"). Never resolve an OPEN item silently; a silent
+assumption surfaces later as an outage or a re-IP project.

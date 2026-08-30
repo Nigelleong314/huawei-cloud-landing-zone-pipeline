@@ -23,7 +23,7 @@ Both must pass. The harness's `regen-diff` check is the determinism contract: if
 
 ## Schema changes ripple
 
-`pipeline/lz_spec/schema.py` is the single source of truth; changing it obligates you to regenerate every derived artifact:
+`pipeline/lz_spec/schema.py` is the authoritative schema definition; changing it obligates you to regenerate every derived artifact:
 
 ```bash
 # 1. Questionnaire — the coverage check FAILS the build if any non-exempt

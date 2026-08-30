@@ -1,4 +1,4 @@
-# Accounts, OUs, delegated administration [REUSABLE]
+# Accounts, OUs, delegated administration [PLATFORM]
 
 ## The 9 governance domains → module map
 

@@ -1,4 +1,4 @@
-# Hybrid connectivity [REUSABLE]
+# Hybrid connectivity [DOMAIN]
 
 Huawei CAF prescribes Direct Connect / VPN / Cloud Connect per topology
 (caf_01_0049). This framework automates exactly one of the three.

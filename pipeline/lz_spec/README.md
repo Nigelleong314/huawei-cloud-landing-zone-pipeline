@@ -19,7 +19,7 @@ customers), never an input.
 
 ## Workflow
 
-The normal way to edit a spec is the app:
+The recommended way to edit a spec is through the app:
 
     cd lz_app && py -m lz_app
 

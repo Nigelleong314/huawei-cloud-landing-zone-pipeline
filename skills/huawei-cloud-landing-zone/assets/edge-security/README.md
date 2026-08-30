@@ -1,4 +1,4 @@
-# Edge security: WAF and Anti-DDoS [REUSABLE]
+# Edge security: WAF and Anti-DDoS [PLATFORM]
 
 ## WAF (dedicated mode)
 

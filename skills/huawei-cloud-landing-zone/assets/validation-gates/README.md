@@ -1,4 +1,4 @@
-# Validation gates [REUSABLE]
+# Validation gates [IMPLEMENTATION]
 
 Gates that keep a landing-zone estate correct, in the order they run.
 

@@ -1,4 +1,4 @@
-# SCP guardrails [REUSABLE]
+# SCP guardrails [PLATFORM]
 
 ## The guardrail set (v5.0 only)
 

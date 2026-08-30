@@ -1,4 +1,4 @@
-# CI credentials: OIDC → short-lived keys [REUSABLE]
+# CI credentials: OIDC → short-lived keys [PLATFORM]
 
 The target model: the pipeline proves its identity with an OIDC token minted
 by the CI platform, exchanges it for **short-lived** cloud credentials, and

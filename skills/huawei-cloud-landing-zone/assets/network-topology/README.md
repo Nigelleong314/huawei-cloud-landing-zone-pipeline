@@ -1,4 +1,4 @@
-# Network topology: ER hub-and-spoke with centralized inspection [REUSABLE]
+# Network topology: ER hub-and-spoke with centralized inspection [DOMAIN]
 
 ## Core shape
 
