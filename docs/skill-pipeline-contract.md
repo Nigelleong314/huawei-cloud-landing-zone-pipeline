@@ -15,7 +15,7 @@ implementation of it.
 
 Consequences, in decreasing order of importance:
 
-1. **Nothing deployable exists that nobody decided.** The assess draft is
+1. **No deployable value is generated without an explicit decision.** The assess draft is
    neutral (every value unset, failing validation by design); OPEN questions
    block `build` mechanically until a resolution — who, why — is recorded in
    `lz.spec.<slug>.decisions.json`.

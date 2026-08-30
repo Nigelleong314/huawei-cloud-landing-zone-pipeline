@@ -7,7 +7,7 @@ pytest                              # unit suites via the pytest bridge
 python -m lz_spec.verify_pipeline   # the full regression harness (7 checks)
 ```
 
-`tests/unit/test_suites.py` is a thin pytest bridge over the self-contained assert-script suites (each exits non-zero on failure); it gives them discovery and per-suite reporting without rewriting them. Eval tests are marked `eval` and excluded by default (`addopts = "-m 'not eval'"` in `pyproject.toml`).
+`tests/unit/test_suites.py` is a thin pytest bridge over the self-contained assert-script suites (each exits non-zero on failure); it gives them discovery and per-suite reporting without rewriting them. Eval tests are marked `eval` and integration tests (pip/venv or terraform) are marked `integration`; both are excluded by default (`addopts = "-m 'not eval and not integration'"` in `pyproject.toml`). The default unit tier needs Python + openpyxl only — no Terraform (CI runs it without one; `test_phase4` degrades its binary-dependent check gracefully).
 
 ## The suites
 
@@ -31,7 +31,7 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 | Check | What it proves |
 |---|---|
 | `regen-diff` | Rebuilding the envs from the spec IR is a **no-op**: every generated file (`terraform.tfvars.json`, `*.generated.tf`) is byte-identical, none missing, none new. This is the determinism guarantee. Secrets are stripped from the environment before the rebuild so verify never (re)writes them. |
-| `validate` | `terraform validate` passes in every initialized env (skipped when terraform is absent or no env is init'ed). |
+| `validate` | `terraform validate` passes in every initialized env (skipped when terraform is absent or no environment is initialized). |
 | `template-check` | The blank workbook template's sheets/tables/columns match a fresh generation from `schema.py` — i.e. the shipped template is not stale. |
 | `rules` | The LZR platform-rule registry: spec rules on the IR + tree rules on the envs, zero error-severity findings. |
 | `deps` | `deps.json` matches a fresh dependency graph from `terraform_remote_state` references (ordering, ownership registry, freshness). |

@@ -84,7 +84,7 @@ Filled questionnaire → mechanical answers dump. No interpretation. Exit code f
 
 ### `lzctl assess DUMP.json --customer SLUG [--workspace DIR] [--force]`
 
-Deterministic assessment pre-pass: writes `specs/lz.spec.<slug>.json` (the packaged example spec with provenance stamped — baseline values are example defaults until replaced) and `specs/lz.spec.<slug>.decisions.md`, which buckets **every** question exactly one of three ways: answered (interpret into the draft), silent-with-documented-default (review), or open gap (resolve before build). This command never guesses. Refuses to overwrite an existing draft without `--force`. Exit 0.
+Deterministic assessment pre-pass: writes a schema-shaped **neutral** draft (`specs/lz.spec.<slug>.json`, every deployable sheet value unset — it intentionally fails validation until customer answers and approved defaults are interpreted into it) plus two decisions files: `…decisions.md` (human agenda) and `…decisions.json` (machine-readable; the build gate). Every question lands in exactly one state — ANSWERED (interpret into the draft), DEFAULTED (silent with a documented default; review), or OPEN (required, no default; blocks build until a complete resolution — status + approved_by + reason — is recorded; contract in `schemas/decisions.schema.json`). The draft carries a `provenance` block (decisions filename + assessment id), so the gate follows the spec through copies and renames. This command never guesses. Refuses to overwrite an existing draft without `--force`. Exit 0.
 
 ### Delegated verbs: `build`, `validate` (alias `spec-validate`), `check`
 
@@ -96,7 +96,7 @@ lzctl build --ir <spec> --envs-dir <envs> [--scaffold-dir <dir>] [--only 05,06]
 lzctl check [regen-diff|validate|template-check] # -> python -m lz_spec.verify_pipeline
 ```
 
-`build`/`validate` run with `pipeline/` as the working directory — pass absolute paths, or invoke `python -m lz_pipeline ...` directly.
+Delegated commands preserve the caller's working directory — relative paths resolve exactly as supplied (locked by `tests/unit/test_cli_contract.py`).
 
 ## Approval gates, summarized
 

@@ -47,7 +47,7 @@ numbers ARE the apply order.
   seconds after the grant fails with `EPS.0004 "Permission error"` on fresh
   accounts. Add a one-time sleep after the grant. Deleting the grant resource
   does NOT revoke the authority.
-- **poc-type enterprise projects are permanent**: they cannot be disabled
-  (`EPS.0614`), so `terraform destroy` fails forever and orphans them outside
-  state. Name poc EPs right the first time; treat their creation as an
-  irreversible action requiring a human gate.
+- **`poc`-type (PoC) enterprise projects are permanent**: they cannot be disabled
+  (`EPS.0614`), so `terraform destroy` cannot remove them and leaves them
+  unmanaged outside Terraform state. Name PoC EPs right the first time; treat
+  their creation as an irreversible action requiring a human gate.

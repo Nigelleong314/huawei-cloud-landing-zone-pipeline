@@ -29,12 +29,12 @@ The `questionnaire-to-spec` skill drives the intake phase and depends on this sk
 
 ## How to use this skill
 
-The operating loop, every task:
+For every task, follow this operating loop:
 
 1. **Place the task on the phase graph** (Phase contract below; canonical in `schemas/phases.json`) — which phase is it in, and is its entry artifact present?
 2. **Load only the asset(s)** matching the task from the capability table below.
 3. **Execute through `lzctl`**, never around it — every action is a command a human could have typed.
-4. **Read the gate**, not the vibes: exit codes and rule findings decide pass/fail (0 ok, 1 error, 2 changes, 3 destructive/blocked).
+4. **Use deterministic gate results, never subjective judgment**: exit codes and rule findings decide pass/fail (0 ok, 1 error, 2 changes, 3 destructive/blocked).
 5. **Write judgment into artifacts** — spec edits, decision resolutions, triage notes — so a human can review the diff.
 6. **Stop at gates you cannot pass**: an unresolved OPEN decision, a failing validation, an untriaged destructive plan. Ask; never guess, never bypass.
 
@@ -108,7 +108,7 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
    name via data sources at plan time; hard-code what the platform fixes.
 6. **Everything reversible has a documented rollback; everything irreversible
    gets a human gate.** Known irreversible operations on this platform: account creation,
-   poc-type enterprise projects (can never be disabled or destroyed), state
+   `poc`-type (PoC) enterprise projects (can never be disabled or destroyed), state
    moves/pushes, VPN gateway public EIP changes (force-replace = new public
    IPs = site down).
 

@@ -2,7 +2,7 @@
 
 > A config-driven pipeline and agent skill that turn one reviewed specification into a complete, governed Huawei Cloud landing zone — deterministically, with explicit approval gates for high-impact actions.
 
-**The contract: the skill decides and asks; the pipeline executes and gates.** Judgment lives in reviewable artifacts, every gate is an exit code, and nothing deployable exists that nobody decided — see [docs/skill-pipeline-contract.md](docs/skill-pipeline-contract.md).
+**The contract: the skill decides and asks; the pipeline executes and gates.** Judgment lives in reviewable artifacts, every gate is an exit code, and no deployable value is generated without an explicit decision — see [docs/skill-pipeline-contract.md](docs/skill-pipeline-contract.md).
 
 License: Apache-2.0.
 
@@ -52,7 +52,7 @@ user requirements
       v
 +--------------------------------------+
 | Terraform                            |   12 plain-HCL environments composed from
-| terraform/modules + generated envs   |   terraform/modules
+| generated envs + module snapshot     |   15 versioned domain modules
 +--------------------------------------+
       |
       v
@@ -76,7 +76,7 @@ The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl
 
 ## Which models can be used
 
-Any — the *execution boundary* is model-independent: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec IR is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
+The execution boundary is model-independent by design: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec IR is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
 
 ## Prerequisites
 
@@ -95,6 +95,13 @@ pip install -e .     # development (editable)
 
 Plain-checkout execution (no install) is a development/CI mode — see
 `docs/development.md`.
+
+**Package boundary**: the wheel provides the pipeline *runtime* — every
+command, schema, template, and fixture needed to intake, assess, validate,
+and generate. The Terraform estate assets (`terraform/modules/`,
+`terraform/scaffold/`) are repository/handover assets, referenced by path
+(`--scaffold-dir`), not packaged — deploying needs a checkout or a handover
+artifact alongside the installed package.
 
 ## Quickstart
 

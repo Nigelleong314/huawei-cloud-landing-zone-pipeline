@@ -15,8 +15,7 @@ dependencies = ["openpyxl>=3.1"]
 lzctl = "lz_pipeline.lzctl:main"
 lz-app = "lz_app.server:main"
 
-[project.urls]
-Repository = "https://github.com/OWNER/huawei-cloud-landing-zone-pipeline"
+# [project.urls] Repository: add when the repo has a home (deliberately no placeholder)
 
 [tool.setuptools]
 package-dir = { lz_pipeline = "pipeline/lz_pipeline", lz_spec = "pipeline/lz_spec", lz_app = "app/lz_app" }
