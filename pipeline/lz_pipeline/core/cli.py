@@ -196,12 +196,13 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("workbook")
     p.add_argument("--envs-dir", default=None,
-                   help="Target output dir (default: <repo>/huawei-lz/envs-v2). "
-                        "A bare name is resolved under huawei-lz/.")
+                   help="Target output dir (default: envs/ next to the workbook). "
+                        "A bare name is resolved next to the workbook.")
     p.add_argument("--scaffold-dir", default=None,
                    help="Copy static scaffold (main.tf, variables.tf, ...) from this dir's "
                         "matching env subdirs into the target before generating. "
-                        "Use when creating a NEW env tree. Bare name resolved under huawei-lz/.")
+                        "Use when creating a NEW env tree (the repo ships one at "
+                        "terraform/scaffold). Bare name resolved next to the workbook.")
     p.add_argument("--only", default=None,
                    help="Comma-separated subset of envs to generate (full name or numeric "
                         "prefix, e.g. '00,01,02,03'). Default: all envs.")
@@ -212,9 +213,9 @@ def main():
         print(f"workbook not found: {wb_path}", file=sys.stderr)
         sys.exit(2)
 
-    huawei_lz = wb_path.parent.parent / "huawei-lz"
-    envs_dir = _resolve_dir(huawei_lz, args.envs_dir) if args.envs_dir else (huawei_lz / "envs-v2")
-    scaffold_dir = _resolve_dir(huawei_lz, args.scaffold_dir) if args.scaffold_dir else None
+    anchor = wb_path.parent
+    envs_dir = _resolve_dir(anchor, args.envs_dir) if args.envs_dir else (anchor / "envs")
+    scaffold_dir = _resolve_dir(anchor, args.scaffold_dir) if args.scaffold_dir else None
     selected = _select_envs(args.only)
 
     # Without a scaffold source, the target env dirs must already exist (in-place).

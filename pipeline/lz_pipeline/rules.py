@@ -16,7 +16,7 @@ Usage (library):
 
 Usage (CLI):
     py rules.py --workbook "landing_zone_spec - acme.xlsx" \
-                [--envs-dir ../huawei-lz/envs-acme] [--modules-dir auto] [--list]
+                [--envs-dir envs] [--modules-dir auto] [--list]
 
 Exit code: 1 if any ERROR finding, else 0 (warnings never fail).
 
@@ -474,7 +474,7 @@ def r_sgacl_reserved(spec):
         n = len(m.get(t) or [])
         if n:
             out.append(f"11_SGACL: {t} has {n} enabled row(s) but network-ACL support is not implemented "
-                       "(tables are reserved; see modules-v2/secgroups/README.md)")
+                       "(tables are reserved; see terraform/modules/secgroups/README.md)")
     return out
 
 
@@ -559,7 +559,7 @@ def r_perimeter_enforce(envs_dir: Path, modules_dir: Path):
 # ────────────────────────────────────────────────────────────────────────────
 
 _doc("LZR-001", "error", "runtime", "CTS org tracker region is hard-coded in the module, not a variable",
-     "modules-v2/compliance-audit design")
+     "terraform/modules/compliance-audit design")
 _doc("LZR-005", "error", "runtime", "TF >= 1.11 needs AWS_REQUEST/RESPONSE_CHECKSUM_* = when_required",
      "runner preflight (lzctl) + README")
 _doc("LZR-006", "error", "runtime", "OBS / v5-IAM / org-RMS cross-account work needs the assume_role block",
@@ -569,11 +569,11 @@ _doc("LZR-007", "error", "runtime", "No native state locking: single apply + sta
 _doc("LZR-008", "error", "runtime", "Remote-state producer env must be applied before its consumers",
      "depsgraph.py --check (build + verify)")
 _doc("LZR-010", "error", "runtime", "Mandatory-tags SCP lists only tag-in-request create APIs",
-     "modules-v2/perimeter curated action list")
+     "terraform/modules/perimeter curated action list")
 _doc("LZR-012", "error", "runtime", "VPN gateway eip1/eip2 are create-time-only (change = replacement, new IPs)",
      "plan triage protected-type escalation")
 _doc("LZR-013", "error", "runtime", "No ER static routes to VPN attachments (ER.04006105)",
-     "modules-v2/vpn design (assoc/propagation only)")
+     "terraform/modules/vpn design (assoc/propagation only)")
 _doc("LZR-015", "error", "runtime", "Account names 6-32 chars; unique root emails",
      "build_envs.validate()")
 _doc("LZR-016", "error", "runtime", "OU depth <= 2; no parent cycles",
@@ -618,7 +618,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--workbook", help="workbook to check (spec rules)")
     ap.add_argument("--envs-dir", help="generated envs tree to check (tree rules)")
-    ap.add_argument("--modules-dir", help="modules dir for tree rules (default: sibling huaweicloud-agentic-tools/modules-v2)")
+    ap.add_argument("--modules-dir", help="modules dir for tree rules (default: <repo>/terraform/modules)")
     ap.add_argument("--list", action="store_true", help="print the full rule registry and exit")
     args = ap.parse_args()
 
@@ -637,7 +637,7 @@ def main():
     if args.envs_dir:
         envs = Path(args.envs_dir)
         modules = Path(args.modules_dir) if args.modules_dir else \
-            Path(__file__).parent.parent / "huaweicloud-agentic-tools" / "modules-v2"
+            Path(__file__).resolve().parents[2] / "terraform" / "modules"
         findings += run_tree_rules(envs, modules)
 
     errors = [f for f in findings if f.severity == "error"]

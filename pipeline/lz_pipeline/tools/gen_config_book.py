@@ -5,7 +5,7 @@ files and, when --states-dir is given, from pulled state (live IDs/EIPs).
 Sections degrade gracefully when a feature is unused or state is absent.
 
 Usage:
-    py tools/gen_config_book.py --envs-dir ..\\huawei-lz\\envs-acme \
+    py tools/gen_config_book.py --envs-dir envs \
         [--states-dir <dir>] --out book.xlsx [--customer "Example Corp"] [--version 1.0]
 """
 

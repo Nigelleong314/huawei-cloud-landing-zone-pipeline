@@ -5,7 +5,7 @@ derivation, build the Terraform envs, operate them (via the untouched
 lz_pipeline/lzctl.py), and export customer artifacts.
 
 The app is a TOOL; it operates on a WORKSPACE (the checkout containing
-lz_pipeline/, lz_spec/, huawei-lz/). Discovery order: --workspace flag,
+lz_pipeline/, lz_spec/, terraform/). Discovery order: --workspace flag,
 LZ_WORKSPACE env var, walk-up from CWD, walk-up from this file (covers the
 in-repo layout ldz/lz_app/lz_app/).
 """

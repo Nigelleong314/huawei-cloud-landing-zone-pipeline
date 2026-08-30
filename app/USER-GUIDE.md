@@ -1,6 +1,6 @@
 # LZ Pipeline App — User Guide
 
-Everything from unzipping the package to operating a landing zone with it.
+Everything from installing the package to operating a landing zone with it.
 
 ---
 
@@ -22,24 +22,24 @@ unzip it, and add the folder containing `terraform.exe` to PATH.
 Open a NEW terminal after installing so PATH changes take effect, then run
 the Verify commands in the table.
 
-### 1.2 Unzip and run
+### 1.2 Install and run
 
-1. Unzip `lz-app-package.zip` anywhere (for example `C:\lz-app-package`).
-2. Open a terminal in the package's `lz_app` folder and run:
+1. From the repo root: `pip install .` (gives you the `lz-app` and `lzctl` commands).
+2. Run:
 
-       py -m lz_app
+       lz-app
 
    The app starts on `http://127.0.0.1:8600` and opens your browser.
 
 Options:
 
-    py -m lz_app --port 8611            # different port
-    py -m lz_app --no-browser           # don't open the browser
-    py -m lz_app --workspace <dir>      # run from anywhere; point at the package root
+    lz-app --port 8611            # different port
+    lz-app --no-browser           # don't open the browser
+    lz-app --workspace <dir>      # run from anywhere; point at your workspace root
 
-You can also set the environment variable `LZ_WORKSPACE` to the package root
+You can also set the environment variable `LZ_WORKSPACE` to the workspace root
 instead of `--workspace`. The app finds its workspace automatically when run
-from inside the package.
+from inside the repo.
 
 The app binds to 127.0.0.1 only — it is a local tool, not a shared web server.
 
@@ -57,29 +57,25 @@ The app binds to 127.0.0.1 only — it is a local tool, not a shared web server.
 
 ## 2. Package layout — what each folder is, and what you may edit
 
-    lz-app-package\
-    ├── USER-GUIDE.md                    this guide
+    <workspace>\                          (the repo checkout, or your own folder)
+    ├── USER-GUIDE.md                    this guide (app\USER-GUIDE.md in the repo)
     │
-    ├── lz_spec\                         ★ YOUR SPEC FILES LIVE HERE
+    ├── specs\                           ★ YOUR SPEC FILES LIVE HERE
+    │   └── lz.spec.<customer>.json      specs you create with "New" are saved here
+    │
+    ├── pipeline\lz_spec\                CORE — do not edit
     │   ├── lz.spec.example.json         filled example spec (safe to explore)
-    │   ├── lz.spec.acme.json         reference customer spec
-    │   ├── <your-spec>.json             specs you create with "New" are saved here
-    │   ├── schema.py                    CORE — do not edit (defines every sheet/column)
-    │   ├── gen_template.py              CORE — do not edit
-    │   ├── verify_pipeline.py           CORE — do not edit (the Schema check job)
+    │   ├── schema.py                    defines every sheet/column
     │   └── landing_zone_spec.xlsx       generated blank Excel template
     │
-    ├── lz_app\                          CORE — the web app itself, do not edit
-    ├── lz_pipeline\                     CORE — engine, runner, tools, tests, do not edit
+    ├── app\lz_app\                      CORE — the web app itself, do not edit
+    ├── pipeline\lz_pipeline\            CORE — engine, runner, tools, tests, do not edit
     │   └── tests\goldens\               locked expected outputs (the regression oracle)
     │
-    ├── huawei-lz\
-    │   ├── envs-v2\                     blank scaffold — do not edit (template for new trees)
-    │   ├── envs-example\                GENERATED reference tree — regenerate, don't hand-edit
-    │   └── handover-docs\               customer doc overlay (cookbooks, per-env READMEs)
-    │
-    └── huaweicloud-agentic-tools\
-        └── modules-v2\                  Terraform module library — do not edit
+    └── terraform\
+        ├── scaffold\                    blank scaffold — do not edit (template for new trees)
+        ├── envs-example\                GENERATED reference tree — regenerate, don't hand-edit
+        └── modules\                     Terraform module library — do not edit
 
 Created at runtime (not in the zip):
 
@@ -95,7 +91,7 @@ Rules of thumb:
 - **Edit through the app.** The JSON spec is the single source of truth;
   everything under `envs-*` is generated from it. If you hand-edit a generated
   file, the next Build overwrites it.
-- **Never edit `schema.py`, `lz_pipeline\`, `lz_app\`, `modules-v2\`** — these
+- **Never edit `schema.py`, `lz_pipeline\`, `lz_app\`, `terraform\modules\`** — these
   are the product. The Schema check job will catch accidental changes.
 - The Excel workbook is an **output** (Export artifact job), never an input.
 
@@ -127,11 +123,11 @@ order (Global settings, then 01 Foundation through 11 SGACL, plus File Info).
 
 | Action | What it does |
 |---|---|
-| dropdown + **Load** | open a spec from `lz_spec\` |
+| dropdown + **Load** | open a spec from `specs\` |
 | **New** | create a fresh spec (give it a name like `lz.spec.customer.json`) |
 | **Validate** | full structural + platform-rule check; errors link to the offending sheet |
 | **Save** | write back to the loaded file |
-| **Save as** | save a copy under a new name in `lz_spec\` |
+| **Save as** | save a copy under a new name in `specs\` |
 
 Validate before every build. Errors block the build; warnings are advisory.
 
@@ -140,8 +136,8 @@ Validate before every build. Errors block the build; warnings are advisory.
 ## 4. Pipeline jobs
 
 Set **Environments directory** once (top of the Pipeline jobs panel) — all
-jobs use it. In this package it defaults to `huawei-lz/envs-example`. When you
-build a new customer, point it at that tree (e.g. `huawei-lz/envs-customer`).
+jobs use it. It defaults to `terraform/envs-example`. When you
+build a new customer, point it at a new tree (e.g. `envs-customer`).
 
 | Job | What it does | Cloud access |
 |---|---|---|
@@ -176,7 +172,7 @@ Job behaviour:
 ### 5.1 Explore the example (no cloud, no credentials)
 
 Load `lz.spec.example.json` → browse sheets → Validate → Build specs →
-inspect `huawei-lz\envs-example\` → Schema check to see the whole test
+inspect `terraform\envs-example\` → Schema check to see the whole test
 suite pass.
 
 ### 5.2 Start a new customer
@@ -186,8 +182,8 @@ suite pass.
    05 Network (VPCs, subnets, firewall), and onward. Use the example spec as
    a reference for shapes and naming.
 3. **Validate** until clean, **Save**.
-4. Set Environments directory to a new folder (e.g. `huawei-lz/envs-customer`)
-   and run **Build specs**. The first build scaffolds the tree from `envs-v2`.
+4. Set Environments directory to a new folder (e.g. `envs-customer`)
+   and run **Build specs**. The first build scaffolds the tree from `terraform/scaffold`.
 5. `terraform init` in each environment folder (one-time, downloads the
    provider), or let Preflight tell you what's missing.
 6. Add credentials (section 6), then **Preflight** until green.
@@ -233,7 +229,7 @@ The app never displays, stores, or logs the key values.
 | Symptom | Fix |
 |---|---|
 | `workspace not found` on startup | run from inside the package, or pass `--workspace <package root>` |
-| Port already in use | `py -m lz_app --port 8601` |
+| Port already in use | `lz-app --port 8601` |
 | Preflight: missing `AWS_ACCESS_KEY_ID` | no secrets file found — create one (section 6) or fill the credentials panel |
 | Preflight: checksum value "must be when_required" | your shell exports conflicting `AWS_*CHECKSUM*` variables; unset them |
 | Schema check: "validate: PASS (0/0 envs valid)" | no environment is `terraform init`-ed yet — expected on a fresh package; init the envs to include them |

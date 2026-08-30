@@ -2,6 +2,8 @@
 
 > A config-driven pipeline and agent skill that turn one reviewed specification into a complete, governed Huawei Cloud landing zone — deterministically, with explicit approval gates for high-impact actions.
 
+**The contract: the skill decides and asks; the pipeline executes and gates.** Judgment lives in reviewable artifacts, every gate is an exit code, and nothing deployable exists that nobody decided — see [docs/skill-pipeline-contract.md](docs/skill-pipeline-contract.md).
+
 License: Apache-2.0.
 
 ## Why this exists
@@ -14,7 +16,7 @@ Manual landing-zone delivery can take weeks of console work: dozens of accounts,
 
 ## What it deploys
 
-The reference implementation composes 12 ordered Terraform environments across the 9 governance domains of the Cloud Adoption Framework, from 15 modules (`terraform/modules/`). Other estates may enable fewer domains or different compositions — the spec decides:
+The reference implementation composes 12 ordered Terraform environments across the 9 governance domains of the Cloud Adoption Framework, using 15 modules (`terraform/modules/`). Other estates may enable fewer domains or different compositions — the spec decides:
 
 | Domain | Env(s) | Covers |
 |---|---|---|
@@ -49,7 +51,7 @@ user requirements
       |  terraform.tfvars.json + *.generated.tf + deps.json
       v
 +--------------------------------------+
-| Terraform                            |   12 plain-HCL envs composing
+| Terraform                            |   12 plain-HCL environments composed from
 | terraform/modules + generated envs   |   terraform/modules
 +--------------------------------------+
       |
@@ -66,7 +68,7 @@ The model reasons and interprets; the skill provides workflow and doctrine; the 
 | Pipeline (`lzctl`) | Deterministic orchestration | no | yes |
 | Terraform | Infrastructure execution | no | yes |
 | Validators (JSON Schema, LZR rules, plan triage) | Enforcement | no — deterministic | no |
-| Human | Approval at gates | yes | destructive applies need a typed second confirmation that `--yes` never bypasses |
+| Human | Approval at gates | yes | destructive applies require a second typed confirmation, which `--yes` never bypasses |
 
 ## How the skill and pipeline work together
 
@@ -91,15 +93,8 @@ pip install .        # normal use  (gives you the lzctl and lz-app commands)
 pip install -e .     # development (editable)
 ```
 
-Plain-checkout execution is supported as a development/CI mode only: the root
-`conftest.py` puts `pipeline/` and `app/` on the path (for pytest **and** the
-subprocesses it spawns); outside pytest, set it yourself:
-
-```bash
-# Linux/macOS                          # Windows
-export PYTHONPATH=$PWD/pipeline:$PWD/app    set PYTHONPATH=%CD%\pipeline;%CD%\app
-python -m lz_pipeline.lzctl --help
-```
+Plain-checkout execution (no install) is a development/CI mode — see
+`docs/development.md`.
 
 ## Quickstart
 
@@ -148,22 +143,14 @@ Note: `validate`, `build`, `check`, and `export` delegate to the installed pipel
 - `lzctl triage plan1.json ...` classifies already-exported plan JSON offline.
 - `lzctl apply` reuses the reviewed `tf.plan` when configuration is unchanged since the plan run (approve-what-you-apply); Terraform itself refuses the file if state moved.
 
-## Running the tests
+## Development
 
 ```bash
-pytest                              # unit bridge: all pipeline + app suites
-python -m lz_spec.verify_pipeline   # full regression harness (7 checks)
+pytest                              # unit tier (default)
+python -m lz_spec.verify_pipeline   # full regression harness (7 checks) — also `lzctl check`
 ```
 
-Details in `docs/testing.md`.
-
-## Adding another model
-
-The executed eval harness lives in `tests/evaluation/`: `adapter.py` exposes one `run_model()` behind named adapters (the first shells out to headless Claude Code — `claude -p --output-format json`; other providers plug in by adding a function to `ADAPTERS`), `fixtures/fixtures.json` holds self-contained single-turn tasks, and `run_eval.py` runs the model matrix with deterministic scoring only, a cost ledger, and committed transcripts under `results/`. Run it with `python tests/evaluation/run_eval.py --models <ids> --trials N`. Because every model-facing surface is a file or CLI, adding a model means adding an adapter, not touching the pipeline. Current results are an **initial model-compatibility evaluation** (see `docs/testing.md`), not a completed model-agnostic validation.
-
-## Extending the skill
-
-The skill is a routing table over topic assets. To add a topic: create `skills/huawei-cloud-landing-zone/assets/<topic>/README.md`, then add one routing row to the table in `skills/huawei-cloud-landing-zone/SKILL.md`. Keep doctrine in the asset; keep the SKILL.md row to one line.
+Running from a checkout, the integration/eval test tiers, adding another model, extending the skill: `docs/development.md`. Test details: `docs/testing.md`.
 
 ## Out of scope
 
@@ -177,7 +164,9 @@ The skill is a routing table over topic assets. To add a topic: create `skills/h
 
 | Doc | Contents |
 |---|---|
+| `docs/skill-pipeline-contract.md` | The product's core design statement: skill decides, pipeline gates |
 | `docs/architecture.md` | Two-layer design, package map, artifact flow, module snapshot story |
+| `docs/development.md` | Checkout mode, test tiers, adding a model, extending the skill |
 | `docs/workflow.md` | Phase contract, every `lzctl` verb with flags and exit codes, gates, failure handling |
 | `docs/configuration.md` | Every environment variable, workspace layout, profiles, rate cards, schema |
 | `docs/testing.md` | Test suites, the verify harness, the leak guard, the eval suite |

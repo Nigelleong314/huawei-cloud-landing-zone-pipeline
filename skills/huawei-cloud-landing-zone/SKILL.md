@@ -23,11 +23,20 @@ organization. The companion skill `huawei-cloud-terraform-generator`
 covers per-service resource authoring; this skill covers how the services
 compose into a landing zone.
 
-The `questionnaire-to-spec` skill drives the Intake phase and depends on this skill's doctrine; the dependency direction is questionnaire-to-spec -> huawei-cloud-landing-zone, never the reverse.
+The `questionnaire-to-spec` skill drives the intake phase and depends on this skill's doctrine; the dependency direction is questionnaire-to-spec -> huawei-cloud-landing-zone, never the reverse.
+
+**The contract: this skill decides and asks; the pipeline (`lzctl`) executes and gates.** Judgment lands in reviewable artifacts (spec diffs, decisions files); every gate is an exit code; never bypass a gate by hand-editing generated output (`docs/skill-pipeline-contract.md` in the pipeline repo).
 
 ## How to use this skill
 
-Load only the asset(s) for the topic at hand.
+The operating loop, every task:
+
+1. **Place the task on the phase graph** (Phase contract below; canonical in `schemas/phases.json`) — which phase is it in, and is its entry artifact present?
+2. **Load only the asset(s)** matching the task from the capability table below.
+3. **Execute through `lzctl`**, never around it — every action is a command a human could have typed.
+4. **Read the gate**, not the vibes: exit codes and rule findings decide pass/fail (0 ok, 1 error, 2 changes, 3 destructive/blocked).
+5. **Write judgment into artifacts** — spec edits, decision resolutions, triage notes — so a human can review the diff.
+6. **Stop at gates you cannot pass**: an unresolved OPEN decision, a failing validation, an untriaged destructive plan. Ask; never guess, never bypass.
 
 Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud behavior · [IMPLEMENTATION] how this pipeline behaves · [RUNBOOK] operational procedure.
 
@@ -61,6 +70,8 @@ Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud 
 | Deliver | Build handover artifact | working tree | release artifact | [assets/artifact-handover/](assets/artifact-handover/README.md) |
 | Deliver | Generate delivery documents | tfvars + pulled state | doc set + LLD workbook | [assets/documents-day2/](assets/documents-day2/README.md) |
 
+(The table groups assets coarsely; the authoritative phase graph is the 7-phase Phase contract below — its Build spans build+deploy rows here, and Verify spans verify_pre+verify_post.)
+
 ## Companion skill (optional)
 
 The `huawei-cloud-terraform-generator` skill (separate distribution, not included in this repository) generates single-service resources with per-service references and region-availability verification. It is optional — this skill and the pipeline are fully usable without it; without it, author single-resource HCL from the provider docs per the evidence hierarchy below.
@@ -81,8 +92,8 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
 
 ## How agents should reason about LZ decisions
 
-1. **Constraint first**: check the non-negotiables above before proposing
-   anything; most "creative" designs die on a platform cap.
+1. **Check constraints first**: check the non-negotiables above before
+   proposing anything; many proposed designs fail against platform limits.
 2. **Evidence hierarchy**: (1) current Huawei Cloud service documentation,
    (2) current Terraform provider documentation, (3) provider source when the
    docs are silent — its Read functions decide drift behavior, (4) verified
@@ -96,7 +107,7 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
 5. **Deterministic over dynamic**: precompute at generation time; look up by
    name via data sources at plan time; hard-code what the platform fixes.
 6. **Everything reversible has a documented rollback; everything irreversible
-   gets a human gate.** Known-irreversible on this platform: account creation,
+   gets a human gate.** Known irreversible operations on this platform: account creation,
    poc-type enterprise projects (can never be disabled or destroyed), state
    moves/pushes, VPN gateway public EIP changes (force-replace = new public
    IPs = site down).
@@ -130,12 +141,14 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
 
 | Phase | Entry criteria | Exit artifacts | Forbidden transitions |
 |---|---|---|---|
-| Intake | a requirement source (questionnaire, LLD, or ad-hoc request) | draft spec + decisions file | design without a decisions file |
-| Design | draft spec + decisions file | resolved decisions + updated spec | build with open critical decisions |
-| Build | spec validation passes with 0 errors | generated envs + fresh dependencies | plan/apply from a stale tree |
-| Verify | built tree | clean plan triage + passing harness | apply with untriaged destructive changes |
-| Deliver | applied + verified estate | evidence bundle + handover artifact | handover without verification evidence |
+| intake | a requirement source (questionnaire, LLD, or described target) | neutral draft spec + decisions files (ANSWERED/DEFAULTED/OPEN) | design without a decisions file |
+| design | draft spec + decisions files | OPEN items resolved; validation passes with 0 errors | build with unresolved OPEN decisions (`lzctl build` exits 3) |
+| build | spec validating with 0 errors | generated envs + fresh deps.json | plan/apply from a stale tree |
+| verify_pre | built tree | clean plan triage + passing harness | apply with untriaged destructive changes |
+| deploy | reviewed plan + approvals (typed confirm for destructive) | applied envs in dependency order + state backups + run logs | applying out of dependency order |
+| verify_post | applied estate | every env clean or known-benign | deliver without verification |
+| deliver | verified estate | evidence bundle + generated docs + handover artifact | handover without verification evidence |
 
-No phase may be skipped forward. A workflow may stop at any GATE, but an interrupted deployment can leave a partially applied estate and must be resumed through verification (lzctl verify) before further changes.
+No phase may be skipped forward. A workflow may stop at any GATE, but an interrupted deployment can leave a partially applied estate and must be resumed through verify_post (`lzctl verify`) before further changes.
 
 The same phase graph is machine-readable at `schemas/phases.json`; skill, CLI docs, and eval fixtures share it.

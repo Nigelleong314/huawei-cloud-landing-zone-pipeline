@@ -1,4 +1,4 @@
-# envs-v2/04-perimeter/terraform.tfvars.example
+# 04-perimeter/terraform.tfvars.example
 
 home_region       = "ap-southeast-3"
 master_access_key = "REPLACE_ME_DO_NOT_COMMIT"

@@ -2,13 +2,17 @@
 
 ## Phase contract
 
+The canonical phase graph lives in `schemas/phases.json`; this table renders it.
+
 | Phase | Entry artifact | Commands | Exit artifact |
 |---|---|---|---|
-| **Intake** | filled `questionnaire.xlsx` | `lzctl intake`, `lzctl assess` | `dump.json`, `specs/lz.spec.<slug>.json` (draft), `specs/lz.spec.<slug>.decisions.md` |
-| **Design** | draft spec + decisions file | edit/interpret (agent or engineer), `lzctl validate` | validated `lz.spec.<slug>.json` (0 errors) |
-| **Build** | validated spec | `lzctl build`, `lzctl preflight`, `lzctl plan`, `lzctl apply` | applied envs, `tf.plan` files, `state-backups/`, `lzctl-logs/` |
-| **Verify** | applied envs | `lzctl verify`, `lzctl drift` | clean/known-benign verdict, optional drift report (markdown) |
-| **Deliver** | verified tree | `lzctl docs`, `lzctl report`, `python -m lz_pipeline.export_v2` | doc set (xlsx), `evidence/<ts>/` bundle, handover artifact |
+| **intake** | filled `questionnaire.xlsx` | `lzctl intake`, `lzctl assess` | `dump.json`; neutral draft `specs/lz.spec.<slug>.json`; `…decisions.md` + `…decisions.json` |
+| **design** | draft spec + decisions files | edit/interpret (agent or engineer), resolve OPEN items, `lzctl validate` | validated `lz.spec.<slug>.json` (0 errors), no unresolved OPEN decisions |
+| **build** | validated spec | `lzctl build` (exits 3 on unresolved OPEN decisions) | generated envs (tfvars + `*.generated.tf`), fresh `deps.json` |
+| **verify_pre** | built tree | `lzctl preflight`, `lzctl plan`, `lzctl triage`, `lzctl check` | clean plan triage, passing harness |
+| **deploy** | reviewed plan + approvals | `lzctl apply` (typed confirm for destructive) | applied envs in dependency order, `state-backups/`, `lzctl-logs/` |
+| **verify_post** | applied estate | `lzctl verify`, `lzctl drift` | every env clean or known-benign; optional drift report |
+| **deliver** | verified estate | `lzctl docs`, `lzctl report`, `lzctl export` | doc set (xlsx), `evidence/<ts>/` bundle, handover artifact |
 
 A phase does not start until the previous phase's exit artifact exists and its gate passed.
 

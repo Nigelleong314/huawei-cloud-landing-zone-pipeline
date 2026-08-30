@@ -19,16 +19,13 @@ customers), never an input.
 
 ## Workflow
 
-The recommended way to edit a spec is through the app:
+The recommended way to edit a spec is through the app (`lz-app`, after
+`pip install .`). It renders every sheet from `schema.py`, validates, builds,
+and runs the pipeline jobs. The CLI equivalents:
 
-    cd lz_app && py -m lz_app
-
-It renders every sheet from `schema.py`, validates, builds, and runs the
-pipeline jobs. The CLI equivalents:
-
-    py -m lz_pipeline spec-validate lz_spec/lz.spec.acme.json
-    py -m lz_pipeline build --ir lz_spec/lz.spec.acme.json --envs-dir huawei-lz/envs-acme
-    cd lz_spec && py verify_pipeline.py          # the full gate; run after any change
+    lzctl validate specs/lz.spec.acme.json
+    lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
+    lzctl check                                  # the full gate; run after any change
 
 Credentials never go in a spec file: each env's `secrets.auto.tfvars.json`
 (gitignored) or the app's per-job credentials panel carries the AK/SK.
@@ -51,5 +48,5 @@ sheet→env→module map is the Index sheet of the generated template.
 
 1. Add the `KV(...)` row (or table column) in `schema.py`.
 2. Wire it through the builder in `lz_pipeline/core/builders.py`.
-3. Regenerate the template: `py gen_template.py landing_zone_spec.xlsx`.
-4. Recapture goldens if generated output changes, then `py verify_pipeline.py`.
+3. Regenerate the template: `python -m lz_spec.gen_template landing_zone_spec.xlsx`.
+4. Recapture goldens if generated output changes, then `lzctl check`.

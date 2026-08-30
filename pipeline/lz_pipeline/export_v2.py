@@ -24,8 +24,8 @@ Usage:
 Profile:
     {"customer": "acme-corp",
      "features": {"secmaster": false},
-     "envs_dir": "huawei-lz/envs-acme",       # relative to workspace root
-     "docs_dir": "huawei-lz/handover-docs",
+     "envs_dir": "envs",       # relative to workspace root
+     "docs_dir": "handover-docs",
      "ir": "lz_spec/lz.spec.acme.json"}
 """
 

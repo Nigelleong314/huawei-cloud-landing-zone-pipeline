@@ -2,9 +2,9 @@
 
 - Order = numeric env order, derived from `deps.json` — never hardcoded in
   CI. Later envs read earlier outputs via `terraform_remote_state`.
-- Wrap terraform in a runner that provides: preflight (versions,
+- Wrap Terraform in a runner that provides: preflight (versions,
   credentials, checksum vars, deps freshness), advisory lock, state backup,
-  saved-plan apply (`-out tf.plan`, apply THAT file), plan triage gate,
+  saved-plan apply (`-out tf.plan`, apply that saved plan file), plan triage gate,
   retry-once on known transients (LTS.2101, EPS grant propagation,
   fresh-agency 403).
 - Plan triage exit convention: 0 clean · 2 changes (reviewable) ·

@@ -17,6 +17,11 @@ Output, under `<workspace>/specs/`:
 This skill applies the huawei-cloud-landing-zone skill's intake doctrine
 (assets/intake-questionnaire, assets/discovery-protocol); load that skill alongside.
 
+**The contract: you decide and ask; the pipeline executes and gates.** Facts
+are copied verbatim by `lzctl intake`; bucketing and the neutral draft come
+from `lzctl assess`; your judgment lands only in reviewable artifacts (the
+spec diff, decision resolutions) — never in bypassed gates.
+
 ## Steps
 
 1. **Intake (mechanical, no interpretation):**

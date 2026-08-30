@@ -1,8 +1,8 @@
-# envs-v2 — the blank env scaffold
+# terraform/scaffold — the blank env scaffold
 
 Env compositions for the module set in
 `../modules/`. This tree is the template:
-building a spec with `--scaffold-dir huawei-lz/envs-v2` copies these static
+building a spec with `--scaffold-dir terraform/scaffold` copies these static
 files into the new tree, then generates the per-env inputs next to them.
 
 ## Envs (apply order)

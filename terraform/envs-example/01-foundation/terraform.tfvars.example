@@ -1,4 +1,4 @@
-# envs-v2/01-foundation/terraform.tfvars.example
+# 01-foundation/terraform.tfvars.example
 #
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 # Apply time: ~10-15 minutes.

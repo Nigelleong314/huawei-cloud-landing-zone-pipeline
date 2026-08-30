@@ -5,7 +5,7 @@ env's provider files (generated + static), not hardcoded. Envs without a
 state file (or with an empty state) land on the Pending sheet.
 
 Usage:
-    py tools/gen_checklist.py --envs-dir ..\\huawei-lz\\envs-acme \
+    py tools/gen_checklist.py --envs-dir envs \
         --states-dir <dir with state-<env>.json> --out checklist.xlsx \
         [--title "Example Landing Zone Resource Checklist"] [--master-label "Master (management account)"]
 

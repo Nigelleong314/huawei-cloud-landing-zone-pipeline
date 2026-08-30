@@ -1,4 +1,4 @@
-# envs-v2/05-network/terraform.tfvars.example
+# 05-network/terraform.tfvars.example
 
 home_region       = "ap-southeast-3"
 master_access_key = "REPLACE_ME_DO_NOT_COMMIT"

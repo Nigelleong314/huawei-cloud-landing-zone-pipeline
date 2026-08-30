@@ -1,9 +1,8 @@
-# lz_pipeline — the landing-zone pipeline (v2)
+# lz_pipeline — the landing-zone pipeline engine
 
-All v2 pipeline code lives here. `../lz_spec/` keeps the customer DATA (the
-committed JSON spec files and the generated blank template) plus the schema
-layer and entry points (`schema.py`, `gen_template.py`, `verify_pipeline.py`,
-`build_envs.py` — a shim over this package — and `export_handover.py`).
+All pipeline code lives here. `../lz_spec/` keeps the schema layer and entry
+points (`schema.py`, `gen_template.py`, `verify_pipeline.py`, `build_envs.py`
+— a shim over this package — and `export_handover.py`) plus the example spec.
 
 ```
 lz_pipeline\
@@ -13,49 +12,46 @@ lz_pipeline\
 │   └── ownership.py    cross-env shared-resource registry
 ├── rules.py            LZR platform-rule registry (spec + tree checks)
 ├── depsgraph.py        env dependency graph -> deps.json (LZR-008)
-├── lzctl.py            THE RUNNER (standalone; ships in customer artifacts)
+├── lzctl.py            THE RUNNER (the `lzctl` console command)
 ├── export_v2.py        profile-driven artifact export + release metadata
-├── profiles\           per-customer export profiles (acme.json, example.json)
+├── profiles\           export profiles (example.json)
 ├── tools\              plan_triage, gen_ipam, gen_checklist, gen_config_book, gen_workbook,
 │                       gen_questionnaire + dump_questionnaire (pre-engagement assessment)
-├── fixtures\           example synthetic customer
-├── tests\              test_phase0..5, test_converge + goldens (72 locked output files)
-├── releases\           per-customer release snapshots (created on export)
-└── docs\               architecture proposal + implementation record
+├── fixtures\           example synthetic customer (example.spec.json)
+├── tests\              test_phase0..5, test_converge + goldens (locked output files)
+└── docs\               CI/CD plan
 ```
 
-## Everyday commands (run from the workspace root `ldz\`)
+## Everyday commands (from the repo root; `pip install .` gives you `lzctl`)
 
-Verify everything (also runs all unit suites):
-
-    cd lz_spec && py verify_pipeline.py
+Verify everything (also runs all unit suites): `lzctl check`
 
 Build (the json spec IR is the CANONICAL config store; the Excel workbook is
 a generated artifact — `tools/gen_workbook.py` — not an input):
 
-    py -m lz_pipeline build --ir lz_spec/lz.spec.acme.json --envs-dir huawei-lz/envs-acme
+    lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
 
 Ingest a workbook / validate a spec:
 
-    py -m lz_pipeline spec-export lz_spec/landing_zone_spec.xlsx -o customer.spec.json
-    py -m lz_pipeline spec-validate customer.spec.json
-    py -m lz_pipeline build --ir customer.spec.json --envs-dir huawei-lz/envs-<name> --scaffold-dir huawei-lz/envs-v2
+    python -m lz_pipeline spec-export landing_zone_spec.xlsx -o customer.spec.json
+    lzctl validate customer.spec.json
 
 Pre-engagement assessment (upstream of the workbook; schema-coverage-checked):
 
-    py lz_pipeline/tools/gen_questionnaire.py            # regen the blank questionnaire (workspace root)
-    py lz_pipeline/tools/dump_questionnaire.py <filled.xlsx> -o dump.json   # then /questionnaire-to-spec
+    python -m lz_pipeline.tools.gen_questionnaire       # regen the blank questionnaire
+    lzctl intake <filled.xlsx> -o dump.json
+    lzctl assess dump.json --customer <slug> --workspace .   # then skills/questionnaire-to-spec
 
 Operate a deployed tree:
 
-    py lz_pipeline/lzctl.py preflight --envs-dir huawei-lz/envs-acme
-    py lz_pipeline/lzctl.py plan  --envs-dir huawei-lz/envs-acme --all
-    py lz_pipeline/lzctl.py apply --envs-dir huawei-lz/envs-acme <env>   # lock + backup + triage gate
-    py lz_pipeline/lzctl.py drift --envs-dir huawei-lz/envs-acme --report drift.md
-    py lz_pipeline/lzctl.py docs  --envs-dir huawei-lz/envs-acme --out-dir docs-out --customer "the customer Property"
+    lzctl preflight --envs-dir envs
+    lzctl plan  --envs-dir envs --all
+    lzctl apply --envs-dir envs <env>       # lock + backup + triage gate
+    lzctl drift --envs-dir envs --report drift.md
+    lzctl docs  --envs-dir envs --out-dir docs-out --customer "Acme Corp"
 
 Export a customer artifact (features come from the profile):
 
-    py -m lz_pipeline.export_v2 --profile lz_pipeline/profiles/acme.json --target <dir> --version 1.1.0
+    lzctl export --profile pipeline/lz_pipeline/profiles/example.json --target <dir> --version 1.0.0
 
-Full details and per-phase evidence: `docs/pipeline-v2-implementation-notes.md`.
+The repo-level `README.md` and `docs/` carry the full workflow.

@@ -36,7 +36,7 @@ variable "attach_target_id" {
 variable "scps" {
   type        = any
   default     = {}
-  description = "Per-policy SCP config. See modules-v2/perimeter/variables.tf for the full schema."
+  description = "Per-policy SCP config. See modules/perimeter/variables.tf for the full schema."
 }
 
 # Predefined-tag dictionary applied per account (generated fan-out).
@@ -60,11 +60,11 @@ variable "config_admin_account" {
 variable "config" {
   type        = any
   default     = {}
-  description = "Config (RMS) recorder + aggregator settings. See modules-v2/perimeter/variables.tf for the schema."
+  description = "Config (RMS) recorder + aggregator settings. See modules/perimeter/variables.tf for the schema."
 }
 
 variable "conformance_packs" {
   type        = any
   default     = []
-  description = "Org-wide Config conformance packs (name/enabled/template_key/excluded_accounts). See modules-v2/perimeter/variables.tf."
+  description = "Org-wide Config conformance packs (name/enabled/template_key/excluded_accounts). See modules/perimeter/variables.tf."
 }

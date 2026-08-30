@@ -9,7 +9,7 @@ directory prefix). An inversion is exactly the class of bug behind the old
 06/07 double-apply and fails the check.
 
 Usage:
-    py depsgraph.py --envs-dir ../huawei-lz/envs-example            # print + check
+    py depsgraph.py --envs-dir envs            # print + check
     py depsgraph.py --envs-dir ... --write                          # also write <envs>/deps.json
 """
 

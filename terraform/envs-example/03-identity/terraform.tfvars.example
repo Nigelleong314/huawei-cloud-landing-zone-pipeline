@@ -1,4 +1,4 @@
-# envs-v2/03-identity/terraform.tfvars.example
+# 03-identity/terraform.tfvars.example
 #
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 

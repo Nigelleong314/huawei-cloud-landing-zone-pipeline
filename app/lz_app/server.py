@@ -71,7 +71,7 @@ def default_envs_dir() -> str:
     """Default envs tree: the neutral example first; a customer tree is always
     an explicit choice, never the default."""
     for d in ("envs", "envs-example", "terraform/envs-example",
-              "huawei-lz/envs-example", "huawei-lz/envs-v2"):
+              "terraform/envs-example"):
         if (STATE["workspace"] / d).is_dir():
             return d
     return "envs"

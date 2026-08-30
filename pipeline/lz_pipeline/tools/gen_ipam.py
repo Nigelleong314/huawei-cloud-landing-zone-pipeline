@@ -2,7 +2,7 @@
 the 05-network tfvars of any envs tree. Customer-agnostic.
 
 Usage:
-    py tools/gen_ipam.py --envs-dir ..\\huawei-lz\\envs-acme --out ipam.xlsx \
+    py tools/gen_ipam.py --envs-dir envs --out ipam.xlsx \
         [--title "Example Landing Zone - IP management"] [--block-prefix 22] \
         [--reserve "10.42.8.0/22=CFW inspection block; never assign"] \
         [--hosts hosts.csv]

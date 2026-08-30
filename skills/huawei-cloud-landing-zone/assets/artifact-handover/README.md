@@ -24,7 +24,7 @@ each other) and deterministic — same inputs, same artifact. An oracle test
 compares the export against the last shipped artifact and fails on
 unexplained diffs.
 
-Caveat the CHANGELOG honestly: it sees **spec-driven changes only**. Hand-
+State the CHANGELOG limitation clearly: it sees **spec-driven changes only**. Hand-
 written envs outside the pipeline ship in the artifact but never appear in
 the generated CHANGELOG — record those changes manually.
 
