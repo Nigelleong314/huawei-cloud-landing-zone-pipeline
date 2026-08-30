@@ -83,6 +83,22 @@ def build_schema() -> dict:
             "schema_version": {"type": "string"},
             "customer": {"type": "string"},
             "source": {"type": "string"},
+            "provenance": {
+                "type": "object",
+                "description": "Questionnaire lineage stamped by `lzctl assess`. "
+                               "When source_type is 'questionnaire', `lzctl build` "
+                               "requires the named decisions file to exist beside "
+                               "the spec with matching customer and assessment_id.",
+                "properties": {
+                    "source_type": {"type": "string", "enum": ["questionnaire"]},
+                    "decisions_file": {"type": "string"},
+                    "assessment_id": {"type": "string",
+                                      "pattern": "^[0-9a-f]{64}$"},
+                    "customer": {"type": "string"},
+                },
+                "required": ["source_type", "decisions_file", "assessment_id",
+                             "customer"],
+            },
             "sheets": {"type": "object", "properties": sheets_props,
                        "additionalProperties": True},
         },

@@ -607,7 +607,13 @@ def cmd_assess(args):
     no default). Interpreting prose answers into spec fields is the agent's
     or engineer's job - this command never guesses, and `build` refuses to
     run while OPEN items lack a recorded resolution."""
-    dump = json.loads(Path(args.dump).read_text(encoding="utf-8"))
+    import hashlib
+    dump_bytes = Path(args.dump).read_bytes()
+    dump = json.loads(dump_bytes.decode("utf-8"))
+    # lineage id: hash of the answers dump. Stable across resolution edits
+    # (those touch the decisions file, not the dump), so a copied/renamed
+    # spec still carries — and the gate still demands — its decisions file.
+    assessment_id = hashlib.sha256(dump_bytes).hexdigest()
     ws = Path(args.workspace or ".").resolve()
     specs = ws / "specs"
     specs.mkdir(parents=True, exist_ok=True)
@@ -626,6 +632,10 @@ def cmd_assess(args):
     spec["source"] = (f"assessment questionnaire v{meta.get('questionnaire_version', '?')} "
                       f"({dump.get('source_file', '?')}) - NEUTRAL DRAFT: every value "
                       "unset until interpreted from the answers; validate fails until then")
+    spec["provenance"] = {"source_type": "questionnaire",
+                          "decisions_file": decisions_json.name,
+                          "assessment_id": assessment_id,
+                          "customer": slug}
     draft.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     answered, defaulted, gaps = [], [], []
@@ -666,10 +676,12 @@ def cmd_assess(args):
             "resolution": None} for r, q, _ in answered])
     decisions_json.write_text(json.dumps({
         "customer": slug, "source_file": dump.get("source_file", "?"),
+        "assessment_id": assessment_id,
         "resolution_contract": {
             "blocking": "state=OPEN with resolution=null blocks `lzctl build`",
             "resolve_by": 'set resolution to {"status": "ANSWERED"|"ACCEPTED_DEFAULT",'
-                          ' "approved_by": "<person>", "reason": "<why>"}'},
+                          ' "approved_by": "<person>", "reason": "<why>"} - all three'
+                          ' fields required; see schemas/decisions.schema.json'},
         "items": items}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     print(f"draft spec (neutral) -> {draft}")

@@ -27,6 +27,22 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
 
+  packaging:
+    # installed-runtime contract: wheel -> clean venv -> validate + build
+    # (tests/integration/test_installed_wheel.py). Needs pip + venv only.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: pip install openpyxl pytest setuptools
+      - name: wheel install test
+        run: python -X utf8 -m pytest tests/integration -m integration -q
+        env:
+          PYTHONIOENCODING: utf-8
+
   harness:
     runs-on: ubuntu-latest
     steps:

@@ -67,10 +67,13 @@ r = run(["preflight", "--envs-dir", str(ENVS)], scrub=True, env_extra={
 if shutil.which("terraform"):
     check("preflight passes with vars set", r.returncode == 0, r.stdout[-300:])
 else:
-    # no terraform on PATH: preflight rightly fails on the binary check;
-    # assert the env-var half passed (its complaints are gone) and move on
-    check("preflight env-var checks pass (terraform absent -> binary check skipped)",
-          "AWS_ACCESS_KEY_ID" not in r.stdout, r.stdout[-300:])
+    # no terraform on PATH: the ONLY failure must be the binary check itself -
+    # every env-var check this suite is actually about must pass
+    fails = [ln.strip() for ln in r.stdout.splitlines()
+             if ln.strip().startswith("FAIL")]
+    check("preflight env-var checks pass (terraform absent -> only the binary check fails)",
+          r.returncode == 1 and fails == ["FAIL terraform not on PATH"],
+          r.stdout[-300:])
 r = run(["preflight", "--envs-dir", str(ENVS)], scrub=True, env_extra={
     "AWS_ACCESS_KEY_ID": "x", "AWS_SECRET_ACCESS_KEY": "y",
     "AWS_REQUEST_CHECKSUM_CALCULATION": "always",

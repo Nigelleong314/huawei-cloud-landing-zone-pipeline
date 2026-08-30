@@ -51,37 +51,74 @@ def cmd_spec_validate(args):
     return 1 if errors else 0
 
 
-def _open_decisions(ir_path: Path):
-    """Unresolved OPEN items from the sibling decisions file, if one exists.
+def _decisions_gate(ir_path: Path, ir: dict):
+    """Problems (message strings) that must block build, or [].
 
-    `lzctl assess` writes lz.spec.<slug>.decisions.json next to the draft.
-    An OPEN item blocks build until someone records a resolution
-    ({"status": "ANSWERED"|"ACCEPTED_DEFAULT", "approved_by": ..., "reason": ...});
-    ANSWERED/DEFAULTED items never block. No decisions file = no gate
-    (specs exported straight from a workbook have no questionnaire lineage).
+    The gate is bound to the spec's `provenance` block (stamped by
+    `lzctl assess`), not to filename convention: a questionnaire-derived
+    spec demands its decisions file wherever the spec is copied or renamed,
+    with matching customer and assessment_id. Detaching the lineage means
+    deleting `provenance` from the spec — a deliberate, reviewable diff.
+
+    An OPEN item blocks until its resolution is COMPLETE:
+    status ANSWERED|ACCEPTED_DEFAULT + non-empty approved_by + reason
+    (contract: schemas/decisions.schema.json). ANSWERED/DEFAULTED items
+    never block. A spec with no provenance and no sibling decisions file
+    has no questionnaire lineage — no gate (e.g. workbook exports).
     """
     import json
-    dec = ir_path.with_name(ir_path.stem + ".decisions.json")
+    prov = ir.get("provenance") or {}
+    from_questionnaire = prov.get("source_type") == "questionnaire"
+    dec = ir_path.with_name(prov.get("decisions_file")
+                            or (ir_path.stem + ".decisions.json"))
     if not dec.exists():
+        if from_questionnaire:
+            return [f"decisions file missing: {dec.name} (this spec's provenance "
+                    "says it derives from a questionnaire; keep the decisions "
+                    "file next to the spec, or deliberately remove the "
+                    "'provenance' block to detach the lineage)"]
         return []
-    items = json.loads(dec.read_text(encoding="utf-8")).get("items", [])
-    return [i for i in items
-            if i.get("state") == "OPEN"
-            and (i.get("resolution") or {}).get("status")
-            not in ("ANSWERED", "ACCEPTED_DEFAULT")]
+    doc = json.loads(dec.read_text(encoding="utf-8"))
+    problems = []
+    if from_questionnaire:
+        for field in ("customer", "assessment_id"):
+            if doc.get(field) != prov.get(field):
+                problems.append(f"decisions file {dec.name}: {field} mismatch "
+                                f"(spec provenance {prov.get(field)!r} != "
+                                f"decisions {doc.get(field)!r}) - this decisions "
+                                "file does not belong to this spec")
+    for i in doc.get("items", []):
+        if i.get("state") != "OPEN":
+            continue
+        ref = i.get("ref", "?")
+        res = i.get("resolution")
+        if not isinstance(res, dict):
+            problems.append(f"OPEN {ref}: unresolved - {i.get('question', '')[:90]}")
+            continue
+        status = res.get("status")
+        if status not in ("ANSWERED", "ACCEPTED_DEFAULT"):
+            problems.append(f"OPEN {ref}: resolution.status {status!r} is not "
+                            "ANSWERED or ACCEPTED_DEFAULT")
+            continue
+        missing = [f for f in ("approved_by", "reason")
+                   if not str(res.get(f) or "").strip()]
+        if missing:
+            problems.append(f"OPEN {ref}: status {status} but no "
+                            f"{' / '.join(missing)} - resolutions must record "
+                            "who decided and why")
+    return problems
 
 
 def cmd_build(args):
     from .core import cli as be
-    unresolved = _open_decisions(Path(args.ir).resolve())
-    if unresolved:
-        print("build blocked: unresolved OPEN decisions (never guess - resolve "
-              "them in the .decisions.json, then re-run):", file=sys.stderr)
-        for i in unresolved:
-            print(f"  - {i.get('ref', '?')}: {i.get('question', '')[:90]}",
-                  file=sys.stderr)
-        return 3
     ir = model.load(Path(args.ir))
+    problems = _decisions_gate(Path(args.ir).resolve(), ir)
+    if problems:
+        print("build blocked by the decisions gate (never guess - fix these in "
+              "the .decisions.json, then re-run):", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 3
     spec = model.sheets(ir)
 
     envs_dir = Path(args.envs_dir).resolve()

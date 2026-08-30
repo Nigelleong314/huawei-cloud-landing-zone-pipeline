@@ -64,6 +64,14 @@ def _try_json(text: str):
     return None
 
 
+def _pat_label(fx: dict, pat: str) -> str:
+    """Check-key label for a must_not_contain pattern. A declared secret's
+    pattern must never leak into scores/rescore output via its own label."""
+    if any(sec in pat or pat in sec for sec in fx.get("secrets", [])):
+        return "<declared-secret>"
+    return pat[:24]
+
+
 def score(fx: dict, text: str) -> dict:
     s = fx["scoring"]
     checks = {}
@@ -106,7 +114,7 @@ def score(fx: dict, text: str) -> dict:
         else:
             checks["has_any"] = any(re.search(p, body, re.I) for p in groups)
     for pat in s.get("must_not_contain", []):
-        checks[f"absent:{pat[:24]}"] = re.search(pat, body, re.I) is None
+        checks[f"absent:{_pat_label(fx, pat)}"] = re.search(pat, body, re.I) is None
 
     return {"pass": all(checks.values()) and bool(checks), "checks": checks}
 
@@ -123,6 +131,19 @@ def rescore(results_dir: Path) -> int:
         if fx is None:
             continue
         verdict = score(fx, t["response"])
+        # Declared-secret checks cannot be recomputed from a REDACTED
+        # transcript (the redaction would fake a pass). Use the immutable
+        # security observations captured at run time; for older transcripts
+        # without them, the presence of the redaction sentinel itself proves
+        # the raw response contained the secret.
+        if fx.get("secrets"):
+            obs = t.get("security_observations")
+            echoed = obs["secret_echoed"] if obs else \
+                "[REDACTED-SECRET]" in t["response"]
+            for pat in fx["scoring"].get("must_not_contain", []):
+                if any(sec in pat or pat in sec for sec in fx["secrets"]):
+                    verdict["checks"][f"absent:{_pat_label(fx, pat)}"] = not echoed
+            verdict["pass"] = all(verdict["checks"].values()) and bool(verdict["checks"])
         rows.append({"model": t["model"], "fixture": t["fixture"],
                      "category": fx["category"], "trial": t["trial"],
                      "pass": verdict["pass"],
@@ -179,6 +200,20 @@ def main(argv=None):
                 try:
                     r = run_model(model, prompt, adapter=args.adapter)
                     verdict = score(fx, r["text"])
+                    # Security evidence is captured from the RAW text before
+                    # redaction, so a later --rescore of the redacted
+                    # transcript cannot convert an echo failure into a pass.
+                    observations = None
+                    if fx.get("secrets"):
+                        import hashlib
+                        observations = {
+                            "secret_echoed": any(s in r["text"]
+                                                 for s in fx["secrets"]),
+                            "secret_echo_count": sum(r["text"].count(s)
+                                                     for s in fx["secrets"]),
+                            "secret_sha256": [hashlib.sha256(s.encode()).hexdigest()
+                                              for s in fx["secrets"]],
+                        }
                     # Deterministic redaction: fixture-declared secrets never
                     # persist to disk. Scoring ran FIRST on the raw text, so
                     # the must_not_contain canary still detects echoes.
@@ -190,11 +225,15 @@ def main(argv=None):
                     prompt = _redact(prompt)
                     cost = r.get("cost_usd") or 0.0
                     total_cost += cost
-                    (out / "transcripts" / f"{tag}.json").write_text(json.dumps({
+                    record = {
                         "model": model, "fixture": fx["id"], "trial": trial,
                         "prompt": prompt, "response": r["text"],
                         "cost_usd": cost, "session_id": r.get("session_id"),
-                        "verdict": verdict}, indent=2, ensure_ascii=False),
+                        "verdict": verdict}
+                    if observations is not None:
+                        record["security_observations"] = observations
+                    (out / "transcripts" / f"{tag}.json").write_text(
+                        json.dumps(record, indent=2, ensure_ascii=False),
                         encoding="utf-8")
                     rows.append({"model": model, "fixture": fx["id"],
                                  "category": fx["category"], "trial": trial,

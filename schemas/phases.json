@@ -45,8 +45,7 @@
         "lzctl build"
       ],
       "next": [
-        "verify_pre",
-        "deploy"
+        "verify_pre"
       ]
     },
     "verify_pre": {

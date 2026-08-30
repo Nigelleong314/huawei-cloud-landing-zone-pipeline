@@ -42,35 +42,35 @@ Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud 
 
 | Phase | Capability | Input | Output | Asset |
 |---|---|---|---|---|
-| Intake | Convert questionnaire to spec | filled questionnaire | draft spec + decisions file | [assets/intake-questionnaire/](assets/intake-questionnaire/README.md) |
-| Intake | Extract facts from ad-hoc asks | chat/email/ticket request | gap list + questions to ask | [assets/discovery-protocol/](assets/discovery-protocol/README.md) |
-| Design | Structure accounts and OUs | org + governance requirements | account/OU/EP decisions | [assets/accounts-ous/](assets/accounts-ous/README.md) |
-| Design | Design hub-spoke network | spec network sheets | ER + route-table decisions | [assets/network-topology/](assets/network-topology/README.md) |
-| Design | Wire on-prem connectivity | site/peer details | VPN design, DC/CC boundary | [assets/hybrid-connectivity/](assets/hybrid-connectivity/README.md) |
-| Design | Design hub-resolver DNS | zones + spoke attachment map | DNS env design | [assets/dns/](assets/dns/README.md) |
-| Design | Author SCP guardrails | governance requirements | packed v5 SCP set | [assets/scp-guardrails/](assets/scp-guardrails/README.md) |
-| Design | Scope identity and permission sets | roles/groups requirements | permission-set decisions | [assets/identity/](assets/identity/README.md) |
-| Design | Converge logs and audit | log sources + account map | log-convergence design | [assets/observability/](assets/observability/README.md) |
-| Design | Size backup and DR | retention/RPO requirements | vault + policy spec fields | [assets/backup-dr/](assets/backup-dr/README.md) |
-| Design | Compose firewall rule plane | traffic flow matrix | group/rule composition | [assets/cfw-rule-plane/](assets/cfw-rule-plane/README.md) |
-| Design | Protect the internet edge | exposed domains/EIPs | WAF + Anti-DDoS design | [assets/edge-security/](assets/edge-security/README.md) |
-| Build | Shape repo and codegen | spec + module library | generated env tree | [assets/repo-codegen/](assets/repo-codegen/README.md) |
-| Build | Configure provider auth | execution context | provider block choice | [assets/provider-auth/](assets/provider-auth/README.md) |
-| Build | Configure OBS state backend | backend.tf, init errors | working backend config | [assets/state-backend/](assets/state-backend/README.md) |
-| Build | Pick cross-account assume mode | env's resource types | correct provider config | [assets/cross-account/](assets/cross-account/README.md) |
-| Build | Run ordered applies | built tree + deps.json | safe apply run | [assets/apply-orchestration/](assets/apply-orchestration/README.md) |
-| Build | Wire OIDC CI credentials | CI platform + account map | trust-agency chain | [assets/ci-credentials-oidc/](assets/ci-credentials-oidc/README.md) |
-| Build | Move state without cloud changes | state files + target layout | state-mv runbook | [assets/state-surgery/](assets/state-surgery/README.md) |
-| Build | Absorb billing-mode changes | console conversion + plan diff | per-resource code/state fix | [assets/billing/](assets/billing/README.md) |
-| Verify | Preflight a fresh tenant | new account access | preflight checklist results | [assets/fresh-account-preflight/](assets/fresh-account-preflight/README.md) |
-| Verify | Validate spec and estate | spec + generated tree | rule findings, gate verdicts | [assets/validation-gates/](assets/validation-gates/README.md) |
-| Verify | Estimate plan cost | plan JSON + rate card | advisory cost summary | [assets/pricing-cost/](assets/pricing-cost/README.md) |
-| Verify | Triage plans and drift | plan JSON | triage verdicts | [assets/plan-triage-drift/](assets/plan-triage-drift/README.md) |
-| Verify | Catch no-error wrong behavior | clean plan/apply | trap findings | [assets/silent-failures/](assets/silent-failures/README.md) |
-| Deliver | Build handover artifact | working tree | release artifact | [assets/artifact-handover/](assets/artifact-handover/README.md) |
-| Deliver | Generate delivery documents | tfvars + pulled state | doc set + LLD workbook | [assets/documents-day2/](assets/documents-day2/README.md) |
+| intake | Convert questionnaire to spec | filled questionnaire | draft spec + decisions file | [assets/intake-questionnaire/](assets/intake-questionnaire/README.md) |
+| intake | Extract facts from ad-hoc asks | chat/email/ticket request | gap list + questions to ask | [assets/discovery-protocol/](assets/discovery-protocol/README.md) |
+| design | Structure accounts and OUs | org + governance requirements | account/OU/EP decisions | [assets/accounts-ous/](assets/accounts-ous/README.md) |
+| design | Design hub-spoke network | spec network sheets | ER + route-table decisions | [assets/network-topology/](assets/network-topology/README.md) |
+| design | Wire on-prem connectivity | site/peer details | VPN design, DC/CC boundary | [assets/hybrid-connectivity/](assets/hybrid-connectivity/README.md) |
+| design | Design hub-resolver DNS | zones + spoke attachment map | DNS env design | [assets/dns/](assets/dns/README.md) |
+| design | Author SCP guardrails | governance requirements | packed v5 SCP set | [assets/scp-guardrails/](assets/scp-guardrails/README.md) |
+| design | Scope identity and permission sets | roles/groups requirements | permission-set decisions | [assets/identity/](assets/identity/README.md) |
+| design | Converge logs and audit | log sources + account map | log-convergence design | [assets/observability/](assets/observability/README.md) |
+| design | Size backup and DR | retention/RPO requirements | vault + policy spec fields | [assets/backup-dr/](assets/backup-dr/README.md) |
+| design | Compose firewall rule plane | traffic flow matrix | group/rule composition | [assets/cfw-rule-plane/](assets/cfw-rule-plane/README.md) |
+| design | Protect the internet edge | exposed domains/EIPs | WAF + Anti-DDoS design | [assets/edge-security/](assets/edge-security/README.md) |
+| build | Shape repo and codegen | spec + module library | generated env tree | [assets/repo-codegen/](assets/repo-codegen/README.md) |
+| build | Configure provider auth | execution context | provider block choice | [assets/provider-auth/](assets/provider-auth/README.md) |
+| build | Configure OBS state backend | backend.tf, init errors | working backend config | [assets/state-backend/](assets/state-backend/README.md) |
+| build | Pick cross-account assume mode | env's resource types | correct provider config | [assets/cross-account/](assets/cross-account/README.md) |
+| build | Wire OIDC CI credentials | CI platform + account map | trust-agency chain | [assets/ci-credentials-oidc/](assets/ci-credentials-oidc/README.md) |
+| deploy | Run ordered applies | built tree + deps.json | safe apply run | [assets/apply-orchestration/](assets/apply-orchestration/README.md) |
+| deploy | Move state without cloud changes | state files + target layout | state-mv runbook | [assets/state-surgery/](assets/state-surgery/README.md) |
+| deploy | Absorb billing-mode changes | console conversion + plan diff | per-resource code/state fix | [assets/billing/](assets/billing/README.md) |
+| verify_pre | Preflight a fresh tenant | new account access | preflight checklist results | [assets/fresh-account-preflight/](assets/fresh-account-preflight/README.md) |
+| verify_pre | Validate spec and estate | spec + generated tree | rule findings, gate verdicts | [assets/validation-gates/](assets/validation-gates/README.md) |
+| verify_pre | Estimate plan cost | plan JSON + rate card | advisory cost summary | [assets/pricing-cost/](assets/pricing-cost/README.md) |
+| verify_pre / verify_post | Triage plans and drift | plan JSON | triage verdicts | [assets/plan-triage-drift/](assets/plan-triage-drift/README.md) |
+| verify_post | Catch no-error wrong behavior | clean plan/apply | trap findings | [assets/silent-failures/](assets/silent-failures/README.md) |
+| deliver | Build handover artifact | working tree | release artifact | [assets/artifact-handover/](assets/artifact-handover/README.md) |
+| deliver | Generate delivery documents | tfvars + pulled state | doc set + LLD workbook | [assets/documents-day2/](assets/documents-day2/README.md) |
 
-(The table groups assets coarsely; the authoritative phase graph is the 7-phase Phase contract below — its Build spans build+deploy rows here, and Verify spans verify_pre+verify_post.)
+(Phase labels are the canonical names from `schemas/phases.json`.)
 
 ## Companion skill (optional)
 

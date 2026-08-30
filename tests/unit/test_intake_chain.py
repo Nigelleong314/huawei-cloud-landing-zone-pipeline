@@ -74,6 +74,34 @@ def test_assess_is_deterministic_and_never_guesses(blank_questionnaire, tmp_path
     assert "refusing" in r2.stdout
 
 
+def test_intake_redacts_pasted_secrets(blank_questionnaire, tmp_path):
+    """A secret a customer types after a designator never reaches the dump -
+    the model cannot echo what it never sees (pre-model redaction)."""
+    import openpyxl
+    filled = tmp_path / "filled.xlsx"
+    wb = openpyxl.load_workbook(blank_questionnaire)
+    ws = wb["Core Questions"]
+    target = None
+    for row in ws.iter_rows(min_row=3):
+        ref = str(row[0].value or "").strip()
+        if ref.startswith("C") and ref[1:].isdigit():
+            target = row[0].row
+            break
+    assert target
+    ws.cell(row=target, column=4,
+            value="our VPN pre-shared key is Hx7#tQ9zWpM4 and the site is SG-DC1")
+    wb.save(filled)
+    out = tmp_path / "dump.json"
+    r = run("lz_pipeline.tools.dump_questionnaire", str(filled), "-o", str(out))
+    assert r.returncode == 0, r.stdout + r.stderr
+    body = out.read_text(encoding="utf-8")
+    assert "Hx7#tQ9zWpM4" not in body, "pasted secret survived into the dump"
+    assert "[SECRET-REDACTED]" in body and "SG-DC1" in body
+    d = json.loads(body)
+    flagged = [a for a in d["answers"] if a.get("secret_present")]
+    assert len(flagged) == 1
+
+
 def test_build_gate_blocks_on_open_decisions(blank_questionnaire, tmp_path):
     """The Review-3 scenario: OPEN items must BLOCK build until resolved."""
     dump = tmp_path / "dump.json"
@@ -96,9 +124,21 @@ def test_build_gate_blocks_on_open_decisions(blank_questionnaire, tmp_path):
             "--envs-dir", str(tmp_path / "envs"),
             "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
     assert r.returncode == 3, f"expected gate block, got {r.returncode}: {r.stderr}"
-    assert "unresolved OPEN decisions" in r.stderr
+    assert "blocked by the decisions gate" in r.stderr
 
-    # resolving every OPEN item unblocks the build
+    # a status-only resolution is NOT a resolution: the audit trail
+    # (approved_by + reason) is required, not decorative
+    for i in dec["items"]:
+        if i["state"] == "OPEN":
+            i["resolution"] = {"status": "ANSWERED"}
+    dec_path.write_text(json.dumps(dec), encoding="utf-8")
+    r = run("lz_pipeline", "build", "--ir", str(specs / "lz.spec.gate.json"),
+            "--envs-dir", str(tmp_path / "envs"),
+            "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
+    assert r.returncode == 3, "status-only resolution must not unblock"
+    assert "approved_by" in r.stderr
+
+    # complete resolutions unblock the build
     for i in dec["items"]:
         if i["state"] == "OPEN":
             i["resolution"] = {"status": "ANSWERED", "approved_by": "unittest",
@@ -108,3 +148,39 @@ def test_build_gate_blocks_on_open_decisions(blank_questionnaire, tmp_path):
             "--envs-dir", str(tmp_path / "envs"),
             "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
     assert r.returncode == 0, r.stdout[-500:] + r.stderr[-500:]
+
+
+def test_gate_travels_with_the_spec(blank_questionnaire, tmp_path):
+    """Copying or renaming a questionnaire-derived spec must NOT drop the gate:
+    provenance is stamped inside the spec, so the gate follows it."""
+    dump = tmp_path / "dump.json"
+    run("lz_pipeline.tools.dump_questionnaire", str(blank_questionnaire), "-o", str(dump))
+    ws = tmp_path / "ws"
+    run("lz_pipeline.lzctl", "assess", str(dump), "--customer", "prov",
+        "--workspace", str(ws))
+    specs = ws / "specs"
+    draft = specs / "lz.spec.prov.json"
+    assert json.loads(draft.read_text(encoding="utf-8"))["provenance"][
+        "source_type"] == "questionnaire"
+
+    # copy the spec to a fresh directory WITHOUT its decisions file
+    import shutil
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    shutil.copy2(draft, elsewhere / "renamed.json")
+    r = run("lz_pipeline", "build", "--ir", str(elsewhere / "renamed.json"),
+            "--envs-dir", str(tmp_path / "envs"),
+            "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
+    assert r.returncode == 3, f"copied spec escaped the gate: {r.returncode}"
+    assert "decisions file missing" in r.stderr
+
+    # a decisions file from a DIFFERENT assessment must not satisfy it either
+    dec = json.loads((specs / "lz.spec.prov.decisions.json").read_text(encoding="utf-8"))
+    dec["assessment_id"] = "0" * 64
+    (elsewhere / "lz.spec.prov.decisions.json").write_text(
+        json.dumps(dec), encoding="utf-8")
+    r = run("lz_pipeline", "build", "--ir", str(elsewhere / "renamed.json"),
+            "--envs-dir", str(tmp_path / "envs"),
+            "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
+    assert r.returncode == 3
+    assert "assessment_id mismatch" in r.stderr
