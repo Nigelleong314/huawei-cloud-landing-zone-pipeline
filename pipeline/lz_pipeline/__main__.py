@@ -51,8 +51,36 @@ def cmd_spec_validate(args):
     return 1 if errors else 0
 
 
+def _open_decisions(ir_path: Path):
+    """Unresolved OPEN items from the sibling decisions file, if one exists.
+
+    `lzctl assess` writes lz.spec.<slug>.decisions.json next to the draft.
+    An OPEN item blocks build until someone records a resolution
+    ({"status": "ANSWERED"|"ACCEPTED_DEFAULT", "approved_by": ..., "reason": ...});
+    ANSWERED/DEFAULTED items never block. No decisions file = no gate
+    (specs exported straight from a workbook have no questionnaire lineage).
+    """
+    import json
+    dec = ir_path.with_name(ir_path.stem + ".decisions.json")
+    if not dec.exists():
+        return []
+    items = json.loads(dec.read_text(encoding="utf-8")).get("items", [])
+    return [i for i in items
+            if i.get("state") == "OPEN"
+            and (i.get("resolution") or {}).get("status")
+            not in ("ANSWERED", "ACCEPTED_DEFAULT")]
+
+
 def cmd_build(args):
     from .core import cli as be
+    unresolved = _open_decisions(Path(args.ir).resolve())
+    if unresolved:
+        print("build blocked: unresolved OPEN decisions (never guess - resolve "
+              "them in the .decisions.json, then re-run):", file=sys.stderr)
+        for i in unresolved:
+            print(f"  - {i.get('ref', '?')}: {i.get('question', '')[:90]}",
+                  file=sys.stderr)
+        return 3
     ir = model.load(Path(args.ir))
     spec = model.sheets(ir)
 

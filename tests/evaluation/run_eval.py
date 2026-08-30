@@ -179,6 +179,15 @@ def main(argv=None):
                 try:
                     r = run_model(model, prompt, adapter=args.adapter)
                     verdict = score(fx, r["text"])
+                    # Deterministic redaction: fixture-declared secrets never
+                    # persist to disk. Scoring ran FIRST on the raw text, so
+                    # the must_not_contain canary still detects echoes.
+                    def _redact(s):
+                        for sec in fx.get("secrets", []):
+                            s = s.replace(sec, "[REDACTED-SECRET]")
+                        return s
+                    r["text"] = _redact(r["text"])
+                    prompt = _redact(prompt)
                     cost = r.get("cost_usd") or 0.0
                     total_cost += cost
                     (out / "transcripts" / f"{tag}.json").write_text(json.dumps({

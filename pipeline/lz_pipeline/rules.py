@@ -384,14 +384,20 @@ def r_stringlike_wildcard(spec):
     return out
 
 
-@_rule("LZR-027", "warn", "spec", "Pre-shared keys do not belong in the workbook")
+@_rule("LZR-027", "error", "spec", "Literal secrets never enter the spec (PSK must be blank or a reference)")
 def r_vpn_psk_in_sheet(spec):
+    # A blank cell, a variable/secret REFERENCE, or an obvious placeholder is
+    # fine; anything else is treated as a literal secret and BLOCKS
+    # validation/build. Deterministic enforcement - never rely on the model
+    # (or the operator) remembering the rule.
+    ok_prefixes = ("var.", "secret", "secret://", "tbd", "<", "replace_with", "${")
     out = []
     for c in (spec.get("10_VPN", {}).get("Connections") or []):
         psk = str(c.get("PSK") or "").strip()
-        if psk and not psk.lower().startswith(("var.", "secret", "tbd", "<")):
-            out.append(f"10_VPN: Connections[{c.get('Name')}] carries a literal PSK in the workbook - "
-                       "move it to the env's gitignored secrets tfvars and leave this cell blank")
+        if psk and not psk.lower().startswith(ok_prefixes):
+            out.append(f"10_VPN: Connections[{c.get('Name')}] carries a literal PSK - "
+                       "use a reference (secret://... / var....) or a REPLACE_WITH placeholder; "
+                       "the real value belongs in the env's gitignored secrets tfvars only")
     return out
 
 

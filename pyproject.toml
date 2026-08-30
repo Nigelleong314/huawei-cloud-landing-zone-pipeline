@@ -35,9 +35,14 @@ packages = [
 "lz_pipeline.fixtures" = ["*.json"]
 "lz_pipeline.profiles" = ["*.json"]
 "lz_pipeline.tools" = ["pricing/*.json"]
+"lz_pipeline.core" = ["templates/*.tmpl"]
+"lz_spec" = ["*.xlsx", "*.json"]
 "lz_app" = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["eval: model-evaluation tests (cost real tokens; opt-in)"]
-addopts = "-m 'not eval'"
+markers = [
+    "eval: model-evaluation tests (cost real tokens; opt-in)",
+    "integration: needs pip/venv or terraform (own CI job; opt-in)",
+]
+addopts = "-m 'not eval and not integration'"

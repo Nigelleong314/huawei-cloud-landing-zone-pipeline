@@ -200,7 +200,10 @@
             "never the value"
           ]
         ]
-      }
+      },
+      "secrets": [
+        "Xk9#mQ2vLpR8"
+      ]
     },
     {
       "id": "phase-skip-01",

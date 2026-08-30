@@ -560,13 +560,15 @@ def _pipeline_delegate(what, extra):
         print(f"'{what}' needs the build pipeline, which this runtime-only "
               "installation does not include.")
         return 2
-    root = Path(__file__).resolve().parent.parent
     if what == "check":
         return subprocess.run([sys.executable, "-m", "lz_spec.verify_pipeline"] + extra).returncode
+    if what == "export":
+        return subprocess.run([sys.executable, "-m", "lz_pipeline.export_v2"] + extra).returncode
     if what == "validate":
         what = "spec-validate"
-    return subprocess.run([sys.executable, "-m", "lz_pipeline", what] + extra,
-                          cwd=str(root)).returncode
+    # cwd stays the CALLER's cwd so relative --ir/--envs-dir paths resolve
+    # exactly as typed (the old pipeline-dir cwd silently re-anchored them)
+    return subprocess.run([sys.executable, "-m", "lz_pipeline", what] + extra).returncode
 
 
 def cmd_intake(args):
@@ -582,13 +584,29 @@ def cmd_intake(args):
     return subprocess.run(argv).returncode
 
 
-def cmd_assess(args):
-    """Deterministic assessment pre-pass: draft spec skeleton + decisions file.
+def _neutral(v):
+    """Schema-shaped skeleton: keep structure, unset every value.
 
-    The draft starts as the packaged example spec with provenance stamped; the
-    decisions file buckets every question three ways (answered / silent with a
-    documented default / open gap). Interpreting prose answers into spec
-    fields is the agent's or engineer's job - this command never guesses."""
+    Tables empty, scalars blank. A draft built from this fails validation
+    until real answers are interpreted in - which is the point: nothing
+    deployable exists that wasn't decided by someone."""
+    if isinstance(v, dict):
+        return {k: _neutral(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return []
+    return ""
+
+
+def cmd_assess(args):
+    """Deterministic assessment pre-pass: neutral draft + decisions files.
+
+    The draft is a schema-shaped skeleton with every value UNSET (it fails
+    `lzctl validate` until interpreted - by design). The decisions files
+    (.md for humans, .json for the build gate) bucket every question:
+    ANSWERED / DEFAULTED (silent with a documented default) / OPEN (required,
+    no default). Interpreting prose answers into spec fields is the agent's
+    or engineer's job - this command never guesses, and `build` refuses to
+    run while OPEN items lack a recorded resolution."""
     dump = json.loads(Path(args.dump).read_text(encoding="utf-8"))
     ws = Path(args.workspace or ".").resolve()
     specs = ws / "specs"
@@ -596,16 +614,18 @@ def cmd_assess(args):
     slug = args.customer.lower()
     draft = specs / f"lz.spec.{slug}.json"
     decisions = specs / f"lz.spec.{slug}.decisions.md"
+    decisions_json = specs / f"lz.spec.{slug}.decisions.json"
     if draft.exists() and not args.force:
         print(f"refusing to overwrite {draft} (use --force)")
         return 1
     fixture = Path(__file__).resolve().parent / "fixtures" / "example.spec.json"
     spec = json.loads(fixture.read_text(encoding="utf-8"))
+    spec["sheets"] = _neutral(spec["sheets"])
     spec["customer"] = slug
     meta = dump.get("meta", {})
     spec["source"] = (f"assessment questionnaire v{meta.get('questionnaire_version', '?')} "
-                      f"({dump.get('source_file', '?')}) - DRAFT, baseline values are "
-                      "example defaults until replaced")
+                      f"({dump.get('source_file', '?')}) - NEUTRAL DRAFT: every value "
+                      "unset until interpreted from the answers; validate fails until then")
     draft.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     answered, defaulted, gaps = [], [], []
@@ -634,12 +654,32 @@ def cmd_assess(args):
     lines += [f"- Appendix {k}: {len(v.get('rows', []))} row(s) -> `{', '.join(v.get('targets') or [])}`"
               for k, v in sorted(apx.items())] or ["(none)"]
     decisions.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"draft spec     -> {draft}")
-    print(f"decisions file -> {decisions}")
+
+    # machine-readable twin: the build gate reads this. OPEN items block
+    # `build` until a resolution is recorded; DEFAULTED/ANSWERED never block.
+    items = (
+        [{"ref": r, "state": "OPEN", "question": q, "targets": t,
+          "resolution": None} for r, q, t in gaps]
+        + [{"ref": r, "state": "DEFAULTED", "question": q, "default_if_silent": d,
+            "resolution": None} for r, q, d in defaulted]
+        + [{"ref": r, "state": "ANSWERED", "question": q,
+            "resolution": None} for r, q, _ in answered])
+    decisions_json.write_text(json.dumps({
+        "customer": slug, "source_file": dump.get("source_file", "?"),
+        "resolution_contract": {
+            "blocking": "state=OPEN with resolution=null blocks `lzctl build`",
+            "resolve_by": 'set resolution to {"status": "ANSWERED"|"ACCEPTED_DEFAULT",'
+                          ' "approved_by": "<person>", "reason": "<why>"}'},
+        "items": items}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    print(f"draft spec (neutral) -> {draft}")
+    print(f"decisions (human)    -> {decisions}")
+    print(f"decisions (gate)     -> {decisions_json}")
     print(f"\n== RESULT: ASSESSED ({len(answered)} ANSWERED, {len(defaulted)} DEFAULTED, "
           f"{len(gaps)} OPEN) ==")
     print("next: interpret answered questions into the draft (questionnaire-to-spec"
-          " skill or by hand), then `lzctl validate`")
+          " skill or by hand), resolve OPEN items in the decisions .json, then"
+          " `lzctl validate`")
     return 0
 
 
@@ -689,7 +729,16 @@ def cmd_report(args):
     return 0 if drift_rc == 0 else 2
 
 
+DELEGATES = ("build", "validate", "spec-validate", "check", "export")
+
+
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Delegated verbs pass their entire argv through untouched - argparse's
+    # remainder handling cannot preserve leading --options, so dispatch first.
+    # `lzctl <verb> --help` reaches the delegated parser's own help.
+    if argv and argv[0] in DELEGATES:
+        return _pipeline_delegate(argv[0], argv[1:])
     ap = argparse.ArgumentParser(prog="lzctl", description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -745,24 +794,21 @@ def main(argv=None):
     p.add_argument("--out", help="bundle dir (default: <envs>/evidence/<ts>)")
     p.add_argument("--last-logs", default="10", help="how many recent logs to include")
     p.set_defaults(fn=cmd_report)
-    DELEGATES = ("build", "validate", "spec-validate", "check")
     for verb in DELEGATES:
         hint = {"build": "generate tfvars + HCL from the spec",
                 "validate": "spec validation (structural + semantic + platform rules)",
                 "spec-validate": "alias of validate",
-                "check": "the pipeline regression harness (7 checks)"}[verb]
+                "check": "the pipeline regression harness (7 checks)",
+                "export": "handover artifact export"}[verb]
+        # registered for --help only; real dispatch happens in main() before
+        # argparse so the delegated argv passes through completely untouched
         p = sub.add_parser(verb, help=f"pipeline-side: {hint}")
-        p.add_argument("extra", nargs="*")
-        p.set_defaults(fn=lambda a, v=verb: _pipeline_delegate(
-            v, list(a.extra) + list(getattr(a, "_unknown", []))))
+        p.add_argument("extra", nargs=argparse.REMAINDER)
 
-    args, unknown = ap.parse_known_args(argv)
+    args = ap.parse_args(argv)
     global PRICING_PATH
     if getattr(args, "pricing", None):
         PRICING_PATH = args.pricing
-    if unknown and args.cmd not in DELEGATES:
-        ap.error(f"unrecognized arguments: {' '.join(unknown)}")
-    args._unknown = unknown
     return args.fn(args)
 
 

@@ -70,11 +70,11 @@ The model reasons and interprets; the skill provides workflow and doctrine; the 
 
 ## How the skill and pipeline work together
 
-The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically buckets every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses), then the agent interprets the *prose* answers into the draft spec using the skill's doctrine, then `lzctl validate` gates the result mechanically. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (`decisions.md`, the spec diff) a human reviews.
+The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically buckets every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses, and its draft spec starts *neutral*: every value unset, failing validation until interpreted), then the agent interprets the *prose* answers into the draft using the skill's doctrine, then `lzctl validate` gates the result mechanically — and `lzctl build` refuses to run while `lz.spec.<slug>.decisions.json` still holds OPEN items without a recorded resolution. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (the decisions files, the spec diff) a human reviews and signs off.
 
 ## Which models can be used
 
-Any — the design is model-agnostic by construction. All model-facing surfaces are files and CLIs: the spec IR is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
+Any — the *execution boundary* is model-independent: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec IR is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
 
 ## Prerequisites
 
@@ -112,11 +112,15 @@ python -m lz_pipeline.tools.gen_questionnaire -o questionnaire.xlsx
 # 3. Mechanical extraction (no interpretation)
 lzctl intake filled-questionnaire.xlsx -o dump.json
 
-# 4. Deterministic assessment: draft spec + decisions file (never guesses)
+# 4. Deterministic assessment: NEUTRAL draft (every value unset) + decisions
+#    files (never guesses). The draft fails validation until interpreted.
 lzctl assess dump.json --customer acme --workspace .
-#    -> specs/lz.spec.acme.json + specs/lz.spec.acme.decisions.md
+#    -> specs/lz.spec.acme.json (neutral draft)
+#       specs/lz.spec.acme.decisions.md (human agenda)
+#       specs/lz.spec.acme.decisions.json (build gate: OPEN items block build)
 
-# 5. Interpret the answered questions into the draft spec
+# 5. Interpret the answered questions into the draft spec, and record a
+#    resolution for every OPEN item in the decisions .json
 #    (an agent using skills/questionnaire-to-spec, or an engineer by hand)
 
 # 6. Gate the spec (schema + semantic + platform rules)
@@ -135,7 +139,7 @@ lzctl verify    --envs-dir envs              # every env clean or known-benign
 lzctl report    --envs-dir envs              # evidence bundle -> envs/evidence/<ts>/
 ```
 
-Note: `validate`, `build`, and `check` are delegated to the installed pipeline and run with the `pipeline/` package directory as their working directory — pass absolute paths (or run `python -m lz_pipeline build ...` / `python -m lz_pipeline spec-validate ...` yourself from wherever your paths are relative to). All other verbs run in place.
+Note: `validate`, `build`, `check`, and `export` delegate to the installed pipeline modules and run in **your** working directory — relative paths resolve exactly as typed, the same as every other verb.
 
 ## Dry runs and plan-only use
 
