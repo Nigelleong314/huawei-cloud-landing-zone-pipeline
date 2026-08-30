@@ -94,10 +94,20 @@ def build_schema() -> dict:
                     "decisions_file": {"type": "string"},
                     "assessment_id": {"type": "string",
                                       "pattern": "^[0-9a-f]{64}$"},
+                    "decision_set_sha256": {
+                        "type": "string", "pattern": "^[0-9a-f]{64}$",
+                        "description": "Hash of the immutable decision set "
+                                       "(ref/state/question/targets/"
+                                       "default_if_silent - never resolution). "
+                                       "build exits 3 when the manifest no "
+                                       "longer matches."},
+                    "decision_count": {"type": "integer",
+                                       "description": "diagnostic; the hash "
+                                                      "is authoritative"},
                     "customer": {"type": "string"},
                 },
                 "required": ["source_type", "decisions_file", "assessment_id",
-                             "customer"],
+                             "decision_set_sha256", "customer"],
             },
             "sheets": {"type": "object", "properties": sheets_props,
                        "additionalProperties": True},

@@ -63,8 +63,11 @@ def _decisions_gate(ir_path: Path, ir: dict):
     An OPEN item blocks until its resolution is COMPLETE:
     status ANSWERED|ACCEPTED_DEFAULT + non-empty approved_by + reason
     (contract: schemas/decisions.schema.json). ANSWERED/DEFAULTED items
-    never block. A spec with no provenance and no sibling decisions file
-    has no questionnaire lineage — no gate (e.g. workbook exports).
+    never block. The manifest must also be COMPLETE: provenance carries a
+    hash of the immutable decision set, so truncating or altering decisions
+    blocks just like leaving them unresolved. A spec with no provenance and
+    no sibling decisions file has no questionnaire lineage — no gate
+    (e.g. workbook exports).
     """
     import json
     prov = ir.get("provenance") or {}
@@ -87,6 +90,24 @@ def _decisions_gate(ir_path: Path, ir: dict):
                                 f"(spec provenance {prov.get(field)!r} != "
                                 f"decisions {doc.get(field)!r}) - this decisions "
                                 "file does not belong to this spec")
+        # completeness: the manifest must hold EXACTLY the immutable decision
+        # set from assessment. Deleting, adding, or altering a decision (not
+        # its resolution - those are the editable part) blocks the build.
+        from .lzctl import _decision_set_sha256
+        expected = prov.get("decision_set_sha256")
+        if not expected:
+            problems.append("spec provenance lacks decision_set_sha256 - "
+                            "re-run `lzctl assess` (a provenance block without "
+                            "the decision-set hash cannot prove the manifest "
+                            "is complete)")
+        elif _decision_set_sha256(doc.get("items", [])) != expected:
+            problems.append(
+                f"decision set altered: {dec.name} no longer matches the set "
+                f"generated at assessment ({len(doc.get('items', []))} item(s) "
+                f"present, {prov.get('decision_count', '?')} expected). Only "
+                "`resolution` fields may be edited; a decision was deleted, "
+                "added, or changed - re-run `lzctl assess` if the "
+                "questionnaire itself changed")
     for i in doc.get("items", []):
         if i.get("state") != "OPEN":
             continue

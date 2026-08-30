@@ -2,51 +2,103 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decisions.schema.json",
   "title": "Landing Zone decisions file (lz.spec.<slug>.decisions.json)",
-  "description": "Written by `lzctl assess`, edited by whoever resolves decisions, enforced by `lzctl build` (exit 3 on any OPEN item without a complete resolution, or on customer/assessment_id mismatch with the spec's provenance block). The gate's in-code checks in lz_pipeline/__main__.py are authoritative; this schema documents the contract for external tooling.",
+  "description": "Written by `lzctl assess`, edited by whoever resolves decisions, enforced by `lzctl build` (exit 3 on any OPEN item without a complete resolution, or on customer/assessment_id mismatch with the spec's provenance block). The gate's in-code checks in lz_pipeline/__main__.py are authoritative; this schema documents the contract for external tooling. The spec's provenance.decision_set_sha256 binds the immutable item set (ref/state/question/targets/default_if_silent); build exits 3 when the manifest was truncated or altered - only `resolution` fields are editable.",
   "type": "object",
-  "required": ["customer", "assessment_id", "items"],
+  "required": [
+    "customer",
+    "assessment_id",
+    "items"
+  ],
   "properties": {
-    "customer": {"type": "string"},
-    "source_file": {"type": "string"},
+    "customer": {
+      "type": "string"
+    },
+    "source_file": {
+      "type": "string"
+    },
     "assessment_id": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
       "description": "sha256 of the answers dump; must match the spec's provenance.assessment_id"
     },
-    "resolution_contract": {"type": "object"},
+    "resolution_contract": {
+      "type": "object"
+    },
     "items": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["ref", "state", "question"],
+        "required": [
+          "ref",
+          "state",
+          "question"
+        ],
         "properties": {
-          "ref": {"type": "string"},
-          "state": {"type": "string", "enum": ["OPEN", "DEFAULTED", "ANSWERED"]},
-          "question": {"type": "string"},
-          "targets": {"type": "array", "items": {"type": "string"}},
-          "default_if_silent": {"type": "string"},
+          "ref": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "DEFAULTED",
+              "ANSWERED"
+            ]
+          },
+          "question": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "default_if_silent": {
+            "type": "string"
+          },
           "resolution": {
             "oneOf": [
-              {"type": "null"},
+              {
+                "type": "null"
+              },
               {
                 "type": "object",
-                "required": ["status", "approved_by", "reason"],
+                "required": [
+                  "status",
+                  "approved_by",
+                  "reason"
+                ],
                 "properties": {
-                  "status": {"type": "string",
-                             "enum": ["ANSWERED", "ACCEPTED_DEFAULT"]},
-                  "approved_by": {"type": "string", "minLength": 1},
-                  "reason": {"type": "string", "minLength": 1},
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ANSWERED",
+                      "ACCEPTED_DEFAULT"
+                    ]
+                  },
+                  "approved_by": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "resolved_at": {
                     "type": "string",
                     "description": "Optional ISO date. The decisions file's version-control history is the trustworthy timestamp; this field is informational."
                   },
-                  "evidence_ref": {"type": "string"}
+                  "evidence_ref": {
+                    "type": "string"
+                  }
                 }
               }
             ]
           }
         }
-      }
+      },
+      "minItems": 1
     }
   }
 }

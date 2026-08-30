@@ -18,7 +18,11 @@ Consequences, in decreasing order of importance:
 1. **No deployable value is generated without an explicit decision.** The assess draft is
    neutral (every value unset, failing validation by design); OPEN questions
    block `build` mechanically until a resolution — who, why — is recorded in
-   `lz.spec.<slug>.decisions.json`.
+   `lz.spec.<slug>.decisions.json`. The spec's provenance block hash-binds the
+   decision set, so the gate survives spec copies/renames and manifest
+   truncation alike; the only detachment path is deleting `provenance` from
+   the spec — a deliberate, reviewable diff (an audited `detach-lineage`
+   command is planned).
 2. **Every agent action is a command a human could have typed**, and every
    judgment call lands in an artifact (the decisions files, the spec diff)
    that a human reviews and signs off.

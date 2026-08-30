@@ -29,9 +29,15 @@ def run(argv, **kw):
 
 
 def test_wheel_is_self_contained(tmp_path):
-    # 1. build the wheel from the checkout
+    # 1. build the wheel from the checkout. Offline-first: --no-build-isolation
+    #    avoids PEP 517 fetching setuptools when the running interpreter
+    #    already has it (CI installs it explicitly); fall back to the isolated
+    #    build for interpreters that ship without setuptools.
     r = run([sys.executable, "-m", "pip", "wheel", str(REPO), "--no-deps",
-             "-w", str(tmp_path / "dist")])
+             "--no-build-isolation", "-w", str(tmp_path / "dist")])
+    if r.returncode != 0:
+        r = run([sys.executable, "-m", "pip", "wheel", str(REPO), "--no-deps",
+                 "-w", str(tmp_path / "dist")])
     assert r.returncode == 0, r.stdout[-800:] + r.stderr[-800:]
     wheels = list((tmp_path / "dist").glob("*.whl"))
     assert len(wheels) == 1, wheels

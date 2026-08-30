@@ -55,6 +55,9 @@ spec diff, decision resolutions) — never in bypassed gates.
      `"resolution": {"status": "ANSWERED", "approved_by": "<person>", "reason": "<the obtained answer>"}`
      (or `"ACCEPTED_DEFAULT"` when the customer signs off on a proposed
      default). Record who decided — the gate exists so this is auditable.
+     **Only `resolution` fields are editable**: the decision set itself is
+     hash-bound into the spec's provenance, so deleting or altering an item
+     (or the whole list) blocks `build` exactly like leaving it unresolved.
    - **Sweep cross-references.** Accounts/VPCs/groups you add invalidate any
      row referencing names that don't exist — `lzctl validate` enforces
      referential integrity and lists what you missed.

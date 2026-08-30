@@ -150,6 +150,88 @@ def test_build_gate_blocks_on_open_decisions(blank_questionnaire, tmp_path):
     assert r.returncode == 0, r.stdout[-500:] + r.stderr[-500:]
 
 
+def test_decision_set_integrity(blank_questionnaire, tmp_path):
+    """The review-5 blocker: the manifest must hold EXACTLY the immutable
+    decision set from assessment. Truncating or altering it blocks build;
+    only resolutions are editable."""
+    import copy
+    import shutil
+    dump = tmp_path / "dump.json"
+    run("lz_pipeline.tools.dump_questionnaire", str(blank_questionnaire), "-o", str(dump))
+    ws = tmp_path / "ws"
+    run("lz_pipeline.lzctl", "assess", str(dump), "--customer", "integ",
+        "--workspace", str(ws))
+    specs = ws / "specs"
+    draft = json.loads((specs / "lz.spec.integ.json").read_text(encoding="utf-8"))
+    assert draft["provenance"]["decision_set_sha256"]
+    # a known-good deployable spec KEEPING the assess provenance (the
+    # reviewer's exact scenario)
+    good = json.loads((REPO / "pipeline/lz_pipeline/fixtures/example.spec.json")
+                      .read_text(encoding="utf-8"))
+    good["provenance"] = draft["provenance"]
+    spec_path = specs / "lz.spec.integ.json"
+    spec_path.write_text(json.dumps(good), encoding="utf-8")
+    dec_path = specs / "lz.spec.integ.decisions.json"
+    pristine = json.loads(dec_path.read_text(encoding="utf-8"))
+
+    def build_with(doc):
+        dec_path.write_text(json.dumps(doc), encoding="utf-8")
+        return run("lz_pipeline", "build", "--ir", str(spec_path),
+                   "--envs-dir", str(tmp_path / "envs"),
+                   "--scaffold-dir", str(REPO / "terraform" / "scaffold"))
+
+    def resolved(doc):
+        for i in doc["items"]:
+            if i["state"] == "OPEN":
+                i["resolution"] = {"status": "ANSWERED", "approved_by": "t",
+                                   "reason": "r"}
+        return doc
+
+    # items = []                  -> exit 3
+    doc = copy.deepcopy(pristine); doc["items"] = []
+    r = build_with(doc)
+    assert r.returncode == 3 and "decision set altered" in r.stderr
+
+    # delete one OPEN item (rest resolved) -> exit 3
+    doc = resolved(copy.deepcopy(pristine))
+    doc["items"] = [i for i in doc["items"] if i["state"] == "OPEN"][1:] + \
+                   [i for i in doc["items"] if i["state"] != "OPEN"]
+    r = build_with(doc)
+    assert r.returncode == 3 and "decision set altered" in r.stderr
+
+    # delete one DEFAULTED item -> exit 3
+    doc = resolved(copy.deepcopy(pristine))
+    dropped = False
+    kept = []
+    for i in doc["items"]:
+        if i["state"] == "DEFAULTED" and not dropped:
+            dropped = True
+            continue
+        kept.append(i)
+    assert dropped
+    doc["items"] = kept
+    r = build_with(doc)
+    assert r.returncode == 3 and "decision set altered" in r.stderr
+
+    # change a question -> exit 3
+    doc = resolved(copy.deepcopy(pristine))
+    doc["items"][0]["question"] = "something else entirely"
+    r = build_with(doc)
+    assert r.returncode == 3 and "decision set altered" in r.stderr
+
+    # stripping the hash from provenance is NOT an escape -> exit 3
+    stripped = copy.deepcopy(good)
+    del stripped["provenance"]["decision_set_sha256"]
+    spec_path.write_text(json.dumps(stripped), encoding="utf-8")
+    r = build_with(resolved(copy.deepcopy(pristine)))
+    assert r.returncode == 3 and "lacks decision_set_sha256" in r.stderr
+    spec_path.write_text(json.dumps(good), encoding="utf-8")
+
+    # edit resolutions ONLY -> allowed; complete resolutions -> build passes
+    r = build_with(resolved(copy.deepcopy(pristine)))
+    assert r.returncode == 0, r.stdout[-500:] + r.stderr[-500:]
+
+
 def test_gate_travels_with_the_spec(blank_questionnaire, tmp_path):
     """Copying or renaming a questionnaire-derived spec must NOT drop the gate:
     provenance is stamped inside the spec, so the gate follows it."""
