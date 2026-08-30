@@ -14,7 +14,8 @@ REPO = Path(__file__).resolve().parents[2]
 def run(mod, *args, **kw):
     return subprocess.run([sys.executable, "-X", "utf8", "-m", mod, *args],
                           capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", cwd=str(REPO), **kw)
+                          errors="replace", cwd=str(REPO),
+                          stdin=subprocess.DEVNULL, **kw)
 
 
 def test_questionnaire_coverage_check_passes():

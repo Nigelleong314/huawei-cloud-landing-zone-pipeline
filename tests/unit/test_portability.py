@@ -26,7 +26,8 @@ def test_module_source_root_env_override(tmp_path):
     r = subprocess.run(
         [sys.executable, "-X", "utf8", "-c",
          "from lz_pipeline.core.helpers import MODULE_SOURCE_ROOT; print(MODULE_SOURCE_ROOT)"],
-        capture_output=True, text=True, env=env, cwd=str(REPO))
+        capture_output=True, text=True, env=env, cwd=str(REPO),
+        stdin=subprocess.DEVNULL)
     assert r.stdout.strip() == "../../custom-modules"
 
 
@@ -34,7 +35,8 @@ def test_jsonschema_generation(tmp_path):
     out = tmp_path / "s.json"
     r = subprocess.run([sys.executable, "-X", "utf8", "-m",
                         "lz_pipeline.tools.gen_jsonschema", "-o", str(out)],
-                       capture_output=True, text=True, cwd=str(REPO))
+                       capture_output=True, text=True, cwd=str(REPO),
+                       stdin=subprocess.DEVNULL)
     assert r.returncode == 0, r.stdout + r.stderr
     d = json.loads(out.read_text(encoding="utf-8"))
     sheets = d["properties"]["sheets"]["properties"]

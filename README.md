@@ -84,16 +84,21 @@ Any — the design is model-agnostic by construction. All model-facing surfaces 
 
 ## Install
 
-Editable install (gives you the `lzctl` and `lz-app` commands):
+The canonical installation model:
 
 ```bash
-pip install -e .
+pip install .        # normal use  (gives you the lzctl and lz-app commands)
+pip install -e .     # development (editable)
 ```
 
-Or run from a plain checkout — the root `conftest.py` puts `pipeline/` and `app/` on the path for pytest, and every entry point is runnable directly:
+Plain-checkout execution is supported as a development/CI mode only: the root
+`conftest.py` puts `pipeline/` and `app/` on the path (for pytest **and** the
+subprocesses it spawns); outside pytest, set it yourself:
 
 ```bash
-python pipeline/lz_pipeline/lzctl.py --help
+# Linux/macOS                          # Windows
+export PYTHONPATH=$PWD/pipeline:$PWD/app    set PYTHONPATH=%CD%\pipeline;%CD%\app
+python -m lz_pipeline.lzctl --help
 ```
 
 ## Quickstart
@@ -150,7 +155,7 @@ Details in `docs/testing.md`.
 
 ## Adding another model
 
-The eval suite lives in `tests/evaluation/` (marked `eval` in pytest, excluded by default — see `[tool.pytest.ini_options]` in `pyproject.toml`). The harness ships in a later change; the intended shape is a `claude -p`-style CLI adapter per model, shared fixtures, deterministic scoring against the schema and validators, and model selection via a `MODEL` environment variable. Because every model-facing surface is a file or CLI, adding a model means adding an adapter, not touching the pipeline.
+The executed eval harness lives in `tests/evaluation/`: `adapter.py` exposes one `run_model()` behind named adapters (the first shells out to headless Claude Code — `claude -p --output-format json`; other providers plug in by adding a function to `ADAPTERS`), `fixtures/fixtures.json` holds self-contained single-turn tasks, and `run_eval.py` runs the model matrix with deterministic scoring only, a cost ledger, and committed transcripts under `results/`. Run it with `python tests/evaluation/run_eval.py --models <ids> --trials N`. Because every model-facing surface is a file or CLI, adding a model means adding an adapter, not touching the pipeline. Current results are an **initial model-compatibility evaluation** (see `docs/testing.md`), not a completed model-agnostic validation.
 
 ## Extending the skill
 

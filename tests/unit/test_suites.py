@@ -18,7 +18,9 @@ SUITES += sorted((REPO / "app" / "tests").glob("test_*.py"))
 
 @pytest.mark.parametrize("script", SUITES, ids=lambda p: p.stem)
 def test_suite(script):
+    # stdin=DEVNULL: under pytest capture on Windows the inherited stdin
+    # handle can be invalid, failing spawn with WinError 6
     r = subprocess.run([sys.executable, "-X", "utf8", str(script)],
                        capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", cwd=str(REPO))
+                       errors="replace", cwd=str(REPO), stdin=subprocess.DEVNULL)
     assert r.returncode == 0, f"{script.name} failed:\n{r.stdout[-3000:]}\n{r.stderr[-800:]}"

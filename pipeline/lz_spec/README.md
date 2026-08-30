@@ -9,7 +9,7 @@ customers), never an input.
 | File | Purpose |
 |---|---|
 | `schema.py` | Single source of truth: every sheet, table, column, type, sample, and description |
-| `lz.spec.acme.json` | The live customer spec |
+| `lz.spec.<slug>.json` | Customer- or environment-specific specification |
 | `lz.spec.example.json` | Filled example spec — every fillable table populated |
 | `gen_template.py` | Generates the blank `landing_zone_spec.xlsx` template from `schema.py` |
 | `landing_zone_spec.xlsx` | The blank template (generated — regenerate after schema changes) |
