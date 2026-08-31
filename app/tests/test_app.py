@@ -89,10 +89,12 @@ print("== API end-to-end ==")
 from lz_app import server
 
 
-def req(path, method="GET", body=None):
+def req(path, method="GET", body=None, headers=None):
     data = json.dumps(body).encode() if body is not None else None
+    h = {"Content-Type": "application/json", "X-LZ-Token": server.TOKEN}
+    h.update(headers or {})
     r = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}", data=data, method=method,
-                               headers={"Content-Type": "application/json"})
+                               headers=h)
     with urllib.request.urlopen(r, timeout=30) as resp:
         return json.loads(resp.read())
 
@@ -135,6 +137,23 @@ try:
     check("xlsx save rejected (json-only store)", False, "expected HTTP 400")
 except urllib.error.HTTPError as e:
     check("xlsx save rejected (json-only store)", e.code == 400, e.code)
+
+# CSRF/token gate: mutating requests need the startup token and a local origin
+try:
+    req("/api/spec/validate", "POST", {}, headers={"X-LZ-Token": "wrong"})
+    check("POST without valid token rejected", False, "expected HTTP 403")
+except urllib.error.HTTPError as e:
+    check("POST without valid token rejected", e.code == 403, e.code)
+try:
+    req("/api/spec/validate", "POST", {}, headers={"Origin": "https://evil.example"})
+    check("cross-origin POST rejected", False, "expected HTTP 403")
+except urllib.error.HTTPError as e:
+    check("cross-origin POST rejected", e.code == 403, e.code)
+try:
+    req("/api/spec/save", "POST", {"path": str(Path(tempfile.gettempdir()) / "lz-escape.json")})
+    check("save outside the workspace rejected", False, "expected HTTP 400")
+except urllib.error.HTTPError as e:
+    check("save outside the workspace rejected", e.code == 400, e.code)
 
 e = req(f"/api/envs?dir={ENVS_DIR}")
 check("/api/envs returns apply-ordered envs", e["envs"][0] == "00-bootstrap"
