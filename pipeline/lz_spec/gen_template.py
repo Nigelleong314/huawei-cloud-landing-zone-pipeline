@@ -15,7 +15,7 @@ from lz_spec.schema import SHEETS, KV, Table, Sheet
 
 
 # Styling
-TITLE_FILL  = PatternFill("solid", fgColor="1F4E78")
+TITLE_FILL  = PatternFill("solid", fgColor="1F4E79")
 HEADER_FILL = PatternFill("solid", fgColor="DDEBF7")
 SAMPLE_FILL = PatternFill("solid", fgColor="EFEFEF")
 VALUE_FILL  = PatternFill("solid", fgColor="FFFCE5")

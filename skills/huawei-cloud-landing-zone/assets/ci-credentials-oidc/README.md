@@ -8,7 +8,7 @@ credentialed job applies.
 
 ## The chain
 
-```
+```text
 CI OIDC token → IAM id-token exchange → <ci-deploy-agency> (one account)
               → per-member org agency (second hop) → cloud APIs
 ```

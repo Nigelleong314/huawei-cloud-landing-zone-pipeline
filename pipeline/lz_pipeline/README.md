@@ -4,7 +4,7 @@ All pipeline code lives here. `../lz_spec/` keeps the schema layer and entry
 points (`schema.py`, `gen_template.py`, `verify_pipeline.py`, `build_envs.py`
 — a shim over this package — and `export_handover.py`) plus the example spec.
 
-```
+```text
 lz_pipeline\
 ├── core\               engine: parsing, validation, builders, writer, cli,
 │   ├── emitters\       per-env HCL fan-out generators

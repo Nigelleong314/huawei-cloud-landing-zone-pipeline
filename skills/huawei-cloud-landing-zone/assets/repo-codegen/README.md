@@ -2,7 +2,7 @@
 
 ## Repository shape
 
-```
+```text
 modules/            one module per governance domain (main/variables/outputs/versions)
 envs-<customer>/    numbered env dirs composing the modules
   00-bootstrap/     state bucket (LOCAL state, ships with the artifact)

@@ -138,7 +138,7 @@ whole workflow through `lzctl` from plain conversation — describing the goal
 is enough to trigger them ("here's the filled questionnaire for acme, take it
 to a validated spec"), and explicit commands exist for precision:
 
-```
+```text
 /questionnaire-to-spec acme-filled.xlsx customer=acme
 /huawei-cloud-landing-zone advance          # local generation up to the next gate
 ```
