@@ -366,6 +366,14 @@ def r_cfw_group_refs(spec):
                 out.append(f"09_CFW: ACLRules[{name}] references unknown address group {t!r}")
             if tl.startswith("domaingroup:") and t.split(":", 1)[1].strip() not in dom:
                 out.append(f"09_CFW: ACLRules[{name}] references unknown domain group {t!r}")
+        # the CFW resource takes ONE destination domain group per rule; a second
+        # token would be silently dropped by the module - reject it here
+        dom_tokens = [t for t in _csv(r.get("Destination"))
+                      if t.lower().startswith("domaingroup:")]
+        if len(dom_tokens) > 1:
+            out.append(f"09_CFW: ACLRules[{name}] has {len(dom_tokens)} domaingroup: "
+                       "destinations - CFW supports one domain group per rule; split "
+                       "into one rule per group")
         for t in _csv(r.get("Service")):
             if t.lower().startswith("svcgroup:") and t.split(":", 1)[1].strip() not in svc:
                 out.append(f"09_CFW: ACLRules[{name}] references unknown service group {t!r}")

@@ -301,6 +301,14 @@ def export(profile: dict, target: Path, version: str, compat: bool,
         notes = apply_strip(target / "envs" / spec["env"], spec["ops"])
         for n in notes:
             print(f"  strip[{feature}]: {n}")
+        # fail CLOSED: a strip op that found nothing means the env drifted from
+        # the strip spec - shipping would leave a "disabled" billable feature in
+        # the artifact
+        misses = [n for n in notes if "not found" in n]
+        if misses:
+            raise SystemExit(f"feature {feature}=off strip incomplete "
+                             f"({len(misses)} op(s) found nothing) - update FEATURES "
+                             f"in export_v2.py to match envs/{spec['env']}")
         print(f"  feature {feature}=off: stripped from envs/{spec['env']}")
 
     # runner + release metadata (not in compat mode)

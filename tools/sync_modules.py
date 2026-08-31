@@ -28,6 +28,10 @@ def main() -> int:
     if not (src / "organization").is_dir():
         print(f"{src} does not look like a module library (no organization/)")
         return 2
+    if src == DST or DST in src.parents or src in DST.parents:
+        print(f"source {src} overlaps the destination {DST} - the sync would "
+              "delete its own source; pass an UPSTREAM checkout")
+        return 2
 
     def ignore(d, names):
         return [n for n in names
