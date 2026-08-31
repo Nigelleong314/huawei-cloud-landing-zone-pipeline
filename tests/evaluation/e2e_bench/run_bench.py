@@ -146,52 +146,72 @@ def main():
     print("[4/4] sessions ...")
     env = dict(os.environ, PATH=str(venv_bin) + os.pathsep + os.environ["PATH"])
     rows = []
-    for mid in args.model:
-        name = names[mid]
-        ws = sb / f"ws-{name}"
-        for phase in phases:
-            prompt = PROMPT_A if phase == "A" else PROMPT_B
-            if phase == "B":
-                shutil.copy(HERE / "customer-reply.txt", ws / "customer-reply.txt")
-            print(f"  {mid} phase {phase} (this can take many minutes) ...")
-            r = subprocess.run(
-                [claude, "-p", prompt, "--model", mid, "--output-format", "json",
-                 "--dangerously-skip-permissions"],
-                cwd=str(ws), env=env, text=True, capture_output=True,
-                encoding="utf-8", errors="replace", timeout=args.timeout)
-            (out / f"phase{phase}-{name}.json").write_text(scrub(r.stdout),
-                                                           encoding="utf-8")
-            cost = turns = "?"
-            try:
-                doc = json.loads(r.stdout)
-                cost, turns = doc.get("total_cost_usd"), doc.get("num_turns")
-            except ValueError:
-                pass
-            v = subprocess.run(
-                [sys.executable, "-X", "utf8", str(HERE / "validate_e2e.py"),
-                 str(ws), phase, str(venv_bin), secret],
-                text=True, capture_output=True, encoding="utf-8", errors="replace")
-            score_txt = v.stdout + v.stderr
-            (out / f"scores-phase{phase}-{name}.txt").write_text(scrub(score_txt),
-                                                                 encoding="utf-8")
-            fails = score_txt.count("FAIL")
-            checks = score_txt.count("PASS") + fails
-            rows.append((mid, phase, f"{checks - fails}/{checks}", cost, turns))
-            print(f"    -> {checks - fails}/{checks} checks passed "
-                  f"(${cost}, {turns} turns)")
+    try:
+        for mid in args.model:
+            name = names[mid]
+            ws = sb / f"ws-{name}"
+            for phase in phases:
+                prompt = PROMPT_A if phase == "A" else PROMPT_B
+                if phase == "B":
+                    shutil.copy(HERE / "customer-reply.txt", ws / "customer-reply.txt")
+                print(f"  {mid} phase {phase} (this can take many minutes) ...")
+                status = None
+                try:
+                    r = subprocess.run(
+                        [claude, "-p", prompt, "--model", mid, "--output-format", "json",
+                         "--dangerously-skip-permissions"],
+                        cwd=str(ws), env=env, text=True, capture_output=True,
+                        encoding="utf-8", errors="replace", timeout=args.timeout)
+                    stdout, stderr = r.stdout, r.stderr
+                    if r.returncode != 0:
+                        status = f"cli-exit-{r.returncode}"
+                except subprocess.TimeoutExpired as e:
+                    stdout = (e.stdout or b"").decode("utf-8", "replace") \
+                        if isinstance(e.stdout, bytes) else (e.stdout or "")
+                    stderr = (e.stderr or b"").decode("utf-8", "replace") \
+                        if isinstance(e.stderr, bytes) else (e.stderr or "")
+                    status = f"timeout-{args.timeout}s"
+                (out / f"phase{phase}-{name}.json").write_text(scrub(stdout),
+                                                               encoding="utf-8")
+                if status:  # a run failure is distinct from model failure: keep stderr
+                    (out / f"phase{phase}-{name}.stderr.txt").write_text(
+                        scrub(f"status: {status}\n{stderr}"), encoding="utf-8")
+                cost = turns = "?"
+                try:
+                    doc = json.loads(stdout)
+                    cost, turns = doc.get("total_cost_usd"), doc.get("num_turns")
+                except ValueError:
+                    pass
+                # still score the workspace: partial evidence is evidence
+                v = subprocess.run(
+                    [sys.executable, "-X", "utf8", str(HERE / "validate_e2e.py"),
+                     str(ws), phase, str(venv_bin), secret],
+                    text=True, capture_output=True, encoding="utf-8", errors="replace")
+                score_txt = v.stdout + v.stderr
+                (out / f"scores-phase{phase}-{name}.txt").write_text(scrub(score_txt),
+                                                                     encoding="utf-8")
+                # count only per-check lines ("  PASS  x" / "  FAIL  x"), never
+                # the "== RESULT: ... FAILURE(S)/ALL PASSED ==" footer
+                marks = [ln.strip().split()[0] for ln in score_txt.splitlines()
+                         if ln.strip().startswith(("PASS ", "FAIL "))]
+                fails, checks = marks.count("FAIL"), len(marks)
+                cell = f"{checks - fails}/{checks}" + (f" [{status}]" if status else "")
+                rows.append((mid, phase, cell, cost, turns))
+                print(f"    -> {cell} checks passed (${cost}, {turns} turns)")
 
-    lines = ["# E2E roleplay bench - " + date, "",
-             "| Model | Phase | Checks | Cost USD | Turns |", "|---|---|---|---|---|"]
-    lines += [f"| {m} | {p} | {c} | {co} | {t} |" for m, p, c, co, t in rows]
-    lines += ["", "Scoring is deterministic (validate_e2e.py); read the scores-*.txt",
-              "files, not the models' own reports. Prompts + method: ../e2e_bench/."]
-    (out / "bench-summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\nsummary: {out / 'bench-summary.md'}")
-
-    if not args.keep:
-        shutil.rmtree(sb, ignore_errors=True)
-    else:
-        print(f"sandbox kept: {sb} (contains the live secret - do not archive as-is)")
+        lines = ["# E2E roleplay bench - " + date, "",
+                 "| Model | Phase | Checks | Cost USD | Turns |", "|---|---|---|---|---|"]
+        lines += [f"| {m} | {p} | {c} | {co} | {t} |" for m, p, c, co, t in rows]
+        lines += ["", "Scoring is deterministic (validate_e2e.py); read the scores-*.txt",
+                  "files, not the models' own reports. Prompts + method: ../e2e_bench/."]
+        (out / "bench-summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"\nsummary: {out / 'bench-summary.md'}")
+    finally:
+        # the sandbox holds the LIVE planted secret - never leave it behind
+        if not args.keep:
+            shutil.rmtree(sb, ignore_errors=True)
+        else:
+            print(f"sandbox kept: {sb} (contains the live secret - do not archive as-is)")
     return 0
 
 
