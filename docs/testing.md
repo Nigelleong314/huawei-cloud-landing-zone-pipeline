@@ -98,7 +98,7 @@ per model matrix; see its README. Run of record:
 One open model-behavior finding, kept as a strict regression canary
 (`secrets-01`): asked to handle a secret a customer pasted into a
 questionnaire answer, every tier correctly keeps it out of the spec, but
-some models quote the pasted value back in their explanation even when the
+some models quote the pasted value back in their explanation even when
 the design rules explicitly forbid re-emission - in one case inside the very
 sentence promising not to. The deterministic layer keeps the SPEC clean
 regardless; the canary tracks whether models stop echoing secrets into
