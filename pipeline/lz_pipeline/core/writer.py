@@ -15,8 +15,12 @@ def write_env(env_dir: Path, tfvars: dict, state_bucket: str, ak: str, sk: str, 
     if ak and sk:
         sec = {"master_access_key": ak, "master_secret_key": sk}
         sec_path = env_dir / "secrets.auto.tfvars.json"
-        _backup_if_exists(sec_path)
+        # never .bak a secrets file: a rotation must not leave the OLD key
+        # lying next to the new one (and clean up any .bak from older builds)
+        sec_path.with_suffix(sec_path.suffix + ".bak").unlink(missing_ok=True)
         sec_path.write_text(json.dumps(sec, indent=2), encoding="utf-8", newline="\n")
+    # creds unset: any existing secrets file is left as-is ON PURPOSE - a
+    # rebuild without exported env vars must not break a working deployment
 
     if env_name != "00-bootstrap" and state_bucket:
         backend_path = env_dir / "backend.hcl"
