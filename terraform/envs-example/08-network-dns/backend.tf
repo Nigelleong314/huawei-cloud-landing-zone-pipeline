@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    key = "envs/07-dns/terraform.tfstate"
+    key = "envs/08-network-dns/terraform.tfstate"
 
     skip_requesting_account_id  = true
     skip_s3_checksum            = true

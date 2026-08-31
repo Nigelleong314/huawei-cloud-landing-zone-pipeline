@@ -49,3 +49,17 @@ def test_no_skip_rule_is_true_of_the_graph():
             assert order.index(nxt) == i + 1, (
                 f"phase graph allows a skip: {name} -> {nxt} (docs promise "
                 "no phase may be skipped forward)")
+
+
+def test_state_keys_match_env_directory_names():
+    """Every backend.tf state key must name ITS OWN env directory - a mismatch
+    sends state (and state backups, and audit forensics) to the wrong slot."""
+    import re
+    for tree in ("terraform/scaffold", "terraform/envs-example"):
+        for backend in sorted((REPO / tree).glob("*/backend.tf")):
+            m = re.search(r'key\s*=\s*"envs/([^/]+)/terraform\.tfstate"',
+                          backend.read_text(encoding="utf-8"))
+            assert m, f"{backend}: no state key found"
+            assert m.group(1) == backend.parent.name, (
+                f"{backend}: state key names 'envs/{m.group(1)}/' but the env "
+                f"directory is '{backend.parent.name}'")
