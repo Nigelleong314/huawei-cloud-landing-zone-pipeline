@@ -48,7 +48,7 @@ Per env, in order:
 6. **Apply** the reviewed plan file.
 7. **Retry-once on documented transients** — if the apply fails and the output matches a transient signature (`LTS.2101,EPS.0004` by default; extend via the `LZ_TRANSIENT_SIGNATURES` env var), re-plan + apply the remainder exactly once. Never a replay of the stale plan.
 
-Exit: 0 applied/current, 1 apply or plan error, 2 stopped by operator (or destructive confirm refused), 3 blocked on destructive changes.
+Exit: 0 applied/current, 1 apply or plan error, 2 stopped by operator, 3 blocked on destructive changes or a content gate (placeholder PSK), 4 refused: this context cannot satisfy a required confirmation (agent session without `LZ_OPERATOR_APPLY=1`, or an interactive prompt with no terminal).
 
 ### `lzctl drift --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
 

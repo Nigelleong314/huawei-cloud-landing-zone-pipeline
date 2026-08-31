@@ -311,19 +311,23 @@ def main():
         print(f"unknown check {which!r}; one of: all, {', '.join(CHECKS)}")
         sys.exit(2)
     print()
+    # tri-state: True / False / "skip" ("skip" is truthy on purpose - a skip
+    # is not a failure). NEVER sum(results): it TypeErrors on the strings.
     n_skip = sum(1 for r in results if r == "skip")
-    if all(results):
+    n_pass = sum(1 for r in results if r is True)
+    n_fail = sum(1 for r in results if r is False)
+    if n_fail == 0:
         if n_skip:
-            print(f"== RESULT: PASSED ({len(results) - n_skip} passed, "
+            print(f"== RESULT: PASSED ({n_pass} passed, "
                   f"{n_skip} skipped of {len(results)} checks) ==")
         else:
-            print(f"== RESULT: ALL PASSED ({len(results)}/{len(results)} checks) ==")
+            print(f"== RESULT: ALL PASSED ({n_pass}/{len(results)} checks) ==")
     else:
         failed = [name for name, r in zip(
-            [which] if which != "all" else list(CHECKS), results) if not r]
-        print(f"== RESULT: FAILED ({sum(results)}/{len(results)} checks passed; "
-              f"failed: {', '.join(failed)}) ==")
-    sys.exit(0 if all(results) else 1)
+            [which] if which != "all" else list(CHECKS), results) if r is False]
+        print(f"== RESULT: FAILED ({n_pass} passed, {n_skip} skipped, "
+              f"{n_fail} failed; failed: {', '.join(failed)}) ==")
+    sys.exit(1 if n_fail else 0)
 
 
 if __name__ == "__main__":

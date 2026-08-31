@@ -90,7 +90,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
     # (CLAUDECODE set, no LZ_OPERATOR_APPLY override) cannot invoke apply
     r = run(["apply", "--envs-dir", td, "10-network-vpn"],
             env_extra={"CLAUDECODE": "1"})
-    check("apply refused in an agent subprocess", r.returncode == 3
+    check("apply refused in an agent subprocess", r.returncode == 4
           and "apply refused: agent session" in r.stdout, r.stdout[-200:])
     conns = json.loads((vt / "terraform.tfvars.json").read_text(encoding="utf-8"))["connections"]
     for c in conns:

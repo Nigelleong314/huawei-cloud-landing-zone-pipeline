@@ -63,3 +63,37 @@ def test_state_keys_match_env_directory_names():
             assert m.group(1) == backend.parent.name, (
                 f"{backend}: state key names 'envs/{m.group(1)}/' but the env "
                 f"directory is '{backend.parent.name}'")
+
+
+def test_pipeline_written_filenames_are_ignored_or_retained():
+    """Category guard for the drift.tfplan/state-key class of bug: every
+    artifact filename the runner/pipeline writes is either gitignored or
+    deliberately retained. A new write-site must be added here, forcing the
+    author to decide its fate in .gitignore AND the handover exporter."""
+    import subprocess
+    base = "terraform/envs-example/05-network/"
+    IGNORED = ["tf.plan", "drift.tfplan", ".lzctl.lock",
+               "secrets.auto.tfvars.json", "errored.tfstate",
+               "backend.hcl.bak", "terraform.tfvars.json.bak",
+               "lzctl-logs/x.log", "state-backups/x.tfstate",
+               "evidence/x/MANIFEST.txt", "drift-report.md"]
+    RETAINED = ["terraform.tfvars.json", "backend.hcl", "backend.tf",
+                "providers.generated.tf", "deps.json"]
+    for name in IGNORED:
+        r = subprocess.run(["git", "check-ignore", "-q", base + name],
+                           cwd=REPO, capture_output=True, stdin=subprocess.DEVNULL)
+        assert r.returncode == 0, (
+            f"{name!r} is written by the pipeline but NOT gitignored")
+    for name in RETAINED:
+        r = subprocess.run(["git", "check-ignore", "-q", base + name],
+                           cwd=REPO, capture_output=True, stdin=subprocess.DEVNULL)
+        assert r.returncode == 1, (
+            f"{name!r} must be retained (committed) but .gitignore excludes it")
+    # the handover exporter must exclude every ignored artifact class too
+    exporter = (REPO / "pipeline/lz_pipeline/export_v2.py").read_text(encoding="utf-8")
+    legacy = (REPO / "pipeline/lz_spec/export_handover.py").read_text(encoding="utf-8")
+    for token in ('".tfplan"', '"tf.plan"', '".lzctl.lock"'):
+        assert token in exporter or token in legacy, (
+            f"exporter exclusion for {token} missing - a plan/lock artifact "
+            "would ship inside the customer handover")
+    assert '"secrets.auto.tfvars.json"' in legacy

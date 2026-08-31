@@ -30,7 +30,9 @@ Usage (lifecycle order):
     lzctl check        [CHECK]              (regression harness)
 
 Exit codes follow terraform's plan convention where relevant:
-0 ok / no changes, 2 changes present, 3 destructive changes present.
+0 ok / no changes, 2 changes present, 3 destructive changes present
+(or blocked by a content gate), 4 refused: this context cannot satisfy
+a required confirmation (agent session, or no terminal for a prompt).
 """
 
 import argparse
@@ -432,18 +434,19 @@ def _saved_plan_usable(env_dir: Path) -> bool:
 
 
 def cmd_apply(args):
-    # The skills' no-apply promise as a MECHANISM, not prose: inside an agent
-    # session (CLAUDECODE set) apply refuses outright. A human legitimately
-    # working inside a Claude Code terminal sets LZ_OPERATOR_APPLY=1; CI has
-    # no CLAUDECODE and is unaffected. (stdin isatty can't distinguish the
-    # two on Windows - the agent's shell holds a real console handle.)
+    # The skills' no-apply promise as a STRONG DEFAULT (not a security
+    # boundary: an agent with shell access can set the override - the point is
+    # converting silent violation into a deliberate, visible act). A human
+    # inside a Claude Code terminal sets LZ_OPERATOR_APPLY=1; CI has no
+    # CLAUDECODE and is unaffected. A true boundary is credential isolation:
+    # the agent never holds AK/SK, so preflight fails regardless.
     if (os.environ.get("CLAUDECODE") and not args.dry_run
             and not os.environ.get("LZ_OPERATOR_APPLY")):
         print("apply refused: agent session detected (CLAUDECODE set). The skills "
               "stop at the apply gate by contract - run this from your own "
               "terminal, or set LZ_OPERATOR_APPLY=1 if you are a human inside a "
               "Claude Code session. (--dry-run is always allowed.)")
-        return 3
+        return 4
     envs = Path(args.envs_dir)
     order = select(envs, args.env, args.all)
     if not args.dry_run:
@@ -491,7 +494,7 @@ def cmd_apply(args):
                     print(f"  STOP {name}: interactive confirmation needed but stdin "
                           "is not a terminal - run from a terminal, or pass --yes "
                           "for non-destructive applies")
-                    return 2
+                    return 4
                 resp = input(f"  apply {name}? [y/N] ").strip().lower()
                 if resp != "y":
                     print("\n== RESULT: STOPPED by operator ==")
@@ -506,7 +509,7 @@ def cmd_apply(args):
                         print(f"  STOP {name}: destructive applies require a typed "
                               "confirmation at a terminal (or --destroy-confirm ENV "
                               "for CI) - refusing in a non-interactive context")
-                        return 3
+                        return 4
                     resp = input(f"  DESTRUCTIVE apply - type the env name "
                                  f"({name}) to confirm: ").strip()
                     if resp != name:
@@ -560,7 +563,7 @@ def cmd_drift(args):
         # a drift sweep is read-only in spirit: write a SEPARATE plan file so
         # it can never arm cmd_apply's saved-plan reuse (tf.plan stays the
         # reviewed artifact from an explicit plan run)
-        r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.drift.plan",
+        r = run_tf(env_dir, ["plan", "-input=false", "-out", "drift.tfplan",
                              "-detailed-exitcode"], False, log)
         if r.returncode == 0:
             rows.append((name, "clean"))
@@ -568,7 +571,7 @@ def cmd_drift(args):
             last = next((l for l in reversed(r.stdout.strip().splitlines()) if l.strip()), "?")
             rows.append((name, f"ERROR: {last[:100]}"))
         else:
-            cls, buckets = triage_plan(env_dir, False, log, plan_file="tf.drift.plan")
+            cls, buckets = triage_plan(env_dir, False, log, plan_file="drift.tfplan")
             if buckets and not buckets["update"] and not buckets["destructive"] and not buckets["create"]:
                 rows.append((name, f"known-benign drift only ({len(buckets['benign'])})"))
             else:
