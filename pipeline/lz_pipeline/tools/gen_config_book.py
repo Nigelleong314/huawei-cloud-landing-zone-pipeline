@@ -20,9 +20,9 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).parent))
-from envtree import BOX, HDR_FILL, HDR_FONT, WRAP, env_dirs, tfvars, state, instances
+from envtree import (BOX, HDR_FILL, HDR_FONT, SEC_FILL, SEC_FONT, WRAP,
+                     env_dirs, tfvars, state, instances)
 
-SEC_FONT = Font(bold=True, size=12, color="1F4E79")
 
 
 class Book:
@@ -46,7 +46,8 @@ class _Sheet:
         self.r += 2
 
     def section(self, text):
-        self.ws.cell(row=self.r, column=1, value=text).font = SEC_FONT
+        c = self.ws.cell(row=self.r, column=1, value=text)
+        c.font, c.fill = SEC_FONT, SEC_FILL
         self.r += 1
 
     def table(self, headers, rows):

@@ -429,7 +429,7 @@ def write_workbook(out: Path):
     # Theme aligned with lz_spec/gen_template.py (the LLD spec workbook)
     DARK = "1F4E79"     # title band (= template TITLE_FILL)
     HDR = "DDEBF7"      # header row (= template HEADER_FILL)
-    BAND = "D6E4F0"     # category band (questionnaire-specific, same family)
+    BAND = "C6E0B4"     # category band (= template section-band green)
     FILL_IN = "FFFCE5"  # response cells (= template VALUE_FILL)
     thin = Side(style="thin", color="B4B4B4")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -527,7 +527,7 @@ def write_workbook(out: Path):
                 continue
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
             c = ws.cell(row=r, column=1, value=cat)
-            c.font = Font(bold=True, color=DARK)
+            c.font = Font(name="Calibri", bold=True, color="375623")
             c.fill = PatternFill("solid", fgColor=BAND)
             c.alignment = Alignment(vertical="center", indent=1)
             ws.row_dimensions[r].height = 18

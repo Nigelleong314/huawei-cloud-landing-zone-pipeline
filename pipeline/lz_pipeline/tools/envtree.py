@@ -16,6 +16,8 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 # header band DDEBF7 + dark bold Calibri, borders B4B4B4.
 HDR_FONT = Font(name="Calibri", bold=True, size=10)
 HDR_FILL = PatternFill("solid", fgColor="DDEBF7")
+SEC_FONT = Font(name="Calibri", bold=True, size=11, color="375623")
+SEC_FILL = PatternFill("solid", fgColor="C6E0B4")
 BOX = Border(*[Side(style="thin", color="B4B4B4")] * 4)
 WRAP = Alignment(vertical="top", wrap_text=True)
 
