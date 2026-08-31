@@ -55,3 +55,23 @@ Keep the design rules in the asset; keep the SKILL.md row to one line.
   goldens.
 - **Workflow change** (phases, gates) → `schemas/phases.json` first, then
   `docs/workflow.md` and the skill's Phase contract table (they render it).
+
+## Backlog
+
+Recorded future work, none of it started. Items graduate out of here into a
+commit, never silently:
+
+- **OIDC wiring for IAM Identity Center** — federate workforce sign-in via
+  OIDC into the Identity Center instance the foundation env creates.
+- **OIDC wiring for IAM as the provider credential path** — exchange a CI
+  OIDC token for short-lived Huawei Cloud credentials so `apply` needs no
+  stored AK/SK (replaces the plaintext `secrets.auto.tfvars.json` path;
+  see `skills/huawei-cloud-landing-zone/assets/ci-credentials-oidc/`).
+- `lzctl detach-lineage` — audited provenance removal (who/why recorded).
+- `lzctl assess --coverage` — flag answered questions whose target tables
+  are still empty (catches materially-incomplete interpretation).
+- Second eval adapter (non-Claude provider) via `tests/evaluation/adapter.py`.
+- E2E bench: accept the gate-stop profile (unresolved item + zero envs +
+  explicit escalation) as an alternative Phase B pass.
+- Fold `lz_spec/export_handover.py` into `export_v2.py` next time export
+  code is touched; dedupe the two identical example-spec copies likewise.

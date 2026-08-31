@@ -17,7 +17,13 @@ python run_bench.py --smoke
 python run_bench.py --model claude-sonnet-5 --model claude-haiku-4-5-20251001
 ```
 
-Requires the `claude` CLI on PATH and Python >= 3.10. Scope note: this
+Requires the `claude` CLI on PATH and Python >= 3.10.
+
+> **The sandbox is a directory, not a boundary.** Sessions run with
+> `--dangerously-skip-permissions`, which gives the model under test real
+> filesystem, process, and network access on the host. Run the bench only
+> on a machine you would let an unsupervised model touch — ideally a
+> disposable VM/container with no cloud credentials in the environment. Scope note: this
 bench measures the **model × skills × Claude Code** combination — the
 session runner, skill loading (`.claude/skills/`), and result JSON are
 Claude Code's. The pipeline itself is runner-independent; benchmarking a
