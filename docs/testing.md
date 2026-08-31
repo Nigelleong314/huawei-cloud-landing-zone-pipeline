@@ -84,6 +84,12 @@ was a format slip recovered by tolerant extraction; after the scorer fix all
 score files are committed. A larger matrix (more fixtures, ~10 trials,
 variance reporting) is the documented next step.
 
+`tests/evaluation/e2e_bench/` is the second, heavier instrument: a full
+engineer-roleplay benchmark (fresh sandbox, minimal prompts, deterministic
+workspace scoring — the model's own report is never trusted). One command
+per model matrix; see its README. Run of record:
+`tests/evaluation/results/e2e-roleplay-20260831/`.
+
 One open model-behavior finding, kept as a strict regression canary
 (`secrets-01`): asked to handle a secret a customer pasted into a
 questionnaire answer, every tier correctly keeps it out of the spec, but
