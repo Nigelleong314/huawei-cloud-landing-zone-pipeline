@@ -15,7 +15,7 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 
 | Suite | Proves |
 |---|---|
-| `test_phase0.py` | Platform rules (the LZR registry) |
+| `test_phase0.py` | Platform rules (the LZR-### registry) |
 | `test_phase1.py` | Workbook round-trip (spec ↔ generated workbook) |
 | `test_converge.py` | Log auto-derivation |
 | `test_cost.py` | Cost estimation |
@@ -30,21 +30,21 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 
 | Check | What it proves |
 |---|---|
-| `regen-diff` | Rebuilding the envs from the spec IR is a **no-op**: every generated file (`terraform.tfvars.json`, `*.generated.tf`) is byte-identical, none missing, none new. This is the determinism guarantee. Secrets are stripped from the environment before the rebuild so verify never (re)writes them. |
+| `regen-diff` | Rebuilding the envs from the spec is a **no-op**: every generated file (`terraform.tfvars.json`, `*.generated.tf`) is byte-identical, none missing, none new. This is the determinism guarantee. Secrets are stripped from the environment before the rebuild so verify never (re)writes them. |
 | `validate` | `terraform validate` passes in every initialized env (skipped when terraform is absent or no environment is initialized). |
 | `template-check` | The blank workbook template's sheets/tables/columns match a fresh generation from `schema.py` — i.e. the shipped template is not stale. |
-| `rules` | The LZR platform-rule registry: spec rules on the IR + tree rules on the envs, zero error-severity findings. |
+| `rules` | The LZR platform-rule registry: spec rules on the spec + tree rules on the envs, zero error-severity findings. |
 | `deps` | `deps.json` matches a fresh dependency graph from `terraform_remote_state` references (ordering, ownership registry, freshness). |
 | `fmt` | `terraform fmt -check` on hand-written HCL (`terraform/modules`, `terraform/scaffold`). Generated files are governed by goldens instead. |
 | `unit` | All suites in the table above, run as scripts. |
 
 ## The leak guard
 
-Lives in `test_phase5.py` (artifact export). Customer identifiers are **derived, not listed**: for every non-example export profile, the guard loads that profile's spec IR and harvests forbidden tokens automatically — so onboarding a customer extends the check with no regex to remember. Harvested per spec:
+Lives in `test_phase5.py` (artifact export). Customer identifiers are **derived, not listed**: for every non-example export profile, the guard loads that profile's spec and harvests forbidden tokens automatically — so onboarding a customer extends the check with no regex to remember. Harvested per spec:
 
-- the customer slug; account, OU, cost-center, and hub/spoke VPC names;
+- the customer ID; account, OU, cost-center, and hub/spoke VPC names;
 - the spoke private supernet's leading octets;
-- **on-prem classes** — identifiers that leak through the firewall/DNS payload, not just account names: CFW address-group names and member CIDR prefixes (first three octets, skipping the canonical private roots `10.0.0.` / `172.16.0.` / `192.168.0.` and whole RFC1918 blocks), CFW domain-group members, DNS resolver-rule domains, and account-email domains.
+- **on-prem classes** — identifiers that leak through the firewall/DNS payload, not just account names: CFW address-group names and member CIDR prefixes (first three octets, skipping the well-known private roots `10.0.0.` / `172.16.0.` / `192.168.0.` and whole RFC1918 blocks), CFW domain-group members, DNS resolver-rule domains, and account-email domains.
 
 Tokens are lowercased and length-filtered (≥ 5 chars), then scanned against:
 
@@ -65,7 +65,7 @@ The export test also asserts no `secrets.auto.tfvars.json` ships in any artifact
   categories (requirement extraction, missing-information detection,
   normalization, invalid-input rejection, tool selection, tool arguments,
   workflow sequencing, destructive-apply safety, failure recovery,
-  ambiguity escalation). Every fixture embeds its own doctrine, so all
+  ambiguity escalation). Every fixture embeds its own design rules, so all
   models receive identical context.
 - `run_eval.py` — matrix runner with **deterministic scoring only** (json
   shape/equality, regex presence/absence, exact match — never a judge
@@ -88,7 +88,7 @@ One open model-behavior finding, kept as a strict regression canary
 (`secrets-01`): asked to handle a secret a customer pasted into a
 questionnaire answer, every tier correctly keeps it out of the spec, but
 some models quote the pasted value back in their explanation even when the
-doctrine explicitly forbids re-emission - in one case inside the very
+the design rules explicitly forbid re-emission - in one case inside the very
 sentence promising not to. The deterministic layer keeps the SPEC clean
 regardless; the canary tracks whether models stop echoing secrets into
 transcripts and logs.

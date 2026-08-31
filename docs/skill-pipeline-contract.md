@@ -18,7 +18,7 @@ Consequences, in decreasing order of importance:
 1. **No deployable value is generated without an explicit decision.** The assess draft is
    neutral (every value unset, failing validation by design); OPEN questions
    block `build` mechanically until a resolution — who, why — is recorded in
-   `lz.spec.<slug>.decisions.json`. The spec's provenance block hash-binds the
+   `lz.spec.<customer>.decisions.json`. The spec's `provenance` block (its origin record) hash-binds the
    decision set, so the gate survives spec copies/renames and manifest
    truncation alike; the only detachment path is deleting `provenance` from
    the spec — a deliberate, reviewable diff (an audited `detach-lineage`
@@ -29,7 +29,7 @@ Consequences, in decreasing order of importance:
 3. **The product works with no model at all**: run the commands by hand, edit
    the spec in the bundled editor (`lz-app`). Model *competence* on the
    judgment steps is a separate, measured question — `tests/evaluation/`.
-4. **The handover receiver needs none of this.** The generated estate is
+4. **The handover receiver needs none of this.** The generated Terraform is
    plain HCL operable with just the runner (`lzctl`) — no pipeline, no skill,
    no AI (the handover rule: logic lives in codegen, not in HCL).
 

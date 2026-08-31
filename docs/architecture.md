@@ -2,7 +2,7 @@
 
 ## The two layers
 
-**Layer 1 — the delivered estate.** Plain HCL: `terraform/modules/` (15 domain modules) composed by 12 numbered environments. This is what a customer receives and operates. It has no dependency on Python, the spec, or any model — an operator with only the IaC tree, the standalone runner (`lzctl.py` + `plan_triage.py`, which ship inside the handover artifact), and Terraform can run the whole lifecycle.
+**Layer 1 — the delivered infrastructure.** Plain HCL: `terraform/modules/` (15 domain modules) composed by 12 numbered environments. This is what a customer receives and operates. It has no dependency on Python, the spec, or any model — an operator with only the IaC tree, the standalone runner (`lzctl.py` + `plan_triage.py`, which ship inside the handover artifact), and Terraform can run the whole lifecycle.
 
 **Layer 2 — the generation tooling.** The spec schema, builders, emitters, validators, and export machinery that produce Layer 1 from a JSON spec. It stays with the delivery team; the customer never needs it.
 
@@ -12,7 +12,7 @@ The boundary rule (the **codegen-not-clever-HCL handover rule**): logic lives in
 
 | Package | Path | Role |
 |---|---|---|
-| `lz_spec` | `pipeline/lz_spec/` | **Schema authority.** `schema.py` is the authoritative definition of the spec and questionnaire STRUCTURE (sheets, tables, columns, types, descriptions); semantic behavior is additionally defined by the LZR rules, builders, and validators. Also: `gen_template.py` (blank workbook), `verify_pipeline.py` (regression harness), `build_envs.py` (legacy shim), `export_handover.py`, the example spec `lz.spec.example.json`. |
+| `lz_spec` | `pipeline/lz_spec/` | **Schema authority.** `schema.py` is the authoritative definition of the spec and questionnaire STRUCTURE (sheets, tables, columns, types, descriptions); semantic behavior is additionally defined by the platform rules (LZR-### IDs), builders, and validators. Also: `gen_template.py` (blank workbook), `verify_pipeline.py` (regression harness), `build_envs.py` (legacy shim), `export_handover.py`, the example spec `lz.spec.example.json`. |
 | `lz_pipeline` | `pipeline/lz_pipeline/` | **Engine + runner + tools.** `core/` (parsing, validation, builders, emitters, templates, ownership registry), `rules.py` (LZR platform-rule registry), `depsgraph.py` (env dependency graph → `deps.json`), `lzctl.py` (the standalone runner), `export_v2.py` (profile-driven artifact export), `tools/` (plan triage, doc generators, questionnaire gen/dump, JSON Schema gen, pricing cards), `fixtures/` (synthetic example customer), `profiles/`, `tests/`. |
 | `lz_app` | `app/lz_app/` | **Spec editor.** A local web app (binds 127.0.0.1) that renders every sheet from `schema.py`, validates, builds, and runs pipeline jobs. See `app/USER-GUIDE.md`. |
 
@@ -27,9 +27,9 @@ questionnaire.xlsx                    generated FROM schema.py (gen_questionnair
 dump.json                             lzctl intake  (mechanical extraction)
       |
       v
-lz.spec.<slug>.json  +  <slug>.decisions.md      lzctl assess  (deterministic draft
+lz.spec.<customer>.json  +  <customer>.decisions.md      lzctl assess  (deterministic draft
       | interpret + edit                          + three-bucket decisions file)
-      | lzctl validate                            schema + semantic + LZR spec rules
+      | lzctl validate                            schema + semantic + platform (LZR) spec rules
       v
 terraform.tfvars.json + *.generated.tf           lzctl build   (per env, byte-stable)
       +
@@ -47,12 +47,12 @@ evidence/<ts>/                        lzctl report (logs, deps.json, drift-repor
 
 Two side flows:
 
-- **Docs:** `lzctl docs` regenerates the customer document set (IP management, config book, resource checklist, and — given `--ir` — the Excel LLD workbook) from the tree. The workbook is always an *output* of the spec IR, never an input.
+- **Docs:** `lzctl docs` regenerates the customer document set (IP management, config book, resource checklist, and — given `--spec` — the Excel LLD workbook) from the tree. The workbook is always an *output* of the spec, never an input.
 - **Export:** `python -m lz_pipeline.export_v2 --profile <profile.json> --target <dir>` stages the customer handover artifact: envs + modules + runner (`runner/lzctl.py`, `runner/plan_triage.py`) + `VERSION`/`CHANGELOG.md`/`MANIFEST.txt`, with profile feature flags applied at generation time.
 
-## The canonical store
+## The authoritative store
 
-The JSON spec IR is the canonical configuration store; validated by `schemas/lz.spec.schema.json` (generated from `schema.py` — `python -m lz_pipeline.tools.gen_jsonschema`). The spec's sheet order mirrors the env order: `Global`, then `01_Foundation` … `11_SGACL` map one-to-one onto `01-foundation` … `11-network-sgacl`.
+The JSON spec is the authoritative configuration store; validated by `schemas/lz.spec.schema.json` (generated from `schema.py` — `python -m lz_pipeline.tools.gen_jsonschema`). The spec's sheet order mirrors the env order: `Global`, then `01_Foundation` … `11_SGACL` map one-to-one onto `01-foundation` … `11-network-sgacl`.
 
 `Global.Settings.home_region` is **required with no default**: a missed region fails the build (`Global.Settings.home_region is required (no default region)`) rather than producing a plausible deployment in the wrong region.
 
@@ -73,7 +73,7 @@ Physical layout aside, each concern has exactly one owner:
 | Concern | Owner |
 |---|---|
 | Spec structure (sheets/tables/columns/types) | `lz_spec/schema.py` |
-| Spec semantics (referential integrity, platform rules) | `lz_pipeline` validators + the LZR registry |
+| Spec semantics (referential integrity, platform rules) | `lz_pipeline` validators + the platform-rule (LZR) registry |
 | Workbook rendering / parsing | `lz_spec/gen_template.py` + `lz_pipeline.core.parsing` |
 | Terraform generation | `lz_pipeline.core` builders + emitters |
 | Dependency ordering | `lz_pipeline/depsgraph.py` (`deps.json`) |
@@ -81,7 +81,7 @@ Physical layout aside, each concern has exactly one owner:
 | Handover export | `lz_pipeline/export_v2.py` (uses `lz_spec/export_handover.py` as its copier; the `--compat` flag applies the handover path/name rewrites so the artifact stands alone) |
 | Regression harness | `lz_spec/verify_pipeline.py` |
 
-`terraform/modules/` contains the versioned module snapshot required to build the reference estate — the upstream source is not required for normal use. `terraform/modules/PROVENANCE.md` records the sync date and a content hash. Refresh with:
+`terraform/modules/` contains the versioned module snapshot required to build the reference deployment — the upstream source is not required for normal use. `terraform/modules/PROVENANCE.md` records the sync date and a content hash. Refresh with:
 
 ```bash
 python tools/sync_modules.py <upstream-modules-dir>

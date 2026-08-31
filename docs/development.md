@@ -43,7 +43,7 @@ completed model-agnostic validation.
 The skill is a routing table over topic assets. To add a topic: create
 `skills/huawei-cloud-landing-zone/assets/<topic>/README.md`, then add one
 routing row to the table in `skills/huawei-cloud-landing-zone/SKILL.md`.
-Keep doctrine in the asset; keep the SKILL.md row to one line.
+Keep the design rules in the asset; keep the SKILL.md row to one line.
 
 ## Where changes land
 

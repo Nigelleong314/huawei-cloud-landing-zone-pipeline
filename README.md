@@ -10,13 +10,13 @@ License: Apache-2.0.
 
 Manual landing-zone delivery can take weeks of console work: dozens of accounts, OUs, SCPs, VPCs, router attachments, trackers, and buckets, each configured by hand and difficult to reproduce consistently. This repo replaces that with a spec-driven flow:
 
-- **One canonical input.** A JSON spec IR (`lz.spec.<customer>.json`) is the single configuration store. The Excel workbook customers see is a *generated artifact* of that spec, never an input.
+- **One authoritative input.** A JSON spec (`lz.spec.<customer>.json`) is the single configuration store. The Excel workbook customers see is a *generated artifact* of that spec, never an input.
 - **Deterministic generation.** For a fixed generator, schema, module snapshot, and input spec, generation is byte-identical (`terraform.tfvars.json`, `*.generated.tf`) — enforced by a regression harness, not by convention.
-- **Handover-safe output.** The generated estate is plain, readable HCL. A customer who receives only the Terraform tree and the runner can operate it without the pipeline, the skill, or any AI.
+- **Handover-safe output.** The generated Terraform is plain, readable HCL. A customer who receives only the Terraform tree and the runner can operate it without the pipeline, the skill, or any AI.
 
 ## What it deploys
 
-The reference implementation composes 12 ordered Terraform environments across the 9 governance domains of the Cloud Adoption Framework, using 15 modules (`terraform/modules/`). Other estates may enable fewer domains or different compositions — the spec decides:
+The reference implementation composes 12 ordered Terraform environments across the 9 governance domains of the Cloud Adoption Framework, using 15 modules (`terraform/modules/`). Other landing zones may enable fewer domains or different compositions — the spec decides:
 
 | Domain | Env(s) | Covers |
 |---|---|---|
@@ -59,24 +59,24 @@ user requirements
   Huawei Cloud  -->  lzctl verify / lzctl report (evidence bundle)
 ```
 
-The model reasons and interprets; the skill provides workflow and doctrine; the pipeline provides deterministic orchestration; validators enforce correctness; Terraform executes; the human approves. Critical deterministic logic never lives in the model; the same pipeline works with any model or none — a human can run every command.
+The model reasons and interprets; the skill provides workflow and design rules; the pipeline provides deterministic orchestration; validators enforce correctness; Terraform executes; the human approves. Critical deterministic logic never lives in the model; the same pipeline works with any model or none — a human can run every command.
 
 | Component | Responsibility | Reasons? | Executes infrastructure? |
 |---|---|---|---|
 | Model (any LLM, or a human) | Interpretation and planning | yes | no |
-| Skill (`skills/huawei-cloud-landing-zone/`) | Domain workflow + doctrine | guides reasoning | no direct execution |
+| Skill (`skills/huawei-cloud-landing-zone/`) | Domain workflow + design rules | guides reasoning | no direct execution |
 | Pipeline (`lzctl`) | Deterministic orchestration | no | yes |
 | Terraform | Infrastructure execution | no | yes |
-| Validators (JSON Schema, LZR rules, plan triage) | Enforcement | no — deterministic | no |
+| Validators (JSON Schema, platform rules, plan triage) | Enforcement | no — deterministic | no |
 | Human | Approval at gates | yes | destructive applies require a second typed confirmation, which `--yes` never bypasses |
 
 ## How the skill and pipeline work together
 
-The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically buckets every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses, and its draft spec starts *neutral*: every value unset, failing validation until interpreted), then the agent interprets the *prose* answers into the draft using the skill's doctrine, then `lzctl validate` gates the result mechanically — and `lzctl build` refuses to run while `lz.spec.<slug>.decisions.json` still holds OPEN items without a recorded resolution. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (the decisions files, the spec diff) a human reviews and signs off.
+The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically classifies every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses, and its draft spec starts *neutral*: every value unset, failing validation until interpreted), then the agent interprets the *prose* answers into the draft using the skill's design rules, then `lzctl validate` gates the result mechanically — and `lzctl build` refuses to run while `lz.spec.<customer>.decisions.json` still holds OPEN items without a recorded resolution. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (the decisions files, the spec diff) a human reviews and signs off.
 
 ## Which models can be used
 
-The execution boundary is model-independent by design: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec IR is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
+The execution boundary is model-independent by design: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
 
 ## Prerequisites
 
@@ -86,7 +86,7 @@ The execution boundary is model-independent by design: all model-facing surfaces
 
 ## Install
 
-The canonical installation model:
+The standard installation model:
 
 ```bash
 pip install .        # normal use  (gives you the lzctl and lz-app commands)
@@ -132,7 +132,7 @@ see **Package boundary** below.
 
 **Package boundary**: the wheel provides the pipeline *runtime* — every
 command, schema, template, and fixture needed to intake, assess, validate,
-and generate. The Terraform estate assets (`terraform/modules/`,
+and generate. The Terraform assets (`terraform/modules/`,
 `terraform/scaffold/`) are repository/handover assets, referenced by path
 (`--scaffold-dir`), not packaged — deploying needs a checkout or a handover
 artifact alongside the installed package.
@@ -163,7 +163,7 @@ lzctl assess dump.json --customer acme --workspace .
 lzctl validate specs/lz.spec.acme.json
 
 # 7. Generate the Terraform inputs
-lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
+lzctl build --spec specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
 
 # 8. Deploy (each step gated; envs run in deps.json dependency order)
 lzctl preflight --envs-dir envs
@@ -175,7 +175,7 @@ lzctl verify    --envs-dir envs              # every env clean or known-benign
 lzctl report    --envs-dir envs              # evidence bundle -> envs/evidence/<ts>/
 ```
 
-Note: `validate`, `build`, `check`, and `export` delegate to the installed pipeline modules and run in **your** working directory — relative paths resolve exactly as typed, the same as every other verb.
+Note: `validate`, `build`, `check`, and `export` delegate to the installed pipeline modules and run in **your** working directory — relative paths resolve exactly as typed, the same as every other command.
 
 ## Dry runs and plan-only use
 
@@ -197,7 +197,7 @@ Running from a checkout, the integration/eval test tiers, adding another model, 
 
 - Workload/application infrastructure (the LZ hands over accounts, network, and guardrails; workloads are yours)
 - Direct Connect / Cloud Connect physical provisioning
-- SecMaster deployment doctrine (module ships; operational doctrine pending)
+- SecMaster deployment guidance (module ships; operational guidance pending)
 - Replacing Huawei Resource Governance Center — see `docs/rgc-positioning.md`
 - Multi-cloud
 
@@ -208,7 +208,7 @@ Running from a checkout, the integration/eval test tiers, adding another model, 
 | `docs/skill-pipeline-contract.md` | The product's core design statement: skill decides, pipeline gates |
 | `docs/architecture.md` | Two-layer design, package map, artifact flow, module snapshot story |
 | `docs/development.md` | Checkout mode, test tiers, adding a model, extending the skill |
-| `docs/workflow.md` | Phase contract, every `lzctl` verb with flags and exit codes, gates, failure handling |
+| `docs/workflow.md` | Phase contract, every `lzctl` command with flags and exit codes, gates, failure handling |
 | `docs/configuration.md` | Every environment variable, workspace layout, profiles, rate cards, schema |
 | `docs/testing.md` | Test suites, the verify harness, the leak guard, the eval suite |
 | `docs/rgc-positioning.md` | RGC vs this pipeline, coexistence guidance |

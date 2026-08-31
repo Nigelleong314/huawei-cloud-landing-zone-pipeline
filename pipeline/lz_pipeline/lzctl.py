@@ -7,14 +7,14 @@ cryptic mid-apply errors.
 
 Standalone by design: stdlib only, no pipeline imports - this file (plus
 plan_triage.py next to it and the envs tree's deps.json) ships inside the
-customer handover artifact. Pipeline-side verbs (build/validate/docs) exist
+customer handover artifact. Pipeline-side commands (build/validate/docs) exist
 only where the pipeline is installed and say so otherwise.
 
 Usage (lifecycle order):
     lzctl intake       FILLED_QUESTIONNAIRE.xlsx [-o dump.json]
-    lzctl assess       DUMP.json --customer <slug> [--workspace <dir>] [--force]
+    lzctl assess       DUMP.json --customer <id> [--workspace <dir>] [--force]
     lzctl validate     SPEC.json            (alias: spec-validate)
-    lzctl build        --ir SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
+    lzctl build        --spec SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
     lzctl preflight    --envs-dir <envs>
     lzctl plan         --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
     lzctl apply        --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
@@ -520,8 +520,8 @@ def cmd_docs(args):
     envs = str(Path(args.envs_dir))
     title = args.customer or "Landing Zone"
     jobs = []
-    # The Excel LLD workbook is a generated ARTIFACT of the json spec IR
-    # (the canonical store) - regenerate it with the rest of the doc set.
+    # The Excel LLD workbook is a generated ARTIFACT of the JSON spec
+    # (the authoritative store) - regenerate it with the rest of the doc set.
     ir = getattr(args, "ir", None)
     if ir:
         jobs.append((tools / "gen_workbook.py",
@@ -566,7 +566,7 @@ def _pipeline_delegate(what, extra):
         return subprocess.run([sys.executable, "-m", "lz_pipeline.export_v2"] + extra).returncode
     if what == "validate":
         what = "spec-validate"
-    # cwd stays the CALLER's cwd so relative --ir/--envs-dir paths resolve
+    # cwd stays the CALLER's cwd so relative --spec/--envs-dir paths resolve
     # exactly as typed (the old pipeline-dir cwd silently re-anchored them)
     return subprocess.run([sys.executable, "-m", "lz_pipeline", what] + extra).returncode
 
@@ -617,7 +617,7 @@ def cmd_assess(args):
 
     The draft is a schema-shaped skeleton with every value UNSET (it fails
     `lzctl validate` until interpreted - by design). The decisions files
-    (.md for humans, .json for the build gate) bucket every question:
+    (.md for humans, .json for the build gate) classify every question:
     ANSWERED / DEFAULTED (silent with a documented default) / OPEN (required,
     no default). Interpreting prose answers into spec fields is the agent's
     or engineer's job - this command never guesses, and `build` refuses to
@@ -721,10 +721,10 @@ def cmd_verify(args):
     ns = argparse.Namespace(envs_dir=args.envs_dir, env=args.env, report=args.report)
     rc = cmd_drift(ns)
     if rc == 0:
-        print("== VERIFY: PASS (estate matches the configuration) ==")
+        print("== VERIFY: PASS (deployed infrastructure matches the configuration) ==")
         return 0
     print("== VERIFY: FAIL (unexplained differences above - the apply chain "
-          "left the estate inconsistent; investigate before further changes) ==")
+          "left the deployed infrastructure inconsistent; investigate before further changes) ==")
     return rc
 
 
@@ -766,9 +766,9 @@ DELEGATES = ("build", "validate", "spec-validate", "check", "export")
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    # Delegated verbs pass their entire argv through untouched - argparse's
+    # Delegated commands pass their entire argv through untouched - argparse's
     # remainder handling cannot preserve leading --options, so dispatch first.
-    # `lzctl <verb> --help` reaches the delegated parser's own help.
+    # `lzctl <command> --help` reaches the delegated parser's own help.
     if argv and argv[0] in DELEGATES:
         return _pipeline_delegate(argv[0], argv[1:])
     ap = argparse.ArgumentParser(prog="lzctl", description=__doc__.splitlines()[0])
@@ -804,7 +804,8 @@ def main(argv=None):
     p.add_argument("--out-dir", required=True)
     p.add_argument("--states-dir")
     p.add_argument("--customer", default="")
-    p.add_argument("--ir", help="json spec IR - also regenerate the Excel LLD workbook artifact")
+    p.add_argument("--spec", "--ir", dest="ir",
+                   help="the JSON spec (--ir is an accepted alias) - also regenerate the Excel LLD workbook artifact")
     p.set_defaults(fn=cmd_docs)
     p = sub.add_parser("intake", help="filled questionnaire xlsx -> answers dump (mechanical)")
     p.add_argument("xlsx")
@@ -812,7 +813,7 @@ def main(argv=None):
     p.set_defaults(fn=cmd_intake)
     p = sub.add_parser("assess", help="answers dump -> draft spec + decisions file (no guessing)")
     p.add_argument("dump", help="json produced by `lzctl intake`")
-    p.add_argument("--customer", required=True, help="customer slug (lowercase)")
+    p.add_argument("--customer", required=True, help="customer ID: short lowercase identifier used in filenames, e.g. acme")
     p.add_argument("--workspace", help="workspace dir (default: cwd); writes specs/ inside it")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_assess)

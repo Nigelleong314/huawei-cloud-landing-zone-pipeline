@@ -2,7 +2,7 @@
 
     py -m lz_pipeline spec-export <workbook.xlsx> -o lz.spec.json
     py -m lz_pipeline spec-validate <lz.spec.json | workbook.xlsx>
-    py -m lz_pipeline build --ir lz.spec.json --envs-dir <dir> [--scaffold-dir <dir>] [--only 05,06]
+    py -m lz_pipeline build --spec lz.spec.json --envs-dir <dir> [--scaffold-dir <dir>] [--only 05,06]
 
 Run from anywhere; lz_spec is located next to this package (override with
 LZ_SPEC_DIR). The build path runs the lz_pipeline.core builders/emitters, so
@@ -185,7 +185,8 @@ def main(argv=None):
     p.set_defaults(fn=cmd_spec_validate)
 
     p = sub.add_parser("build", help="IR -> envs (byte-identical to workbook path)")
-    p.add_argument("--ir", required=True)
+    p.add_argument("--spec", "--ir", dest="ir", required=True,
+                   help="the JSON spec (--ir is an accepted alias)")
     p.add_argument("--envs-dir", required=True)
     p.add_argument("--scaffold-dir")
     p.add_argument("--only")

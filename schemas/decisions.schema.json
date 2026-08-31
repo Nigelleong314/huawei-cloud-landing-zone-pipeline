@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/decisions.schema.json",
-  "title": "Landing Zone decisions file (lz.spec.<slug>.decisions.json)",
+  "title": "Landing Zone decisions file (lz.spec.<customer>.decisions.json)",
   "description": "Written by `lzctl assess`, edited by whoever resolves decisions, enforced by `lzctl build` (exit 3 on any OPEN item without a complete resolution, or on customer/assessment_id mismatch with the spec's provenance block). The gate's in-code checks in lz_pipeline/__main__.py are authoritative; this schema documents the contract for external tooling. The spec's provenance.decision_set_sha256 binds the immutable item set (ref/state/question/targets/default_if_silent); build exits 3 when the manifest was truncated or altered - only `resolution` fields are editable.",
   "type": "object",
   "required": [

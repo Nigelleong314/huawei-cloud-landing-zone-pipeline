@@ -19,8 +19,8 @@ If your needs stop at a governed multi-account skeleton — management/audit/log
 ## What this pipeline adds
 
 - **Full 9-domain coverage**, including the domains a baseline LZ does not build: the Enterprise Router hub-and-spoke network, Cloud Firewall rule plane, enterprise-project cost structure (EPS), DNS zones and hybrid resolver, site-to-cloud VPN, and workload security groups.
-- **Spec determinism**: one reviewed JSON spec is the canonical store; regeneration is byte-identical (enforced by the `regen-diff` harness check), so config review, diffing, and audit work like code review.
-- **Handover-grade plain HCL**: the customer receives readable Terraform plus a standalone runner and can operate the estate with no pipeline, no console archaeology, and no vendor tooling.
+- **Spec determinism**: one reviewed JSON spec is the authoritative store; regeneration is byte-identical (enforced by the `regen-diff` harness check), so config review, diffing, and audit work like code review.
+- **Handover-grade plain HCL**: the customer receives readable Terraform plus a standalone runner and can operate the landing zone with no pipeline, no console archaeology, and no vendor tooling.
 - **Evidence bundles**: `lzctl report` produces a hashed bundle (logs, dependency graph, drift report, tool versions) suitable for audit handover.
 
 ## Coexistence guidance
@@ -33,7 +33,7 @@ Record the split per engagement in the spec's decisions file so the ownership bo
 
 The Landing Zone Governance Check is a documented **manual** step after `lzctl verify` passes:
 
-1. In the console, run the [Landing Zone Governance Check](https://support.huaweicloud.com/intl/en-us/usermanual-rgc/rgc_01_0065.html) against the deployed estate (choose the Standard or Flagship model per the engagement).
+1. In the console, run the [Landing Zone Governance Check](https://support.huaweicloud.com/intl/en-us/usermanual-rgc/rgc_01_0065.html) against the deployed landing zone (choose the Standard or Flagship model per the engagement).
 2. Download the conformance report.
 3. Place it in the `lzctl report` evidence bundle directory (`<envs>/evidence/<ts>/`) so it ships with the rest of the delivery evidence.
 

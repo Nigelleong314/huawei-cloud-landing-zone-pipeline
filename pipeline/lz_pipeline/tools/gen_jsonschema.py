@@ -1,4 +1,4 @@
-"""Emit a JSON Schema for the spec IR from lz_spec.schema (single source).
+"""Emit a JSON Schema for the spec from lz_spec.schema (single source).
 
 The python schema stays authoritative; this artifact exists so validation is
 tool- and model-agnostic: any JSON Schema validator - or an agent harness -
@@ -72,7 +72,7 @@ def build_schema() -> dict:
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://example.invalid/lz.spec.schema.json",
-        "title": "Landing Zone spec IR",
+        "title": "Landing Zone spec",
         "description": f"Generated from lz_spec.schema v{wb.SCHEMA_VERSION}. "
                        "The python schema is authoritative; regenerate after "
                        "any schema change (python -m lz_pipeline.tools.gen_jsonschema).",

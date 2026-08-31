@@ -2,21 +2,21 @@
 
 ## Phase contract
 
-The canonical phase graph lives in `schemas/phases.json`; this table renders it.
+The authoritative phase graph lives in `schemas/phases.json`; this table renders it.
 
 | Phase | Entry artifact | Commands | Exit artifact |
 |---|---|---|---|
-| **intake** | filled `questionnaire.xlsx` | `lzctl intake`, `lzctl assess` | `dump.json`; neutral draft `specs/lz.spec.<slug>.json`; `…decisions.md` + `…decisions.json` |
-| **design** | draft spec + decisions files | edit/interpret (agent or engineer), resolve OPEN items, `lzctl validate` | validated `lz.spec.<slug>.json` (0 errors), no unresolved OPEN decisions |
+| **intake** | filled `questionnaire.xlsx` | `lzctl intake`, `lzctl assess` | `dump.json`; neutral draft `specs/lz.spec.<customer>.json`; `…decisions.md` + `…decisions.json` |
+| **design** | draft spec + decisions files | edit/interpret (agent or engineer), resolve OPEN items, `lzctl validate` | validated `lz.spec.<customer>.json` (0 errors), no unresolved OPEN decisions |
 | **build** | validated spec | `lzctl build` (exits 3 on unresolved OPEN decisions) | generated envs (tfvars + `*.generated.tf`), fresh `deps.json` |
 | **verify_pre** | built tree | `lzctl preflight`, `lzctl plan`, `lzctl triage`, `lzctl check` | clean plan triage, passing harness |
 | **deploy** | reviewed plan + approvals | `lzctl apply` (typed confirm for destructive) | applied envs in dependency order, `state-backups/`, `lzctl-logs/` |
-| **verify_post** | applied estate | `lzctl verify`, `lzctl drift` | every env clean or known-benign; optional drift report |
-| **deliver** | verified estate | `lzctl docs`, `lzctl report`, `lzctl export` | doc set (xlsx), `evidence/<ts>/` bundle, handover artifact |
+| **verify_post** | applied infrastructure | `lzctl verify`, `lzctl drift` | every env clean or known-benign; optional drift report |
+| **deliver** | verified infrastructure | `lzctl docs`, `lzctl report`, `lzctl export` | doc set (xlsx), `evidence/<ts>/` bundle, handover artifact |
 
 A phase does not start until the previous phase's exit artifact exists and its gate passed.
 
-## The verbs
+## The commands
 
 Exit codes follow Terraform's plan convention where relevant: **0** ok / no changes, **1** error, **2** changes present (or stopped/needs attention), **3** destructive changes present.
 
@@ -34,7 +34,7 @@ Per selected env (selection accepts exact names or unique prefixes, always runs 
 
 ### `lzctl triage PLAN_JSON [...]`
 
-Offline classification of exported plan JSON (`terraform show -json tf.plan > plan.json`) into benign / create / update / destructive buckets. Same 0/2/3 convention.
+Offline classification of exported plan JSON (`terraform show -json tf.plan > plan.json`) into benign / create / update / destructive classes. Same 0/2/3 convention.
 
 ### `lzctl apply --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes] [--destroy-confirm ENV]...`
 
@@ -56,7 +56,7 @@ Re-plans every (or the selected) env and summarizes: `clean`, `known-benign drif
 
 ### `lzctl verify --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
 
-The post-apply gate: runs the drift sweep and passes only if **every env is clean or known-benign**. Exit 0 pass, 2 fail (the estate is inconsistent — investigate before further changes).
+The post-apply gate: runs the drift sweep and passes only if **every env is clean or known-benign**. Exit 0 pass, 2 fail (the deployed infrastructure is inconsistent — investigate before further changes).
 
 ### `lzctl report --envs-dir <envs> [--out DIR] [--last-logs N]`
 
@@ -74,9 +74,9 @@ On-demand `terraform state pull` backups to `state-backups/`. Exit 0.
 
 Prints the CTS lookup procedure for auditing who changed a resource. Exit 0.
 
-### `lzctl docs --envs-dir <envs> --out-dir DIR [--states-dir DIR] [--customer NAME] [--ir SPEC.json]`
+### `lzctl docs --envs-dir <envs> --out-dir DIR [--states-dir DIR] [--customer NAME] [--spec SPEC.json]`
 
-Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--ir` — the Excel LLD workbook (a generated artifact of the spec IR). Exit 0 all generated.
+Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--spec` — the Excel LLD workbook (a generated artifact of the spec). Exit 0 all generated.
 
 ### `lzctl intake XLSX [-o OUT.json]`
 
@@ -84,15 +84,16 @@ Filled questionnaire → mechanical answers dump. No interpretation. Exit code f
 
 ### `lzctl assess DUMP.json --customer SLUG [--workspace DIR] [--force]`
 
-Deterministic assessment pre-pass: writes a schema-shaped **neutral** draft (`specs/lz.spec.<slug>.json`, every deployable sheet value unset — it intentionally fails validation until customer answers and approved defaults are interpreted into it) plus two decisions files: `…decisions.md` (human agenda) and `…decisions.json` (machine-readable; the build gate). Every question lands in exactly one state — ANSWERED (interpret into the draft), DEFAULTED (silent with a documented default; review), or OPEN (required, no default; blocks build until a complete resolution — status + approved_by + reason — is recorded; contract in `schemas/decisions.schema.json`). The draft carries a `provenance` block (decisions filename, assessment id, and a hash of the immutable decision set), so the gate follows the spec through copies and renames, and truncating or altering the manifest blocks build just like an unresolved item. **Detaching lineage** — converting a questionnaire-derived spec to a manually managed baseline — is done by deleting the `provenance` block: a deliberate edit that any spec review will see. An audited `lzctl detach-lineage` command (recording who/why) is planned. This command never guesses. Refuses to overwrite an existing draft without `--force`. Exit 0.
+Deterministic assessment pre-pass: writes a schema-shaped **neutral** draft (`specs/lz.spec.<customer>.json`, every deployable sheet value unset — it intentionally fails validation until customer answers and approved defaults are interpreted into it) plus two decisions files: `…decisions.md` (human agenda) and `…decisions.json` (machine-readable; the build gate). Every question lands in exactly one state — ANSWERED (interpret into the draft), DEFAULTED (silent with a documented default; review), or OPEN (required, no default; blocks build until a complete resolution — status + approved_by + reason — is recorded; contract in `schemas/decisions.schema.json`). The draft carries a `provenance` block (decisions filename, assessment id, and a hash of the immutable decision set), so the gate follows the spec through copies and renames, and truncating or altering the manifest blocks build just like an unresolved item. **Detaching lineage** — converting a questionnaire-derived spec to a manually managed baseline — is done by deleting the `provenance` block: a deliberate edit that any spec review will see. An audited `lzctl detach-lineage` command (recording who/why) is planned. This command never guesses. Refuses to overwrite an existing draft without `--force`. Exit 0.
 
-### Delegated verbs: `build`, `validate` (alias `spec-validate`), `check`
+### Delegated commands: `build`, `validate` (alias `spec-validate`), `check`
 
 These need the installed pipeline (a runtime-only handover installation says so and exits 2). Arguments pass through:
 
 ```bash
 lzctl validate <spec.json>                       # -> python -m lz_pipeline spec-validate
-lzctl build --ir <spec> --envs-dir <envs> [--scaffold-dir <dir>] [--only 05,06]
+lzctl build --spec <spec> --envs-dir <envs> [--scaffold-dir <dir>] [--only 05,06]
+# (--ir is an accepted alias for --spec on build and docs)
 lzctl check [regen-diff|validate|template-check] # -> python -m lz_spec.verify_pipeline
 ```
 

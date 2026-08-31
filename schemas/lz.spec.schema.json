@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/lz.spec.schema.json",
-  "title": "Landing Zone spec IR",
+  "title": "Landing Zone spec",
   "description": "Generated from lz_spec.schema v2.2. The python schema is authoritative; regenerate after any schema change (python -m lz_pipeline.tools.gen_jsonschema).",
   "type": "object",
   "required": [

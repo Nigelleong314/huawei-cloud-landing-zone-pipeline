@@ -26,7 +26,7 @@ lz_pipeline\
 
 Verify everything (also runs all unit suites): `lzctl check`
 
-Build (the json spec IR is the CANONICAL config store; the Excel workbook is
+Build (the JSON spec is the AUTHORITATIVE config store; the Excel workbook is
 a generated artifact — `tools/gen_workbook.py` — not an input):
 
     lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
@@ -40,7 +40,7 @@ Pre-engagement assessment (upstream of the workbook; schema-coverage-checked):
 
     python -m lz_pipeline.tools.gen_questionnaire       # regen the blank questionnaire
     lzctl intake <filled.xlsx> -o dump.json
-    lzctl assess dump.json --customer <slug> --workspace .   # then skills/questionnaire-to-spec
+    lzctl assess dump.json --customer <customer> --workspace .   # then skills/questionnaire-to-spec
 
 Operate a deployed tree:
 

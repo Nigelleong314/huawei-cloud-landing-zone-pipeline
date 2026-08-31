@@ -1,6 +1,6 @@
 # lz_spec — the schema layer and the spec store
 
-The JSON spec files here are the **canonical configuration store** for the
+The JSON spec files here are the **authoritative configuration store** for the
 landing zone. The Excel workbook is a generated artifact (an output for
 customers), never an input.
 
@@ -9,7 +9,7 @@ customers), never an input.
 | File | Purpose |
 |---|---|
 | `schema.py` | Single source of truth: every sheet, table, column, type, sample, and description |
-| `lz.spec.<slug>.json` | Customer- or environment-specific specification |
+| `lz.spec.<customer>.json` | Customer- or environment-specific specification |
 | `lz.spec.example.json` | Filled example spec — every fillable table populated |
 | `gen_template.py` | Generates the blank `landing_zone_spec.xlsx` template from `schema.py` |
 | `landing_zone_spec.xlsx` | The blank template (generated — regenerate after schema changes) |

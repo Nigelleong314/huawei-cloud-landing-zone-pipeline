@@ -6,7 +6,7 @@
 |---|---|---|---|
 | `LZ_MODULE_SOURCE_ROOT` | build (emitters) | Where emitted env HCL finds the module library, **relative to each env dir** | `../../modules` (matches the product layout: `<workspace>/modules` beside `<workspace>/envs/NN-*`) |
 | `LZ_TRANSIENT_SIGNATURES` | `lzctl apply` | Comma-separated substrings of platform errors that merit exactly one retry (re-plan + apply). Keep signatures specific | `LTS.2101,EPS.0004` |
-| `LZ_VERIFY_IR` | `lz_spec.verify_pipeline` | Spec IR the regression harness runs against | `pipeline/lz_pipeline/fixtures/example.spec.json` |
+| `LZ_VERIFY_IR` | `lz_spec.verify_pipeline` | Spec the regression harness runs against | `pipeline/lz_pipeline/fixtures/example.spec.json` |
 | `LZ_VERIFY_ENVS` | `lz_spec.verify_pipeline` | Envs tree the harness runs against | `terraform/envs-example` |
 | `LZ_PRICING_REGION` | plan triage cost report | Selects `tools/pricing/<region>.json` as the rate card | explicit `--pricing` path, else the single card in `pricing/` if only one exists |
 | `LZ_WORKSPACE` | `lz-app` | Workspace root for the spec editor (alternative to `--workspace`) | walk-up from CWD |
@@ -22,7 +22,7 @@ A customer engagement lives in a DATA directory outside this repo:
 
 ```text
 <workspace>/
-  specs/                       lz.spec.<slug>.json + lz.spec.<slug>.decisions.md
+  specs/                       lz.spec.<customer>.json + lz.spec.<customer>.decisions.md
   envs/                        00-bootstrap ... 11-network-sgacl
     deps.json                  generated apply order (do not hand-edit)
     .lzctl.lock                transient advisory lock

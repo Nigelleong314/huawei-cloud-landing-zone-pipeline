@@ -11,7 +11,7 @@
     "intake": {
       "entry": "a requirement source (filled questionnaire, LLD, or described target)",
       "exit_artifacts": [
-        "neutral draft spec (lz.spec.<slug>.json; fails validation until interpreted)",
+        "neutral draft spec (lz.spec.<customer>.json; fails validation until interpreted)",
         "decisions files (.md for humans, .json for the build gate; ANSWERED/DEFAULTED/OPEN)"
       ],
       "commands": [
@@ -79,7 +79,7 @@
       ]
     },
     "verify_post": {
-      "entry": "applied estate",
+      "entry": "applied infrastructure",
       "exit_artifacts": [
         "every env clean or known-benign"
       ],
@@ -91,7 +91,7 @@
       ]
     },
     "deliver": {
-      "entry": "verified estate",
+      "entry": "verified infrastructure",
       "exit_artifacts": [
         "evidence bundle",
         "handover artifact",

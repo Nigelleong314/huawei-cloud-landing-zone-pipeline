@@ -17,13 +17,13 @@ description: >
 # Huawei Cloud Landing Zone
 
 Landing-zone-level knowledge distilled from a production landing-zone
-delivery: a 12-environment Terraform estate covering the 9 governance
+delivery: a 12-environment Terraform deployment covering the 9 governance
 domains of the Cloud Adoption Framework (CAF) across a multi-account
 organization. The companion skill `huawei-cloud-terraform-generator`
 covers per-service resource authoring; this skill covers how the services
 compose into a landing zone.
 
-The `questionnaire-to-spec` skill drives the intake phase and depends on this skill's doctrine; the dependency direction is questionnaire-to-spec -> huawei-cloud-landing-zone, never the reverse.
+The `questionnaire-to-spec` skill drives the intake phase and depends on this skill's design rules; the dependency direction is questionnaire-to-spec -> huawei-cloud-landing-zone, never the reverse.
 
 **The contract: this skill decides and asks; the pipeline (`lzctl`) executes and gates.** Judgment lands in reviewable artifacts (spec diffs, decisions files); every gate is an exit code; never bypass a gate by hand-editing generated output (`docs/skill-pipeline-contract.md` in the pipeline repo).
 
@@ -31,7 +31,7 @@ The `questionnaire-to-spec` skill drives the intake phase and depends on this sk
 
 For every task, follow this operating loop:
 
-1. **Place the task on the phase graph** (Phase contract below; canonical in `schemas/phases.json`) — which phase is it in, and is its entry artifact present?
+1. **Place the task on the phase graph** (Phase contract below; authoritative copy in `schemas/phases.json`) — which phase is it in, and is its entry artifact present?
 2. **Load only the asset(s)** matching the task from the capability table below.
 3. **Execute through `lzctl`**, never around it — every action is a command a human could have typed.
 4. **Use deterministic gate results, never subjective judgment**: exit codes and rule findings decide pass/fail (0 ok, 1 error, 2 changes, 3 destructive/blocked).
@@ -63,14 +63,14 @@ Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud 
 | deploy | Move state without cloud changes | state files + target layout | state-mv runbook | [assets/state-surgery/](assets/state-surgery/README.md) |
 | deploy | Absorb billing-mode changes | console conversion + plan diff | per-resource code/state fix | [assets/billing/](assets/billing/README.md) |
 | verify_pre | Preflight a fresh tenant | new account access | preflight checklist results | [assets/fresh-account-preflight/](assets/fresh-account-preflight/README.md) |
-| verify_pre | Validate spec and estate | spec + generated tree | rule findings, gate verdicts | [assets/validation-gates/](assets/validation-gates/README.md) |
+| verify_pre | Validate spec and generated Terraform | spec + generated tree | rule findings, gate verdicts | [assets/validation-gates/](assets/validation-gates/README.md) |
 | verify_pre | Estimate plan cost | plan JSON + rate card | advisory cost summary | [assets/pricing-cost/](assets/pricing-cost/README.md) |
 | verify_pre / verify_post | Triage plans and drift | plan JSON | triage verdicts | [assets/plan-triage-drift/](assets/plan-triage-drift/README.md) |
 | verify_post | Catch no-error wrong behavior | clean plan/apply | trap findings | [assets/silent-failures/](assets/silent-failures/README.md) |
 | deliver | Build handover artifact | working tree | release artifact | [assets/artifact-handover/](assets/artifact-handover/README.md) |
 | deliver | Generate delivery documents | tfvars + pulled state | doc set + LLD workbook | [assets/documents-day2/](assets/documents-day2/README.md) |
 
-(Phase labels are the canonical names from `schemas/phases.json`.)
+(Phase labels are the exact names from `schemas/phases.json`.)
 
 ## Companion skill (optional)
 
@@ -146,9 +146,9 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
 | build | spec validating with 0 errors | generated envs + fresh deps.json | plan/apply from a stale tree |
 | verify_pre | built tree | clean plan triage + passing harness | apply with untriaged destructive changes |
 | deploy | reviewed plan + approvals (typed confirm for destructive) | applied envs in dependency order + state backups + run logs | applying out of dependency order |
-| verify_post | applied estate | every env clean or known-benign | deliver without verification |
-| deliver | verified estate | evidence bundle + generated docs + handover artifact | handover without verification evidence |
+| verify_post | applied infrastructure | every env clean or known-benign | deliver without verification |
+| deliver | verified infrastructure | evidence bundle + generated docs + handover artifact | handover without verification evidence |
 
-No phase may be skipped forward. A workflow may stop at any GATE, but an interrupted deployment can leave a partially applied estate and must be resumed through verify_post (`lzctl verify`) before further changes.
+No phase may be skipped forward. A workflow may stop at any GATE, but an interrupted deployment can leave a partially applied deployment and must be resumed through verify_post (`lzctl verify`) before further changes.
 
 The same phase graph is machine-readable at `schemas/phases.json`; skill, CLI docs, and eval fixtures share it.
