@@ -191,6 +191,20 @@ with tempfile.TemporaryDirectory(prefix="lz-p5-") as td:
     check("changelog lists the spec delta",
           "Changes against release 1.0.0" in cl and "EXAMPLE-Prod-B" in cl, cl[:300])
 
+    # data-loss guard: a populated non-export target is refused, untouched
+    foreign = tmp / "not-an-artifact"
+    foreign.mkdir()
+    (foreign / "precious.txt").write_text("do not delete", encoding="utf-8")
+    r = export(prof2, foreign)
+    check("populated non-export target refused", r.returncode != 0,
+          "export cleared a foreign directory")
+    check("foreign directory left untouched",
+          (foreign / "precious.txt").exists())
+    # ...but re-exporting over a previous export still works
+    r = export(prof2, tgt2, ["--version", "1.1.1", "--releases-dir", str(tmp / "rel")])
+    check("re-export over a previous artifact still allowed", r.returncode == 0,
+          r.stderr[-300:])
+
 print()
 if FAILED:
     print(f"FAILED: {len(FAILED)} -> {FAILED}")

@@ -237,7 +237,17 @@ def export(profile: dict, target: Path, version: str, compat: bool,
     # rmtree deletes children before dying - a half-gutted artifact. Deleting
     # per-child leaves the root handle untouched.
     if target.exists():
-        for child in target.iterdir():
+        children = list(target.iterdir())
+        # Data-loss guard: only clear a directory that is empty or provably a
+        # previous export (carries our marker files). Refuses --target ., the
+        # repo root, a source envs tree, or any other populated directory.
+        if children and not any((target / m).exists()
+                                for m in ("MANIFEST.txt", "VERSION")):
+            raise SystemExit(
+                f"refusing to clear {target}: it contains files but no previous "
+                "export (MANIFEST.txt/VERSION) - use an empty or dedicated "
+                "artifact directory")
+        for child in children:
             if child.is_dir():
                 shutil.rmtree(child)
             else:
