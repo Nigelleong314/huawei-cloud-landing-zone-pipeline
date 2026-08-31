@@ -78,7 +78,7 @@ else:
           r.stdout[-300:])
 
 # the psk gate clears once an override supplies a real value, and BLOCKS apply
-with tempfile.TemporaryDirectory() as td:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
     vt = Path(td) / "10-network-vpn"
     shutil.copytree(ENVS / "10-network-vpn", vt,
                     ignore=shutil.ignore_patterns(".terraform"))
