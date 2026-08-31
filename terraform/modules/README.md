@@ -1,6 +1,6 @@
 # terraform/modules — the module library
 
-The 14 building blocks composed by the environments (canonical scaffold in
+The 15 building blocks composed by the environments (reference scaffold in
 ../scaffold, deployed per customer from a generated envs tree). Each module is
 plain Terraform and does one job. Folders are named by domain and carry no
 numbers - only environments are numbered, because only environments have a

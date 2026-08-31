@@ -20,8 +20,8 @@ reasonable time; coordinated disclosure is preferred.
   confirmation that `--yes` never bypasses (`--destroy-confirm ENV`
   pre-authorizes a specific env for CI).
 - **Evidence bundles may contain resource identifiers** (IDs, IPs, names
-  from your own estate). Review a bundle before sharing it outside the team
-  that operates the estate.
+  from your own deployment). Review a bundle before sharing it outside the team
+  that operates the landing zone.
 
 ## Scope notes for reporters
 

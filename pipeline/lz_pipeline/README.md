@@ -29,7 +29,7 @@ Verify everything (also runs all unit suites): `lzctl check`
 Build (the JSON spec is the AUTHORITATIVE config store; the Excel workbook is
 a generated artifact — `tools/gen_workbook.py` — not an input):
 
-    lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
+    lzctl build --spec specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
 
 Ingest a workbook / validate a spec:
 

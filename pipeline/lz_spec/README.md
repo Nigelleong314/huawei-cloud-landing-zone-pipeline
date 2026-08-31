@@ -24,7 +24,7 @@ The recommended way to edit a spec is through the app (`lz-app`, after
 and runs the pipeline jobs. The CLI equivalents:
 
     lzctl validate specs/lz.spec.acme.json
-    lzctl build --ir specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
+    lzctl build --spec specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
     lzctl check                                  # the full gate; run after any change
 
 Credentials never go in a spec file: each env's `secrets.auto.tfvars.json`
