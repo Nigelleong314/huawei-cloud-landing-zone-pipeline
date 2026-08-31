@@ -1,0 +1,13 @@
+{
+  "name": "huawei-cloud-landing-zone-pipeline",
+  "owner": {
+    "name": "Huawei Cloud Landing Zone Pipeline maintainers"
+  },
+  "plugins": [
+    {
+      "name": "huawei-cloud-landing-zone-pipeline",
+      "source": "./",
+      "description": "Landing-zone design + intake skills (huawei-cloud-landing-zone, questionnaire-to-spec) for the lzctl pipeline. Skills only; install the pipeline itself with pip."
+    }
+  ]
+}

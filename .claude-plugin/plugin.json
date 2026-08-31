@@ -1,0 +1,8 @@
+{
+  "name": "huawei-cloud-landing-zone-pipeline",
+  "description": "Huawei Cloud landing-zone engineering skills: design doctrine, platform constraints, validation gates, and questionnaire-to-spec intake for the lzctl pipeline.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Huawei Cloud Landing Zone Pipeline maintainers"
+  }
+}

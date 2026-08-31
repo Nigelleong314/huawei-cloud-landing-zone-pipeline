@@ -96,6 +96,40 @@ pip install -e .     # development (editable)
 Plain-checkout execution (no install) is a development/CI mode — see
 `docs/development.md`.
 
+### Installing just the skills
+
+The agent skills install independently of the pipeline (replace `OWNER/REPO`
+with this repository's location once published):
+
+```bash
+# 1. One-liner — skills CLI (installs every skill in the repo; -g = user-level, -y = no prompts)
+npx skills add OWNER/REPO -g -y
+
+# ...or one skill only:
+npx skills add OWNER/REPO@huawei-cloud-landing-zone -g -y
+```
+
+Update later with `npx skills check` / `npx skills update`.
+
+```bash
+# 2. Claude Code plugin marketplace (enables auto-update from /plugin)
+/plugin marketplace add OWNER/REPO
+/plugin install huawei-cloud-landing-zone-pipeline@huawei-cloud-landing-zone-pipeline
+```
+
+```bash
+# 3. Manual copy — per-project (a git clone is the only prerequisite)
+mkdir -p <workspace>/.claude/skills
+cp -r skills/huawei-cloud-landing-zone skills/questionnaire-to-spec <workspace>/.claude/skills/
+
+# ...or user-level (available in every project):
+cp -r skills/huawei-cloud-landing-zone skills/questionnaire-to-spec ~/.claude/skills/
+```
+
+The skills assume `lzctl` is installed (`pip install .` above) and that
+`terraform/scaffold` + `terraform/modules` are reachable in the workspace —
+see **Package boundary** below.
+
 **Package boundary**: the wheel provides the pipeline *runtime* — every
 command, schema, template, and fixture needed to intake, assess, validate,
 and generate. The Terraform estate assets (`terraform/modules/`,
