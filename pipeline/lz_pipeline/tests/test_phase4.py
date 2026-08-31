@@ -64,16 +64,35 @@ r = run(["preflight", "--envs-dir", str(ENVS)], scrub=True, env_extra={
     "AWS_ACCESS_KEY_ID": "x", "AWS_SECRET_ACCESS_KEY": "y",
     "AWS_REQUEST_CHECKSUM_CALCULATION": "when_required",
     "AWS_RESPONSE_CHECKSUM_VALIDATION": "when_required"})
+# the example tree ships a VPN connection with a blank psk (the real value
+# arrives via a gitignored override), so the psk gate is EXPECTED to flag it
+fails = [ln.strip() for ln in r.stdout.splitlines() if ln.strip().startswith("FAIL")]
+psk_fails = [f for f in fails if "psk" in f]
+other = [f for f in fails if "psk" not in f]
 if shutil.which("terraform"):
-    check("preflight passes with vars set", r.returncode == 0, r.stdout[-300:])
+    check("preflight: only the example tree's blank psk is flagged",
+          r.returncode == 1 and psk_fails and not other, fails)
 else:
-    # no terraform on PATH: the ONLY failure must be the binary check itself -
-    # every env-var check this suite is actually about must pass
-    fails = [ln.strip() for ln in r.stdout.splitlines()
-             if ln.strip().startswith("FAIL")]
-    check("preflight env-var checks pass (terraform absent -> only the binary check fails)",
-          r.returncode == 1 and fails == ["FAIL terraform not on PATH"],
+    check("preflight env-var checks pass (terraform absent -> only binary + psk fail)",
+          r.returncode == 1 and psk_fails and other == ["FAIL terraform not on PATH"],
           r.stdout[-300:])
+
+# the psk gate clears once an override supplies a real value, and BLOCKS apply
+with tempfile.TemporaryDirectory() as td:
+    vt = Path(td) / "10-network-vpn"
+    shutil.copytree(ENVS / "10-network-vpn", vt,
+                    ignore=shutil.ignore_patterns(".terraform"))
+    r = run(["apply", "--envs-dir", td, "10-network-vpn"])
+    check("apply blocked on blank psk (exit 3, before any terraform)",
+          r.returncode == 3 and "BLOCKED" in r.stdout, r.stdout[-200:])
+    conns = json.loads((vt / "terraform.tfvars.json").read_text(encoding="utf-8"))["connections"]
+    for c in conns:
+        c["psk"] = "test-only-real-psk-value"
+    (vt / "zz-secrets.auto.tfvars.json").write_text(
+        json.dumps({"connections": conns}), encoding="utf-8")
+    r = run(["preflight", "--envs-dir", td], scrub=True)
+    check("psk gate clears with a real override",
+          "PASS VPN psk values" in r.stdout, r.stdout[-300:])
 r = run(["preflight", "--envs-dir", str(ENVS)], scrub=True, env_extra={
     "AWS_ACCESS_KEY_ID": "x", "AWS_SECRET_ACCESS_KEY": "y",
     "AWS_REQUEST_CHECKSUM_CALCULATION": "always",

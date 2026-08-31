@@ -172,22 +172,38 @@ class Lock:
                     f"STALE lock from another host ({holder}, {int(age)}s old) - "
                     f"verify that run is dead, then remove {self.path} manually")
             print(f"note: breaking STALE lock ({holder}, {int(age)}s old)")
+            if not dry:
+                self.path.unlink(missing_ok=True)
         if not dry:
-            self._write()
+            # atomic exclusive create: two simultaneous acquires cannot both win
+            try:
+                with open(self.path, "x", encoding="utf-8") as f:
+                    f.write(self._payload())
+            except FileExistsError:
+                raise SystemExit(f"lock grabbed concurrently by another process - "
+                                 f"one apply at a time ({self.path})")
 
-    def _write(self):
-        self.path.write_text(json.dumps({
-            "user": getpass.getuser(), "host": socket.gethostname(),
-            "pid": os.getpid(), "time": time.time()}), encoding="utf-8")
+    def _payload(self):
+        return json.dumps({"user": getpass.getuser(), "host": socket.gethostname(),
+                           "pid": os.getpid(), "time": time.time()})
+
+    def _owned(self):
+        try:
+            info = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return (info.get("pid") == os.getpid()
+                and info.get("host") == socket.gethostname())
 
     def refresh(self, dry=False):
         """Re-stamp the timestamp so a long multi-env apply never crosses the
         stale threshold while genuinely running (called between envs)."""
-        if not dry and self.path.exists():
-            self._write()
+        if not dry and self.path.exists() and self._owned():
+            self.path.write_text(self._payload(), encoding="utf-8")
 
     def release(self, dry=False):
-        if not dry and self.path.exists():
+        # owner-checked: never delete a lock a newer process now holds
+        if not dry and self.path.exists() and self._owned():
             self.path.unlink()
 
 
@@ -222,6 +238,40 @@ def triage_plan(env_dir: Path, dry: bool, log) -> tuple:
 # ────────────────────────────────────────────────────────────────────────────
 # Verbs
 # ────────────────────────────────────────────────────────────────────────────
+
+_PSK_PLACEHOLDER = ("var.", "secret", "tbd", "<", "replace_with", "${")
+
+
+def psk_problems(envs: Path):
+    """VPN connections whose EFFECTIVE psk (terraform.tfvars.json, then
+    *.auto.tfvars.json overrides in terraform's load order) is blank, a
+    reference, or a placeholder. LZR-027 keeps literal PSKs out of the SPEC;
+    this gate keeps non-values out of the DEPLOYMENT - terraform would use
+    the literal placeholder text as the live tunnel key."""
+    out = []
+    for env_dir in env_dirs(envs):
+        conns = None
+        files = [env_dir / "terraform.tfvars.json"] + sorted(env_dir.glob("*.auto.tfvars.json"))
+        for p in files:
+            if not p.exists():
+                continue
+            try:
+                doc = json.loads(p.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            if isinstance(doc.get("connections"), list):
+                conns = doc["connections"]
+        if not conns:
+            continue
+        bad = [str(c.get("name") or "?") for c in conns if isinstance(c, dict)
+               and (not str(c.get("psk") or "").strip()
+                    or str(c["psk"]).strip().lower().startswith(_PSK_PLACEHOLDER))]
+        if bad:
+            out.append(f"{env_dir.name}: VPN connection(s) {', '.join(bad)} have a "
+                       "blank/placeholder psk - put the real PSK in the env's gitignored "
+                       "secrets override (*.auto.tfvars.json) before apply")
+    return out
+
 
 def cmd_preflight(args):
     envs = Path(args.envs_dir)
@@ -260,6 +310,13 @@ def cmd_preflight(args):
         problems.append(f"deps.json missing in {envs} (apply order falls back to numeric prefix)")
     else:
         print(f"  PASS deps.json ({len(apply_order(envs))} envs in order)")
+    if envs.exists():
+        checks += 1
+        psk_bad = psk_problems(envs)
+        if psk_bad:
+            problems.extend(psk_bad)
+        else:
+            print("  PASS VPN psk values (real or no VPN connections)")
     for p in problems:
         print(f"  FAIL {p}")
     if problems:
@@ -353,20 +410,37 @@ def _is_transient(output: str) -> bool:
 def _saved_plan_usable(env_dir: Path) -> bool:
     """A tf.plan from a previous plan/drift run can be applied directly IF no
     configuration input changed after it was written (terraform itself refuses
-    the plan if the STATE moved). Skips the expensive re-plan on large envs."""
+    the plan if the STATE moved). Skips the expensive re-plan on large envs.
+    Inputs include the SHARED module tree and the provider lock: a plan is a
+    config snapshot, so applying it after a module edit would silently execute
+    the OLD module code."""
     tfp = env_dir / "tf.plan"
     if not tfp.exists():
         return False
     newest = 0.0
-    for pat in ("*.tf", "terraform.tfvars.json", "backend.hcl", "*.auto.tfvars.json"):
+    for pat in ("*.tf", "terraform.tfvars.json", "backend.hcl", "*.auto.tfvars.json",
+                ".terraform.lock.hcl"):
         for f in env_dir.glob(pat):
             newest = max(newest, f.stat().st_mtime)
+    # any modules tree the env's .tf sources point into (../modules layout)
+    for mod_root in (env_dir.parent.parent / "modules",
+                     env_dir.parent / "modules", env_dir / "modules"):
+        if mod_root.is_dir():
+            for f in mod_root.rglob("*.tf"):
+                newest = max(newest, f.stat().st_mtime)
     return tfp.stat().st_mtime >= newest
 
 
 def cmd_apply(args):
     envs = Path(args.envs_dir)
     order = select(envs, args.env, args.all)
+    if not args.dry_run:
+        psk_bad = [p for p in psk_problems(envs) if p.split(":")[0] in order]
+        if psk_bad:
+            for p in psk_bad:
+                print(f"FAIL {p}")
+            print("== RESULT: BLOCKED (a placeholder psk would become the live tunnel key) ==")
+            return 3
     lock = Lock(envs)
     lock.acquire(dry=args.dry_run)
     log = logfile(envs, "apply") if not args.dry_run else None
