@@ -426,18 +426,19 @@ def write_workbook(out: Path):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
-    DARK = "1F3864"     # title band
-    MID = "2F5597"      # header row
-    BAND = "D6E4F0"     # category band
-    FILL_IN = "FFF9E3"  # response cells
-    thin = Side(style="thin", color="B0B0B0")
+    # Theme aligned with lz_spec/gen_template.py (the LLD spec workbook)
+    DARK = "1F4E79"     # title band (= template TITLE_FILL)
+    HDR = "DDEBF7"      # header row (= template HEADER_FILL)
+    BAND = "D6E4F0"     # category band (questionnaire-specific, same family)
+    FILL_IN = "FFFCE5"  # response cells (= template VALUE_FILL)
+    thin = Side(style="thin", color="B4B4B4")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     wrap = Alignment(wrap_text=True, vertical="top")
 
     def _title(ws, text, ncols):
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
         c = ws.cell(row=1, column=1, value=text)
-        c.font = Font(bold=True, size=13, color="FFFFFF")
+        c.font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
         c.fill = PatternFill("solid", fgColor=DARK)
         c.alignment = Alignment(vertical="center", indent=1)
         ws.row_dimensions[1].height = 26
@@ -445,8 +446,8 @@ def write_workbook(out: Path):
     def _headers(ws, row, headers):
         for i, h in enumerate(headers, 1):
             c = ws.cell(row=row, column=i, value=h)
-            c.font = Font(bold=True, color="FFFFFF")
-            c.fill = PatternFill("solid", fgColor=MID)
+            c.font = Font(name="Calibri", bold=True, size=10)
+            c.fill = PatternFill("solid", fgColor=HDR)
             c.alignment = wrap
             c.border = border
         ws.row_dimensions[row].height = 20
@@ -501,7 +502,7 @@ def write_workbook(out: Path):
         if kind == "h":
             c.font = Font(bold=True, size=11, color=DARK)
         elif kind == "s":
-            c.font = Font(italic=True, size=9, color="808080")
+            c.font = Font(italic=True, size=9, color="595959")
         c.alignment = wrap
         if text and kind is None:
             ws.row_dimensions[r].height = _est_height([(text, 105)], minimum=15)
@@ -552,14 +553,14 @@ def write_workbook(out: Path):
         _title(ws, ap["title"], n)
         ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n)
         c = ws.cell(row=2, column=1, value=ap["note"])
-        c.font = Font(italic=True, size=9, color="606060")
+        c.font = Font(italic=True, size=9, color="595959")
         c.alignment = wrap
         ws.row_dimensions[2].height = 28
         _headers(ws, 3, ap["columns"])
         ws.freeze_panes = "A4"
         for i, v in enumerate(ap["example"], 1):
             c = ws.cell(row=4, column=i, value=(f"(example) {v}" if i == 1 else v) or None)
-            c.font = Font(italic=True, color="909090")
+            c.font = Font(italic=True, color="595959")
             c.alignment = wrap
             c.border = border
         for r in range(5, 25):

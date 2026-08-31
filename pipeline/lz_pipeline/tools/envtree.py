@@ -11,10 +11,12 @@ from pathlib import Path
 
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-# shared header styling for the xlsx doc generators (ipam / checklist / config book)
-HDR_FONT = Font(bold=True, size=10, color="FFFFFF")
-HDR_FILL = PatternFill("solid", fgColor="1F4E79")
-BOX = Border(*[Side(style="thin", color="BFBFBF")] * 4)
+# shared header styling for the xlsx doc generators (ipam / checklist / config
+# book). Theme aligned with lz_spec/gen_template.py (the LLD spec workbook):
+# header band DDEBF7 + dark bold Calibri, borders B4B4B4.
+HDR_FONT = Font(name="Calibri", bold=True, size=10)
+HDR_FILL = PatternFill("solid", fgColor="DDEBF7")
+BOX = Border(*[Side(style="thin", color="B4B4B4")] * 4)
 WRAP = Alignment(vertical="top", wrap_text=True)
 
 
