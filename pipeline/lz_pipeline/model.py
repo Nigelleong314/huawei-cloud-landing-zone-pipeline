@@ -37,7 +37,7 @@ def _sanitize(o, warnings, path="$"):
 
 def from_workbook(workbook: Path) -> tuple:
     """(ir_dict, warnings) from a workbook file."""
-    from lz_spec.build_envs import parse_workbook
+    from lz_pipeline.core.parsing import parse_workbook
     from lz_spec.schema import get_meta
     spec = parse_workbook(Path(workbook))
     warnings = []
