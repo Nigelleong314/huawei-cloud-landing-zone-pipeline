@@ -183,7 +183,10 @@ with tempfile.TemporaryDirectory(prefix="lz-p5-") as td:
     prof2.write_text(json.dumps({
         "customer": "example", "features": {"secmaster": True},
         "envs_dir": "terraform/envs-example", "docs_dir": None,
-        "ir": os.path.relpath(ir2, ROOT).replace("\\", "/")}), encoding="utf-8")
+        # CI runners may put the temp dir and the checkout on different drives,
+        # where relpath raises; ROOT / <absolute> resolves to the absolute path
+        "ir": (os.path.relpath(ir2, ROOT) if ir2.drive == ROOT.drive
+               else str(ir2)).replace("\\", "/")}), encoding="utf-8")
     tgt2 = tmp / "example-110"
     r = export(prof2, tgt2, ["--version", "1.1.0", "--releases-dir", str(tmp / "rel")])
     check("second release exports", r.returncode == 0, r.stderr[-300:])
