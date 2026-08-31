@@ -55,6 +55,11 @@ jobs:
           terraform_wrapper: false
       - name: install deps
         run: pip install openpyxl
+      - name: terraform init (backendless) so the validate check is real
+        run: |
+          for d in terraform/envs-example/*/; do
+            terraform -chdir="$d" init -backend=false -input=false >/dev/null
+          done
       - name: regression harness (all 7 checks)
         run: python -X utf8 -m lz_spec.verify_pipeline all
         env:
