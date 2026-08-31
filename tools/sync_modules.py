@@ -52,7 +52,7 @@ def main() -> int:
     today = datetime.date.today().isoformat()
     (DST / "PROVENANCE.md").write_text(
         "# Module snapshot provenance\n\n"
-        f"Synced from an internal module library checkout on {today}.\n"
+        f"Synced from an upstream module library checkout on {today}.\n"
         f"Files: {n}. Content hash (excluding this file): sha256:{h.hexdigest()}\n"
         "Refresh with tools/sync_modules.py; review the diff before committing.\n",
         encoding="utf-8")

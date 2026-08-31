@@ -100,22 +100,21 @@ Plain-checkout execution (no install) is a development/CI mode — see
 
 ### Installing just the skills
 
-The agent skills install independently of the pipeline (replace `OWNER/REPO`
-with this repository's location once published):
+The agent skills install independently of the pipeline:
 
 ```bash
 # 1. One-liner — skills CLI (installs every skill in the repo; -g = user-level, -y = no prompts)
-npx skills add OWNER/REPO -g -y
+npx skills add Nigelleong314/huawei-cloud-landing-zone-pipeline -g -y
 
 # ...or one skill only:
-npx skills add OWNER/REPO@huawei-cloud-landing-zone -g -y
+npx skills add Nigelleong314/huawei-cloud-landing-zone-pipeline@huawei-cloud-landing-zone -g -y
 ```
 
 Update later with `npx skills check` / `npx skills update`.
 
 ```bash
 # 2. Claude Code plugin marketplace (enables auto-update from /plugin)
-/plugin marketplace add OWNER/REPO
+/plugin marketplace add Nigelleong314/huawei-cloud-landing-zone-pipeline
 /plugin install huawei-cloud-landing-zone-pipeline@huawei-cloud-landing-zone-pipeline
 ```
 

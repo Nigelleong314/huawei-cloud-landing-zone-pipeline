@@ -442,9 +442,6 @@ class Handler(BaseHTTPRequestHandler):
                 html = (Path(__file__).parent / "static" / "index.html").read_bytes()
                 html = html.replace(b"__LZ_TOKEN__", TOKEN.encode("ascii"))
                 return self._send(html, ctype="text/html; charset=utf-8")
-            if self.path == "/logo-en.svg":
-                svg = (Path(__file__).parent / "static" / "logo-en.svg").read_bytes()
-                return self._send(svg, ctype="image/svg+xml")
             if self.path == "/api/meta":
                 return self._send({"version": __version__,
                                    "workspace": str(STATE["workspace"]),

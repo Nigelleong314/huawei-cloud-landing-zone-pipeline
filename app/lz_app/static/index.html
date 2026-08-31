@@ -18,8 +18,8 @@
            align-items:center; border-bottom:1px solid var(--line); }
   header h1 { font-size:15px; margin:0; font-weight:600; letter-spacing:.2px; white-space:nowrap;
               display:flex; align-items:center; gap:12px; }
-  header h1 img { height:26px; display:block; }
   header h1 .divider { width:1px; height:20px; background:var(--line-strong); }
+  header h1 .wordmark { font-weight:700; letter-spacing:.8px; font-size:13px; }
   header .src { color:var(--text); font-size:12px; flex:1; overflow:hidden;
                 text-overflow:ellipsis; white-space:nowrap; }
   header { flex:none; }
@@ -170,7 +170,7 @@
 </head>
 <body>
 <header>
-  <h1><img src="/logo-en.svg" alt="Huawei Cloud"><span class="divider"></span>LZ Pipeline</h1>
+  <h1><span class="wordmark">HUAWEI CLOUD</span><span class="divider"></span>LZ Pipeline</h1>
   <span class="src" id="srcLabel">No spec loaded</span>
   <span id="openBar" class="hbar">
     <select class="small" id="fileSel" title="Spec files in lz_spec\"></select>
