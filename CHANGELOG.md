@@ -7,6 +7,7 @@
 - Plain-terms sweep of user-facing text: customer ID (was slug), `--spec` on build/docs (`--ir` kept as alias), platform rules, design rules, authoritative store.
 - Documented where Claude coupling lives vs the model-independence claim (README + bench scope note).
 - Cleanup: unreferenced cicd-plan.md removed; legacy import shim bypassed.
+- Security-review hardening (two external rounds): app UI CSRF token + origin check + workspace-confined save paths; export refuses to clear non-export targets and fails closed on strip misses; apply blocked on placeholder VPN PSKs; secrets never .bak'd; atomic/owner-checked apply lock with per-env refresh; saved-plan staleness covers the modules tree; CI terraform validation made real; CFW rejects multiple domain groups per rule; sync_modules overlap guard.
 
 ## 0.1.0 — 2026-08-30
 
