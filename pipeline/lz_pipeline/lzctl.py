@@ -68,7 +68,7 @@ REQUIRED_ENV = {
     "AWS_RESPONSE_CHECKSUM_VALIDATION": "when_required",
 }
 MIN_TF = (1, 6, 3)
-LOCK_STALE_S = 2 * 3600
+LOCK_STALE_S = 2 * 3600  # ponytail: per-env refresh keeps live runs fresh; a SINGLE env apply >2h can still look stale - add mid-env refreshing if one ever runs that long
 PRICING_PATH = None   # --pricing override; default card sits next to plan_triage
 
 
@@ -163,11 +163,28 @@ class Lock:
             if age < LOCK_STALE_S:
                 raise SystemExit(f"lock held by {holder} ({int(age)}s ago) - "
                                  f"one apply at a time; remove {self.path} only if that run is dead")
+            # Auto-break only a lock WE could plausibly verify: same host.
+            # A live holder refreshes its timestamp per env, so a genuinely
+            # active run never looks stale for long. A foreign host's lock
+            # cannot be liveness-checked from here - require manual removal.
+            if info.get("host") not in ("?", None, socket.gethostname()):
+                raise SystemExit(
+                    f"STALE lock from another host ({holder}, {int(age)}s old) - "
+                    f"verify that run is dead, then remove {self.path} manually")
             print(f"note: breaking STALE lock ({holder}, {int(age)}s old)")
         if not dry:
-            self.path.write_text(json.dumps({
-                "user": getpass.getuser(), "host": socket.gethostname(),
-                "pid": os.getpid(), "time": time.time()}), encoding="utf-8")
+            self._write()
+
+    def _write(self):
+        self.path.write_text(json.dumps({
+            "user": getpass.getuser(), "host": socket.gethostname(),
+            "pid": os.getpid(), "time": time.time()}), encoding="utf-8")
+
+    def refresh(self, dry=False):
+        """Re-stamp the timestamp so a long multi-env apply never crosses the
+        stale threshold while genuinely running (called between envs)."""
+        if not dry and self.path.exists():
+            self._write()
 
     def release(self, dry=False):
         if not dry and self.path.exists():
@@ -358,6 +375,7 @@ def cmd_apply(args):
         for name in order:
             env_dir = envs / name
             print(f"== {name} ==")
+            lock.refresh(dry=args.dry_run)   # long applies must not go stale mid-run
             # 1. state backup first (LZR-007)
             ns = argparse.Namespace(envs_dir=str(envs), env=name, all=False, dry_run=args.dry_run)
             cmd_state_backup(ns)

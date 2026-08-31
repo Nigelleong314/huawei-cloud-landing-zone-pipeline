@@ -95,11 +95,28 @@ with tempfile.TemporaryDirectory() as td:
         check("second acquire blocked", "lock held" in str(e), str(e))
     lock.release()
     check("release removes lock", not (envs / ".lzctl.lock").exists())
-    # stale lock is broken
+    # stale lock from ANOTHER host is never auto-broken (no liveness check possible)
     (envs / ".lzctl.lock").write_text(json.dumps(
         {"user": "old", "host": "gone", "pid": 1, "time": time.time() - 3 * 3600}), encoding="utf-8")
-    lzctl.Lock(envs).acquire()
-    check("stale lock broken and re-acquired", (envs / ".lzctl.lock").exists())
+    try:
+        lzctl.Lock(envs).acquire()
+        check("foreign-host stale lock refused", False, "acquire succeeded")
+    except SystemExit as e:
+        check("foreign-host stale lock refused", "another host" in str(e), e)
+    # stale lock from THIS host is broken (a live holder refreshes per env)
+    import socket as _sock
+    (envs / ".lzctl.lock").write_text(json.dumps(
+        {"user": "old", "host": _sock.gethostname(), "pid": 1,
+         "time": time.time() - 3 * 3600}), encoding="utf-8")
+    lk = lzctl.Lock(envs)
+    lk.acquire()
+    check("same-host stale lock broken and re-acquired", (envs / ".lzctl.lock").exists())
+    t0 = json.loads((envs / ".lzctl.lock").read_text(encoding="utf-8"))["time"]
+    time.sleep(0.05)
+    lk.refresh()
+    t1 = json.loads((envs / ".lzctl.lock").read_text(encoding="utf-8"))["time"]
+    check("refresh re-stamps the lock timestamp", t1 > t0, (t0, t1))
+    lk.release()
 
 print("== dry-run sequencing (no terraform executed) ==")
 r = run(["apply", "--envs-dir", str(ENVS), "--all", "--dry-run", "--yes"])
