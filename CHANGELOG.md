@@ -1,17 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 — 2026-08-31
 
-- E2E engineer-roleplay model benchmark (`tests/evaluation/e2e_bench/`, `--smoke` for a free setup check); run of record committed under `tests/evaluation/results/e2e-roleplay-20260831/`.
-- Skill install routes: `npx skills` one-liner, Claude Code plugin marketplace (`.claude-plugin/`), manual copy.
-- Plain-terms sweep of user-facing text: customer ID (was slug), `--spec` on build/docs (`--ir` kept as alias), platform rules, design rules, authoritative store.
-- Documented where Claude coupling lives vs the model-independence claim (README + bench scope note).
-- Cleanup: unreferenced cicd-plan.md removed; legacy import shim bypassed.
-- Security-review hardening (two external rounds): app UI CSRF token + origin check + workspace-confined save paths; export refuses to clear non-export targets and fails closed on strip misses; apply blocked on placeholder VPN PSKs; secrets never .bak'd; atomic/owner-checked apply lock with per-env refresh; saved-plan staleness covers the modules tree; CI terraform validation made real; CFW rejects multiple domain groups per rule; sync_modules overlap guard.
-
-## 0.1.0 — 2026-08-30
-
-Initial public-ready assembly.
+Initial public release.
 
 ### Capabilities
 
@@ -29,3 +20,12 @@ Initial public-ready assembly.
 - **Destructive double-confirm**: exit-3 plans block apply; proceeding needs `--allow-destroy` plus a typed env-name confirmation that `--yes` never bypasses (`--destroy-confirm <env>` for CI).
 - **Fail-loud region**: `Global.Settings.home_region` is required with no default — a missing region fails the build instead of deploying somewhere plausible.
 - **Leak guard**: export tests derive forbidden customer tokens (including on-prem CIDR prefixes, domains, and email domains) from every non-example profile and scan example specs and exported artifacts.
+
+### Hardening and tooling added during review
+
+- E2E engineer-roleplay model benchmark (`tests/evaluation/e2e_bench/`, `--smoke` for a free setup check); run of record committed under `tests/evaluation/results/e2e-roleplay-20260831/`.
+- Skill install routes: `npx skills` one-liner, Claude Code plugin marketplace (`.claude-plugin/`), manual copy.
+- Plain-terms sweep of user-facing text: customer ID (was slug), `--spec` on build/docs (`--ir` kept as alias), platform rules, design rules, authoritative store.
+- Documented where Claude coupling lives vs the model-independence claim (README + bench scope note).
+- Cleanup: unreferenced cicd-plan.md removed; legacy import shim bypassed.
+- Security-review hardening (two external rounds): app UI CSRF token + origin check + workspace-confined save paths; export refuses to clear non-export targets and fails closed on strip misses; apply blocked on placeholder VPN PSKs; secrets never .bak'd; atomic/owner-checked apply lock with per-env refresh; saved-plan staleness covers the modules tree; CI terraform validation made real; CFW rejects multiple domain groups per rule; sync_modules overlap guard.
