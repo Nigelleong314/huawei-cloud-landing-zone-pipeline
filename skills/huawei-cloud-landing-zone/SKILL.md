@@ -72,6 +72,33 @@ Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud 
 
 (Phase labels are the exact names from `schemas/phases.json`.)
 
+## Invocation
+
+`/huawei-cloud-landing-zone [status|advance|plan|verify|docs] [target] [key=value...]`
+
+Natural-language requests trigger this skill without any command; the explicit
+form exists for precision. Actions:
+
+| Action | Scope | What it runs |
+|---|---|---|
+| *(none)* or `status` | **Completely read-only.** Place the workspace on the phase graph, run the gates, report state + the one next action. Also detects an interrupted apply (lock file, `lzctl-logs/` tail, `state-backups/`) and presents the recovery procedure — inspection and instructions only, never an automatic resume or reapply. | `lzctl validate`, decisions-file inspection, `lzctl order` |
+| `advance` | **Local generation only** — from the current phase up to the next decision gate or the cloud boundary, whichever comes first. Never contacts the cloud; stops before the first authenticated plan and says exactly what the operator does next. | `lzctl intake` / `assess` / `validate` / `build` / `preflight` as the phase requires |
+| `plan [env[,env...]\|all]` | May contact the cloud and write plan artifacts. Preflight, ordered plans, triage summary with exit-code reading. | `lzctl preflight`, `plan`, `triage` |
+| `verify` | Post-apply verification, drift sweep, and (on request) the evidence bundle. | `lzctl verify`, `drift`, `report` |
+| `docs` | **Local customer-document regeneration only.** No drift sweep, no cloud contact. | `lzctl docs` |
+
+Qualifiers are an **allowlist**, mapped one-to-one onto CLI arguments —
+`spec=<path>` (`--spec`), `envs=<dir>` (`--envs-dir`),
+`customer=<id>` (`--customer`). Quoted paths are supported
+(`spec="C:\Customer Files\lz.spec.acme.json"`). An unknown key, a duplicate
+key, or an ambiguous path is reported back, never forwarded to the CLI.
+
+**This skill never executes `terraform apply` (nor `lzctl apply`).** It stops
+at the apply gate and presents the operator command; the typed destructive
+confirmation is always a human at a terminal. There is no `resume` action —
+an interrupted apply is a recovery incident handled by `status` as described
+above.
+
 ## Companion skill (optional)
 
 The `huawei-cloud-terraform-generator` skill (separate distribution, not included in this repository) generates single-service resources with per-service references and region-availability verification. It is optional — this skill and the pipeline are fully usable without it; without it, author single-resource HCL from the provider docs per the evidence hierarchy below.

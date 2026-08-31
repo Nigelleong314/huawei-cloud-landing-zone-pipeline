@@ -131,6 +131,28 @@ The skills assume `lzctl` is installed (`pip install .` above) and that
 `terraform/scaffold` + `terraform/modules` are reachable in the workspace —
 see **Package boundary** below.
 
+### Using the skills conversationally
+
+With the skills installed, a Claude Code session in the workspace drives the
+whole workflow through `lzctl` from plain conversation — describing the goal
+is enough to trigger them ("here's the filled questionnaire for acme, take it
+to a validated spec"), and explicit commands exist for precision:
+
+```
+/questionnaire-to-spec acme-filled.xlsx customer=acme
+/huawei-cloud-landing-zone advance          # local generation up to the next gate
+```
+
+`status` (read-only), `advance`, `plan`, `verify`, and `docs` are the full
+action set — the complete grammar, qualifier allowlist, and scope of each
+action live in one place:
+[skills/huawei-cloud-landing-zone/SKILL.md](skills/huawei-cloud-landing-zone/SKILL.md)
+(§ Invocation).
+
+**These skills never execute `terraform apply`.** They stop at the apply gate
+and present the operator command — the typed destructive confirmation is
+always a human at a terminal.
+
 **Package boundary**: the wheel provides the pipeline *runtime* — every
 command, schema, template, and fixture needed to intake, assess, validate,
 and generate. The Terraform assets (`terraform/modules/`,

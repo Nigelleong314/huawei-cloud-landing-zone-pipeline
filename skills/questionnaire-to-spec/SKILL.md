@@ -5,8 +5,15 @@ description: Convert a filled LZ Assessment Questionnaire (xlsx) into a draft lz
 
 # Questionnaire → draft spec
 
+Invocation: `/questionnaire-to-spec <filled.xlsx> customer=<id> [workspace=<dir>]`
+(or any natural-language request that provides a filled questionnaire).
+
 Input: a filled `HuaweiCloud-LZ-Assessment-Questionnaire.xlsx` (any path) and a
-customer ID (lowercase, e.g. `acme`). Ask for the ID if not given.
+customer ID (lowercase, e.g. `acme`). **Inference rule:** take the workbook
+from an explicitly attached file, an explicit path, or exactly one unambiguous
+matching artifact in the workspace — ask only when multiple candidates exist.
+Ask for the customer ID whenever it cannot be established safely; never
+derive it from guesswork.
 
 Output, under `<workspace>/specs/`:
 - `lz.spec.<customer>.json` — the draft (starts NEUTRAL: every value unset)
