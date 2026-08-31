@@ -78,6 +78,8 @@ The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl
 
 The execution boundary is model-independent by design: all model-facing surfaces are files and CLIs, so no step depends on a particular model's behavior to be safe. Whether a given model performs the judgment steps *well* is a separate, measured question — see `tests/evaluation/` for the harness and current results per model. The spec is validated by a generated JSON Schema (`schemas/lz.spec.schema.json`), the questionnaire dump is plain JSON, and every gate is an exit code. It is also fully usable with **no** model: run the commands below by hand and edit the spec in the bundled editor (`app/`, see `app/USER-GUIDE.md`).
 
+Where the Claude coupling actually lives, so the claim is checkable: the pipeline, app, schemas, and Terraform contain none. The skills are *packaged* for Claude Code (`SKILL.md` format, `.claude/skills/`, the plugin manifests), but their content is plain markdown whose instructions are all "run this command, read this exit code" — any agent framework can consume them as a system prompt, and a human can follow them directly. The measurement tooling currently drives models through the Claude Code CLI: the eval harness takes other providers via its adapter registry (`tests/evaluation/adapter.py` — adding a provider = adding a function), while the E2E benchmark (`tests/evaluation/e2e_bench/`) specifically measures the model × skills × Claude Code combination and would need its own runner hook for a different agent CLI.
+
 ## Prerequisites
 
 - Python ≥ 3.10 with `openpyxl` (the only Python dependency)

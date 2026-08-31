@@ -17,7 +17,12 @@ python run_bench.py --smoke
 python run_bench.py --model claude-sonnet-5 --model claude-haiku-4-5-20251001
 ```
 
-Requires the `claude` CLI on PATH and Python >= 3.10. A full two-phase run
+Requires the `claude` CLI on PATH and Python >= 3.10. Scope note: this
+bench measures the **model × skills × Claude Code** combination — the
+session runner, skill loading (`.claude/skills/`), and result JSON are
+Claude Code's. The pipeline itself is runner-independent; benchmarking a
+different agent CLI would need its own session command and skill-injection
+equivalent here. A full two-phase run
 costs roughly $1–4 per model and can take 10–30 minutes per session.
 Results land in `../results/e2e-roleplay-<date>/`: per-session JSON
 (model's final message, cost, turns), per-phase `scores-*.txt` (the
