@@ -369,6 +369,11 @@ def start_job(verb, args):
     def _label(argv):
         return " ".join(argv[3:] if len(argv) > 2 and argv[2] == "utf8" else argv)
 
+    while len(JOBS) > 50:   # long sessions must not leak job output forever
+        oldest = next(iter(JOBS))
+        if JOBS[oldest]["status"] == "running":
+            break
+        del JOBS[oldest]
     JOBS[jid] = {"verb": verb, "status": "running", "output": "", "rc": None}
 
     def _run():
@@ -579,6 +584,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(workspace=None, host="127.0.0.1", port=8600, open_browser=False):
+    if host not in ("127.0.0.1", "localhost", "::1") and             not os.environ.get("LZ_APP_ALLOW_REMOTE"):
+        raise SystemExit(
+            f"refusing to bind {host}: the app serves its CSRF token to anyone "
+            "who can GET the page, so a non-loopback bind means unauthenticated "
+            "remote job execution. Set LZ_APP_ALLOW_REMOTE=1 only behind real "
+            "network controls.")
     ws = find_workspace(workspace)
     wire(ws)
     STATE["workspace"] = ws

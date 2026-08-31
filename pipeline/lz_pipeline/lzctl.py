@@ -139,7 +139,7 @@ def run_tf(env_dir: Path, args, dry, log=None, **kw):
 
 def logfile(envs: Path, name: str):
     d = envs / "lzctl-logs"
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     return (d / f"{ts}-{name}.log").open("w", encoding="utf-8")
 
@@ -207,11 +207,11 @@ class Lock:
             self.path.unlink()
 
 
-def triage_plan(env_dir: Path, dry: bool, log) -> tuple:
+def triage_plan(env_dir: Path, dry: bool, log, plan_file="tf.plan") -> tuple:
     """(exit_class, buckets) from the plan file just written: 0/2/3."""
     if dry:
         return 0, None
-    r = subprocess.run(["terraform", "show", "-json", "tf.plan"],
+    r = subprocess.run(["terraform", "show", "-json", plan_file],
                        cwd=str(env_dir), capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
     if r.returncode != 0:
@@ -432,6 +432,18 @@ def _saved_plan_usable(env_dir: Path) -> bool:
 
 
 def cmd_apply(args):
+    # The skills' no-apply promise as a MECHANISM, not prose: inside an agent
+    # session (CLAUDECODE set) apply refuses outright. A human legitimately
+    # working inside a Claude Code terminal sets LZ_OPERATOR_APPLY=1; CI has
+    # no CLAUDECODE and is unaffected. (stdin isatty can't distinguish the
+    # two on Windows - the agent's shell holds a real console handle.)
+    if (os.environ.get("CLAUDECODE") and not args.dry_run
+            and not os.environ.get("LZ_OPERATOR_APPLY")):
+        print("apply refused: agent session detected (CLAUDECODE set). The skills "
+              "stop at the apply gate by contract - run this from your own "
+              "terminal, or set LZ_OPERATOR_APPLY=1 if you are a human inside a "
+              "Claude Code session. (--dry-run is always allowed.)")
+        return 3
     envs = Path(args.envs_dir)
     order = select(envs, args.env, args.all)
     if not args.dry_run:
@@ -475,6 +487,11 @@ def cmd_apply(args):
                 print(f"\n== RESULT: BLOCKED (destructive changes in {name}) ==")
                 return 3
             if not args.yes and not args.dry_run:
+                if not sys.stdin.isatty():
+                    print(f"  STOP {name}: interactive confirmation needed but stdin "
+                          "is not a terminal - run from a terminal, or pass --yes "
+                          "for non-destructive applies")
+                    return 2
                 resp = input(f"  apply {name}? [y/N] ").strip().lower()
                 if resp != "y":
                     print("\n== RESULT: STOPPED by operator ==")
@@ -485,6 +502,11 @@ def cmd_apply(args):
             if rc == 3 and not args.dry_run:
                 pre = getattr(args, "destroy_confirm", None) or []
                 if name not in pre:
+                    if not sys.stdin.isatty():
+                        print(f"  STOP {name}: destructive applies require a typed "
+                              "confirmation at a terminal (or --destroy-confirm ENV "
+                              "for CI) - refusing in a non-interactive context")
+                        return 3
                     resp = input(f"  DESTRUCTIVE apply - type the env name "
                                  f"({name}) to confirm: ").strip()
                     if resp != name:
@@ -535,15 +557,18 @@ def cmd_drift(args):
         if not (env_dir / ".terraform").exists():
             rows.append((name, "SKIP (not initialized)"))
             continue
-        r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.plan", "-detailed-exitcode"],
-                   False, log)
+        # a drift sweep is read-only in spirit: write a SEPARATE plan file so
+        # it can never arm cmd_apply's saved-plan reuse (tf.plan stays the
+        # reviewed artifact from an explicit plan run)
+        r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.drift.plan",
+                             "-detailed-exitcode"], False, log)
         if r.returncode == 0:
             rows.append((name, "clean"))
         elif r.returncode == 1:
             last = next((l for l in reversed(r.stdout.strip().splitlines()) if l.strip()), "?")
             rows.append((name, f"ERROR: {last[:100]}"))
         else:
-            cls, buckets = triage_plan(env_dir, False, log)
+            cls, buckets = triage_plan(env_dir, False, log, plan_file="tf.drift.plan")
             if buckets and not buckets["update"] and not buckets["destructive"] and not buckets["create"]:
                 rows.append((name, f"known-benign drift only ({len(buckets['benign'])})"))
             else:
@@ -828,7 +853,7 @@ def cmd_report(args):
     out = Path(args.out or (envs / "evidence" / ts))
     out.mkdir(parents=True, exist_ok=True)
     collected = []
-    logs = sorted((envs / "lzctl-logs").glob("*.log"))[-int(args.last_logs):] \
+    logs = sorted((envs / "lzctl-logs").glob("*.log"))[-args.last_logs:] \
         if (envs / "lzctl-logs").exists() else []
     for src in logs + [envs / "deps.json"]:
         if Path(src).exists():
@@ -844,7 +869,7 @@ def cmd_report(args):
     drift_rc = cmd_drift(ns)
     manifest = []
     for p in sorted(out.iterdir()):
-        if p.name == "MANIFEST.txt":
+        if p.name == "MANIFEST.txt" or not p.is_file():
             continue
         manifest.append(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}")
     (out / "MANIFEST.txt").write_text("\n".join(manifest) + "\n", encoding="utf-8")
@@ -917,7 +942,7 @@ def main(argv=None):
     p = sub.add_parser("report", help="evidence bundle: logs + deps + drift + versions")
     p.add_argument("--envs-dir", required=True)
     p.add_argument("--out", help="bundle dir (default: <envs>/evidence/<ts>)")
-    p.add_argument("--last-logs", default="10", help="how many recent logs to include")
+    p.add_argument("--last-logs", type=int, default=10, help="how many recent logs to include")
     p.set_defaults(fn=cmd_report)
     for verb in DELEGATES:
         hint = {"build": "generate tfvars + HCL from the spec",

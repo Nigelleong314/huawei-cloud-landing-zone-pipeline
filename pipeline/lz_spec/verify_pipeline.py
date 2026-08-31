@@ -90,7 +90,7 @@ def check_validate() -> bool:
     print("== validate modules ==")
     if shutil.which("terraform") is None:
         print("validate: SKIPPED (terraform not on PATH)")
-        return True
+        return "skip"
     ok = True
     total = passed = skipped = 0
     for env_dir in sorted(ENVS.iterdir()):
@@ -111,7 +111,7 @@ def check_validate() -> bool:
     if total == 0:
         print(f"validate: SKIPPED ({skipped} env(s) not init'ed - run terraform "
               "init to make this check meaningful)")
-        return True
+        return "skip"
     print("validate:", f"PASS ({passed}/{total} envs valid, {skipped} skipped)" if ok
           else f"FAILED ({passed}/{total} envs valid)")
     return ok
@@ -271,7 +271,7 @@ def check_fmt() -> bool:
     print("== formatting check ==")
     if shutil.which("terraform") is None:
         print("fmt: SKIPPED (terraform not on PATH)")
-        return True
+        return "skip"
     ok = True
     roots = (REPO / "terraform" / "modules",
              REPO / "terraform" / "scaffold")
@@ -311,8 +311,13 @@ def main():
         print(f"unknown check {which!r}; one of: all, {', '.join(CHECKS)}")
         sys.exit(2)
     print()
+    n_skip = sum(1 for r in results if r == "skip")
     if all(results):
-        print(f"== RESULT: ALL PASSED ({len(results)}/{len(results)} checks) ==")
+        if n_skip:
+            print(f"== RESULT: PASSED ({len(results) - n_skip} passed, "
+                  f"{n_skip} skipped of {len(results)} checks) ==")
+        else:
+            print(f"== RESULT: ALL PASSED ({len(results)}/{len(results)} checks) ==")
     else:
         failed = [name for name, r in zip(
             [which] if which != "all" else list(CHECKS), results) if not r]

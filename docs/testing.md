@@ -82,7 +82,12 @@ x 2 trials). Of its 4 original failures, 3 were scorer proxy defects and 1
 was a format slip recovered by tolerant extraction; after the scorer fix all
 4 cells were re-executed live and passed. Both the original and rescored
 score files are committed. A larger matrix (more fixtures, ~10 trials,
-variance reporting) is the documented next step.
+variance reporting) is the documented next step. Read the committed
+results with the n in mind: cells are 2 trials each, so a 1/2 or 0/2 is
+indistinguishable from noise - conclusions need the larger matrix. One
+known scorer bias: deterministic `must_contain` patterns reward phrasing,
+which subtly favors models whose style matches the fixture author's;
+the tradeoff is accepted because it avoids model-graded evaluation.
 
 `tests/evaluation/e2e_bench/` is the second, heavier instrument: a full
 engineer-roleplay benchmark (fresh sandbox, minimal prompts, deterministic

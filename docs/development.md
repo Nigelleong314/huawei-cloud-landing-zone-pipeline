@@ -75,3 +75,16 @@ commit, never silently:
   explicit escalation) as an alternative Phase B pass.
 - Fold `lz_spec/export_handover.py` into `export_v2.py` next time export
   code is touched; dedupe the two identical example-spec copies likewise.
+- **OBS-native remote apply lock** (conditional-PUT lock object in the state
+  bucket) - the advisory lock is machine-local and CI concurrency only
+  serializes runs that go through CI; this is the top operational gap.
+- Plan-approval sidecar (`tf.plan.approved` written by a review step) +
+  input-hash staleness instead of mtime comparison.
+- Triage: a high-impact-update class (SCP/permission-set/KMS-policy edits),
+  `resource_drift` + `action_reason` surfacing.
+- OBS Object Lock (WORM) + access logging on the audit/log/state buckets;
+  deny-by-default state-bucket policy; automated 00-bootstrap state migration.
+- CI security scanning: pip-audit, tfsec/checkov, CodeQL, SHA-pinned actions,
+  pinned CI installs.
+- Promote LZR-015/LZR-016 from documented to executable spec rules; a live
+  tenant check for LZR-017.

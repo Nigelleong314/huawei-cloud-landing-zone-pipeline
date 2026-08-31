@@ -587,7 +587,7 @@ _doc("LZR-015", "error", "runtime", "Account names 6-32 chars; unique root email
 _doc("LZR-016", "error", "runtime", "OU depth <= 2; no parent cycles",
      "build_envs.validate()")
 _doc("LZR-017", "error", "runtime", "Conformance template keys / SCP service codes are tenant-dependent",
-     "live preflight (lzctl validate --live)")
+     "documented only - no live tenant check exists yet (backlog)")
 _doc("LZR-018", "warn", "runtime", "Known transient apply errors retry once (LTS.2101, EP propagation, agency 403)",
      "runner retry policy + cookbook")
 _doc("LZR-019", "warn", "runtime", "Known benign drift: resolver endpoint IP order; obs_dir_prefix_name",

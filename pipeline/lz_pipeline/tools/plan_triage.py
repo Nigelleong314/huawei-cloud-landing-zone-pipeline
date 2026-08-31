@@ -48,6 +48,11 @@ DEFAULT_PROTECTED = [
     r"huaweicloud_er_instance",
     r"huaweicloud_cts_tracker",
     r"huaweicloud_identity_.*",
+    r"huaweicloud_lts_group",          # deleting breaks audit continuity
+    r"huaweicloud_lts_transfer",
+    r"huaweicloud_rms_.*",
+    r"huaweicloud_er_route_table",
+    r"huaweicloud_elb_loadbalancer",   # replacement = new public endpoint
 ]
 
 

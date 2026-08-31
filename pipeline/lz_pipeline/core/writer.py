@@ -25,10 +25,12 @@ def write_env(env_dir: Path, tfvars: dict, state_bucket: str, ak: str, sk: str, 
     if env_name != "00-bootstrap" and state_bucket:
         backend_path = env_dir / "backend.hcl"
         _backup_if_exists(backend_path)
-        backend_path.write_text(_render_backend_hcl(state_bucket, region, env_name), encoding="utf-8", newline="\n")
+        backend_path.write_text(_render_backend_hcl(state_bucket, region), encoding="utf-8", newline="\n")
 
 
-def _render_backend_hcl(bucket: str, region: str, env_name: str) -> str:
+def _render_backend_hcl(bucket: str, region: str) -> str:
+    # f-string interpolation is safe here: bucket/region are schema-constrained
+    # identifiers (the one non-json.dumps surface in the generated tree)
     return (
         f'bucket = "{bucket}"\n'
         f'region = "{region}"\n'

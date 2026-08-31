@@ -47,7 +47,10 @@ def cmd_spec_validate(args):
         print(f"  warn: {w}")
     for e in errors:
         print(f"  error: {e}")
-    print(f"spec-validate: {len(errors)} error(s), {len(warnings)} warning(s)")
+    from lz_pipeline.rules import REGISTRY as _reg
+    n_exec = sum(1 for r in _reg if r.fn is not None)
+    print(f"spec-validate: {len(errors)} error(s), {len(warnings)} warning(s) "
+          f"(rule registry: {n_exec} machine-enforced, {len(_reg) - n_exec} documented)")
     return 1 if errors else 0
 
 

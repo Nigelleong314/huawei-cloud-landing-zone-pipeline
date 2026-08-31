@@ -37,6 +37,7 @@ def check(name, cond, detail=""):
 
 def run(args, env_extra=None, scrub=False):
     env = dict(os.environ)
+    env.pop("CLAUDECODE", None)   # tests simulate an OPERATOR unless set explicitly
     if scrub:
         for k in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
                   "AWS_REQUEST_CHECKSUM_CALCULATION", "AWS_RESPONSE_CHECKSUM_VALIDATION"):
@@ -85,6 +86,12 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
     r = run(["apply", "--envs-dir", td, "10-network-vpn"])
     check("apply blocked on blank psk (exit 3, before any terraform)",
           r.returncode == 3 and "BLOCKED" in r.stdout, r.stdout[-200:])
+    # the skills no-apply promise is a MECHANISM: an agent session
+    # (CLAUDECODE set, no LZ_OPERATOR_APPLY override) cannot invoke apply
+    r = run(["apply", "--envs-dir", td, "10-network-vpn"],
+            env_extra={"CLAUDECODE": "1"})
+    check("apply refused in an agent subprocess", r.returncode == 3
+          and "apply refused: agent session" in r.stdout, r.stdout[-200:])
     conns = json.loads((vt / "terraform.tfvars.json").read_text(encoding="utf-8"))["connections"]
     for c in conns:
         c["psk"] = "test-only-real-psk-value"
@@ -184,7 +191,8 @@ with tempfile.TemporaryDirectory() as td:
     # a runtime-only install has no lz_spec package: scrub the path vars the
     # dev checkout (or pytest) injects so the degrade path is actually taken
     bare_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
-    r = subprocess.run([sys.executable, "-X", "utf8", "-E", str(rt / "lzctl.py"),
+    # -S: skip site.py so an editable install's .pth cannot leak lz_spec in
+    r = subprocess.run([sys.executable, "-X", "utf8", "-E", "-S", str(rt / "lzctl.py"),
                         "build", "--envs-dir-ignored"],
                        capture_output=True, text=True, env=bare_env, cwd=str(rt))
     check("pipeline verbs degrade gracefully", "does not include" in r.stdout, r.stdout)
