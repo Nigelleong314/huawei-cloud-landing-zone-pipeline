@@ -74,6 +74,95 @@ def spec_path(name: str) -> Path:
     return spec_dir() / name
 
 
+# ── Decisions: the questionnaire gate, rendered instead of hand-edited ──────
+#
+# `lzctl assess` writes lz.spec.<c>.decisions.json beside the spec, and
+# `lzctl build` refuses to run while an OPEN item lacks a resolution. Until
+# now the only way to record one was to hand-edit that JSON - the exact thing
+# every other part of this tool tells people not to do. These endpoints make
+# it a form: the app writes ONLY `resolution` blocks, never a decision itself
+# (the set is hash-bound into the spec's provenance).
+
+_RESOLUTION_STATUSES = ("ANSWERED", "ACCEPTED_DEFAULT")
+
+
+def decisions_path():
+    """The decisions file for the loaded spec, or None.
+
+    Located by the spec's own provenance (which names its decisions file), so
+    a renamed or copied spec still finds its lineage - same rule the build
+    gate uses.
+    """
+    ir, name = STATE["ir"], STATE["file"]
+    if ir is None:
+        return None
+    prov = ir.get("provenance") or {}
+    src = STATE["source"]
+    base = Path(src) if src and src not in ("(new)",) and Path(src).is_absolute() \
+        else (spec_dir() / name if name else None)
+    if base is None:
+        return None
+    p = base.with_name(prov.get("decisions_file") or (base.stem + ".decisions.json"))
+    return p if p.exists() else None
+
+
+def decisions_payload():
+    p = decisions_path()
+    gaps = []
+    try:
+        from lz_pipeline.rules import placeholder_findings
+        gaps = placeholder_findings((STATE["ir"] or {}).get("sheets") or {})
+    except Exception:                                             # noqa: BLE001
+        pass
+    if p is None:
+        return {"available": False, "file": None, "items": [], "counts": {},
+                "gaps": gaps,
+                "note": "This spec has no decisions file beside it — it did not come "
+                        "from `lzctl assess`, so there is no questionnaire gate to work."}
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    items = doc.get("items") or []
+    resolved = sum(1 for i in items
+                   if i.get("state") == "OPEN" and isinstance(i.get("resolution"), dict))
+    counts = {
+        "open": sum(1 for i in items if i.get("state") == "OPEN"),
+        "defaulted": sum(1 for i in items if i.get("state") == "DEFAULTED"),
+        "answered": sum(1 for i in items if i.get("state") == "ANSWERED"),
+        "resolved": resolved,
+    }
+    counts["blocking"] = counts["open"] - resolved
+    return {"available": True, "file": p.name, "customer": doc.get("customer"),
+            "source_file": doc.get("source_file"), "items": items,
+            "counts": counts, "gaps": gaps}
+
+
+def resolve_decision(ref: str, status: str, approved_by: str, reason: str):
+    """Write one item's `resolution`; touch nothing else.
+
+    The decision itself (ref/state/question/targets/default_if_silent) is
+    hashed into the spec's provenance - editing any of it blocks the build.
+    So this writes the one editable field and rewrites the file with the same
+    formatting `lzctl assess` used.
+    """
+    p = decisions_path()
+    if p is None:
+        raise ValueError("no decisions file for the loaded spec")
+    if status not in _RESOLUTION_STATUSES:
+        raise ValueError(f"status must be one of {' / '.join(_RESOLUTION_STATUSES)}")
+    if not approved_by.strip() or not reason.strip():
+        raise ValueError("approved_by and reason are both required - a resolution "
+                         "records WHO decided and WHY, or it is not auditable")
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    for item in doc.get("items") or []:
+        if item.get("ref") == ref:
+            item["resolution"] = {"status": status,
+                                  "approved_by": approved_by.strip(),
+                                  "reason": reason.strip()}
+            p.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
+                         encoding="utf-8")
+            return item
+    raise ValueError(f"no decision {ref!r} in {p.name}")
+
+
 def default_envs_dir() -> str:
     """Default envs tree: the neutral example first; a customer tree is always
     an explicit choice, never the default."""
@@ -476,6 +565,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send({"envs": order})
             if self.path == "/api/schema":
                 return self._send(schema_meta())
+            if self.path == "/api/decisions":
+                if STATE["ir"] is None:
+                    return self._send({"error": "no spec loaded"}, 404)
+                return self._send(decisions_payload())
             if self.path == "/api/spec":
                 if STATE["ir"] is None:
                     return self._send({"error": "no spec loaded"}, 404)
@@ -574,6 +667,15 @@ class Handler(BaseHTTPRequestHandler):
                                    "notes": notes})
             if self.path == "/api/spec/validate":
                 return self._send(run_validate(STATE["ir"]))
+            if self.path == "/api/decisions/resolve":
+                b = self._body()
+                try:
+                    item = resolve_decision(b.get("ref") or "", b.get("status") or "",
+                                            b.get("approved_by") or "", b.get("reason") or "")
+                except ValueError as e:
+                    return self._send({"error": str(e)}, 400)
+                return self._send({"ok": True, "item": item,
+                                   "decisions": decisions_payload()})
             if self.path == "/api/job":
                 b = self._body()
                 jid = start_job(b["verb"], b.get("args") or {})

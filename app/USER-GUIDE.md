@@ -29,6 +29,12 @@ the Verify commands in the table.
 
        lz-app
 
+If `lz-app` or `lzctl` is "not found" after installing, your Python scripts
+folder is not on PATH. Both always work as modules — no PATH change needed:
+
+    py -m lz_app.server            # same as lz-app
+    py -m lz_pipeline.lzctl        # same as lzctl  (add --version to check)
+
    The app starts on `http://127.0.0.1:8600` and opens your browser.
 
 Options:
@@ -99,8 +105,9 @@ Rules of thumb:
 
 ## 3. The spec editor
 
-The left rail lists the 13 sheets of a landing-zone specification in build
-order (Global settings, then 01 Foundation through 11 SGACL, plus File Info).
+The left rail starts with **Decisions & gaps** (section 3.3), then lists the 13
+sheets of a landing-zone specification in build order (Global settings, then
+01 Foundation through 11 SGACL, plus File Info).
 
 ### 3.1 Reading a sheet
 
@@ -130,6 +137,34 @@ order (Global settings, then 01 Foundation through 11 SGACL, plus File Info).
 | **Save as** | save a copy under a new name in `specs\` |
 
 Validate before every build. Errors block the build; warnings are advisory.
+
+### 3.3 Decisions & gaps
+
+When a spec comes from a filled assessment questionnaire, `lzctl assess`
+writes a decisions file beside it, and **the build refuses to run while any
+OPEN decision is unresolved**. This view is where you clear that gate.
+
+**Open decisions** — each one is a question nobody has answered yet. Pick a
+resolution, say who decided and why, and press **Record resolution**:
+
+| Resolution | Use it when |
+|---|---|
+| ANSWERED | you obtained the real answer |
+| ACCEPTED_DEFAULT | the customer signed off on the proposed default |
+
+Both *Approved by* and *Reason* are required — a resolution that doesn't record
+who decided isn't auditable, and the gate rejects it. The app writes **only**
+the resolution; the decision itself is fingerprinted into the spec, so editing
+the question or deleting an item blocks the build exactly like leaving it open.
+
+**Gaps** — values still sitting in the spec as `REPLACE_WITH_…` placeholders.
+These are facts no questionnaire question asked for (an on-prem DNS IP, a peer
+gateway's public IP, a certificate ID). Each one links to the sheet holding it;
+fix it there, then Save. A placeholder left anywhere fails validation, so it can
+never reach Terraform.
+
+A fully answered questionnaire produces **zero** open decisions — that is not
+by itself proof the spec is complete. The gaps list is.
 
 ---
 

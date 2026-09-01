@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -89,14 +90,31 @@ print("== API end-to-end ==")
 from lz_app import server
 
 
-def req(path, method="GET", body=None, headers=None):
+def req(path, method="GET", body=None, headers=None, _attempts=3):
+    """One API call, retrying a TRANSPORT abort only.
+
+    On Windows, a rapid series of loopback connections intermittently dies
+    with WinError 10053 ("connection aborted by the software in your host
+    machine") - a local socket/AV artefact, not the app answering wrongly.
+    Retrying that is honest; retrying an HTTP error would hide real bugs, so
+    urllib.HTTPError is deliberately NOT caught here.
+    """
     data = json.dumps(body).encode() if body is not None else None
     h = {"Content-Type": "application/json", "X-LZ-Token": server.TOKEN}
     h.update(headers or {})
-    r = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}", data=data, method=method,
-                               headers=h)
-    with urllib.request.urlopen(r, timeout=30) as resp:
-        return json.loads(resp.read())
+    last = None
+    for attempt in range(_attempts):
+        r = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}", data=data,
+                                   method=method, headers=h)
+        try:
+            with urllib.request.urlopen(r, timeout=30) as resp:
+                return json.loads(resp.read())
+        except (ConnectionError, urllib.error.URLError) as e:
+            if isinstance(e, urllib.error.HTTPError):
+                raise
+            last = e
+            time.sleep(0.2 * (attempt + 1))
+    raise AssertionError(f"{method} {path}: transport failed {_attempts}x - {last}")
 
 
 httpd = server.serve(str(WS), port=0)
@@ -165,12 +183,18 @@ r = req("/api/job", "POST", {"verb": "plan", "args": {
     "envs_dir": ENVS_DIR, "dry_run": True,
     "envs": ["09-network-cfw", "05-network"]}})
 jid = r["job"]
-for _ in range(40):
+# Budget generously: this waits on a real subprocess, so a loaded machine
+# (a full suite running beside it) can take far longer than the work itself.
+# A tight budget here fails as "the app is broken" when nothing is.
+deadline = time.time() + 90
+while time.time() < deadline:
     j = req(f"/api/jobs/{jid}")
     if j["status"] != "running":
         break
     time.sleep(0.3)
-check("plan job (env subset, dry-run) completes", j["status"] == "done", j)
+check("plan job (env subset, dry-run) completes", j["status"] == "done",
+      f"status={j['status']} after {90}s - still running means the box was "
+      f"loaded, not that the job failed: {j}")
 out = j["output"]
 check("subset runs in apply order", 0 <= out.find("[05-network]") < out.find("[09-network-cfw]"),
       out[:200])
