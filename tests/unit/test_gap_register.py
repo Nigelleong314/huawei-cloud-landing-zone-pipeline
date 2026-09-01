@@ -129,6 +129,48 @@ def test_gap_add_refuses_to_launder_an_edited_set(assessed):
     assert "altered outside this command" in r.stderr
 
 
+def test_gap_add_rejects_a_field_that_names_nothing(assessed):
+    """A target that resolves to no schema field tracks no schema field."""
+    r = run("lz_pipeline.lzctl", "gap", "add", "--spec", str(assessed),
+            "--field", "05_Network.HubSubnets and SpokeSubnets",
+            "--question", "q")
+    assert r.returncode == 2
+    assert "names more than one thing" in r.stderr
+
+
+def test_gap_add_takes_several_fields_and_restates_the_open_count(assessed):
+    r = run("lz_pipeline.lzctl", "gap", "add", "--spec", str(assessed),
+            "--field", "08_DNS.ResolverRules[fwd].TargetIPs",
+            "--field", "08_DNS.ResolverEndpoints[ep].IPs",
+            "--question", "On-prem DNS IPs")
+    assert r.returncode == 0, r.stdout + r.stderr
+
+    doc = json.loads(assessed.with_name("lz.spec.t.decisions.json")
+                     .read_text(encoding="utf-8"))
+    gap = next(i for i in doc["items"] if i["ref"] == "G1")
+    assert gap["targets"] == ["08_DNS.ResolverRules[fwd].TargetIPs",
+                              "08_DNS.ResolverEndpoints[ep].IPs"]
+
+    # the agenda's heading counts the gate, not the questions assess saw
+    md = assessed.with_name("lz.spec.t.decisions.md").read_text(encoding="utf-8")
+    assert "## OPEN (1) - resolve before build" in md
+
+
+def test_gap_list_is_not_blocked_by_an_altered_set(assessed):
+    """Listing is read-only - and an altered set is exactly when somebody
+    needs to see what is in there. Only `add` refuses."""
+    run("lz_pipeline.lzctl", "gap", "add", "--spec", str(assessed),
+        "--field", "08_DNS.ResolverRules[fwd].TargetIPs", "--question", "q")
+    dec = assessed.with_name("lz.spec.t.decisions.json")
+    doc = json.loads(dec.read_text(encoding="utf-8"))
+    doc["items"][0]["question"] = "tampered"
+    dec.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+    r = run("lz_pipeline.lzctl", "gap", "list", "--spec", str(assessed))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "G1" in r.stdout
+
+
 def test_gap_add_needs_questionnaire_lineage(tmp_path):
     plain = tmp_path / "lz.spec.plain.json"
     plain.write_text(json.dumps({"format": "lz-spec-ir/1", "schema_version": "2.2",
@@ -172,8 +214,64 @@ def test_app_resolve_rejects_unauditable_input(assessed, args, msg):
     from lz_app import server
     from lz_pipeline import model
     run("lz_pipeline.lzctl", "gap", "add", "--spec", str(assessed),
-        "--field", "X.Y.Z", "--question", "q")
+        "--field", "08_DNS.ResolverRules[fwd].TargetIPs", "--question", "q")
     server.STATE.update({"workspace": assessed.parents[1], "ir": model.load(assessed),
                          "source": str(assessed), "file": assessed.name})
     with pytest.raises(ValueError, match=msg):
         server.resolve_decision(*args)
+
+
+# ── lzctl set: the mechanical write step ───────────────────────────────────
+
+@pytest.fixture
+def draft(tmp_path):
+    p = tmp_path / "lz.spec.set.json"
+    p.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    return p
+
+
+def sheets_of(p):
+    return json.loads(p.read_text(encoding="utf-8"))["sheets"]
+
+
+@pytest.mark.parametrize("field,flag,value,expected", [
+    ("Global.Settings.home_region", "--value", "ap-southeast-3", "ap-southeast-3"),
+    ("05_Network.Settings.enable_hub", "--value", "no", False),
+    ("08_DNS.ResolverRules[ad-forward].TargetIPs", "--value", "10.1.1.1, 10.1.1.2",
+     ["10.1.1.1", "10.1.1.2"]),
+    ("Global.Settings.home_region", "--json", '"ap-southeast-1"', "ap-southeast-1"),
+])
+def test_set_writes_the_coerced_value(draft, field, flag, value, expected):
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft), "--field", field, flag, value)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert f"set {field} = " in r.stdout
+    s = sheets_of(draft)
+    sheet, table = field.split(".")[0], field.split(".")[1].split("[")[0]
+    tail = field.split(".")[-1]
+    got = s[sheet][table][tail] if "[" not in field else \
+        next(row[tail] for row in s[sheet][table] if row.get("Name") == "ad-forward")
+    assert got == expected
+
+
+def test_set_null_is_the_declared_unknown(draft):
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft),
+            "--field", "Global.Settings.home_region", "--null")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert sheets_of(draft)["Global"]["Settings"]["home_region"] is None
+
+
+@pytest.mark.parametrize("args,msg", [
+    (("--field", "Global.Settings.nope", "--value", "x"), "has no field 'nope'"),
+    (("--field", "Nope.Settings.x", "--value", "x"), "no table 'Nope.Settings'"),
+    (("--field", "05_Network.Settings.enable_hub", "--value", "maybe"), "not a valid bool"),
+    (("--field", "08_DNS.ResolverRules[ghost].TargetIPs", "--value", "1.1.1.1"),
+     "never invents one"),
+    (("--field", "08_DNS.ResolverRules.TargetIPs", "--value", "1.1.1.1"),
+     "names a column but no row"),
+])
+def test_set_refuses_rather_than_guessing(draft, args, msg):
+    before = draft.read_bytes()
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft), *args)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert msg in r.stderr
+    assert draft.read_bytes() == before, "a refused set must not touch the spec"

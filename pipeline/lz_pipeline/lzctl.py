@@ -13,6 +13,7 @@ only where the pipeline is installed and say so otherwise.
 Usage (lifecycle order):
     lzctl intake       FILLED_QUESTIONNAIRE.xlsx [-o dump.json]
     lzctl assess       DUMP.json --customer <id> [--workspace <dir>] [--force]
+    lzctl set          --spec SPEC.json --field PATH (--value V | --json J | --null)
     lzctl validate     SPEC.json            (alias: spec-validate)
     lzctl build        --spec SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
     lzctl preflight    --envs-dir <envs>
@@ -382,15 +383,34 @@ def _find_spec(explicit, cwd: Path):
     return None
 
 
-def _find_envs(explicit, cwd: Path):
+def _workspace_root(spec_path, cwd: Path):
+    """The workspace a spec belongs to - its own tree, not whatever directory
+    the command was launched from. `specs/` is where `assess` writes."""
+    if not isinstance(spec_path, Path):
+        return cwd
+    d = spec_path.parent
+    return d.parent if d.name in ("specs", "lz_spec") else d
+
+
+def _find_envs(explicit, cwd: Path, spec=None):
+    """The env tree belonging to this spec's workspace, or None.
+
+    Never borrows one from elsewhere: reporting THIS repo's example tree as a
+    customer's build artifacts turned "nothing generated yet" into "12 envs
+    built". The example tree is only the answer when the workspace IS this
+    checkout.
+    """
     if explicit:
         return Path(explicit).resolve()
-    cands = [p for p in sorted(cwd.glob("envs*"))
+    root = _workspace_root(spec, cwd)
+    cands = [p for p in sorted(root.glob("envs*"))
              if p.is_dir() and any(re.match(r"^\d{2}-", c.name) for c in p.iterdir() if c.is_dir())]
     if len(cands) == 1:
         return cands[0].resolve()
-    tf = cwd / "terraform" / "envs-example"
-    return tf.resolve() if tf.is_dir() else None
+    tf = root / "terraform" / "envs-example"
+    if tf.is_dir() and root.resolve() == Path(__file__).resolve().parents[2]:
+        return tf.resolve()
+    return None
 
 
 def _decisions_status(spec_path: Path):
@@ -427,7 +447,7 @@ def _validate_status(spec_path: Path):
     r = subprocess.run([sys.executable, "-X", "utf8", "-m", "lz_pipeline",
                         "spec-validate", str(spec_path)],
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
-    m = re.search(r"spec-validate: (\d+) error\(s\), (\d+) warning\(s\)", r.stdout or "")
+    m = re.search(r"validate: (\d+) error\(s\), (\d+) warning\(s\)", r.stdout or "")
     if not m:
         return (None, None, "validator unavailable (runtime-only install)")
     return (int(m.group(1)), int(m.group(2)),
@@ -737,7 +757,7 @@ def cmd_status(args):
         for s in spec:
             print(f"  {s}", file=sys.stderr)
         return 2
-    envs = _find_envs(getattr(args, "envs_dir", None), cwd)
+    envs = _find_envs(getattr(args, "envs_dir", None), cwd, spec)
     ph = phase_report(spec, envs, deep=not args.quick)
     doc = status_document(spec, envs, ph)
     doc["journal"] = _journal_entries(spec)
@@ -786,7 +806,7 @@ def cmd_back(args):
     if args.phase not in PHASES:
         print(f"unknown phase {args.phase!r}; one of: {', '.join(PHASES)}", file=sys.stderr)
         return 2
-    envs = _find_envs(getattr(args, "envs_dir", None), cwd)
+    envs = _find_envs(getattr(args, "envs_dir", None), cwd, spec)
     ph = phase_report(spec, envs, deep=False)
     cur = _current_phase(ph)
     if PHASES.index(args.phase) >= PHASES.index(cur):
@@ -1226,15 +1246,21 @@ def _pipeline_delegate(what, extra):
         print(f"'{what}' needs the build pipeline, which this runtime-only "
               "installation does not include.")
         return 2
+    # the delegated parser prints usage for the command the OPERATOR typed,
+    # not for the module that happens to implement it
+    env = dict(os.environ, LZ_INVOKED_AS=f"lzctl {what}")
     if what == "check":
-        return subprocess.run([sys.executable, "-m", "lz_spec.verify_pipeline"] + extra).returncode
+        return subprocess.run([sys.executable, "-m", "lz_spec.verify_pipeline"] + extra,
+                              env=env).returncode
     if what == "export":
-        return subprocess.run([sys.executable, "-m", "lz_pipeline.export_v2"] + extra).returncode
+        return subprocess.run([sys.executable, "-m", "lz_pipeline.export_v2"] + extra,
+                              env=env).returncode
     if what == "validate":
         what = "spec-validate"
     # cwd stays the CALLER's cwd so relative --spec/--envs-dir paths resolve
     # exactly as typed (the old pipeline-dir cwd silently re-anchored them)
-    return subprocess.run([sys.executable, "-m", "lz_pipeline", what] + extra).returncode
+    return subprocess.run([sys.executable, "-m", "lz_pipeline", what] + extra,
+                          env=env).returncode
 
 
 def cmd_intake(args):
@@ -1268,14 +1294,55 @@ def _decision_set_sha256(items):
 def _neutral(v):
     """Schema-shaped skeleton: keep structure, unset every value.
 
-    Tables empty, scalars blank. A draft built from this fails validation
-    until real answers are interpreted in - which is the point: nothing
-    deployable exists that wasn't decided by someone."""
+    Tables empty, scalars null. `null` - not "" - is how this pipeline
+    spells "nobody has supplied this yet": it is legal in every typed slot,
+    so the skeleton no longer fails its own type check with 37 `expected
+    int, got str ('')` errors that say nothing about the missing facts.
+    What the draft SHOULD report is unsupplied values, and LZR-034 does
+    that against the decisions file.
+
+    A draft built from this still fails validation until answers are
+    interpreted in - which is the point: nothing deployable exists that
+    wasn't decided by someone.
+    """
     if isinstance(v, dict):
         return {k: _neutral(x) for k, x in v.items()}
     if isinstance(v, list):
         return []
-    return ""
+    return None
+
+
+def _specpath():
+    """The schema path resolver, or None in a runtime-only installation.
+
+    It reads the lz_spec workbook schema, which does not ship in the handover
+    artifact this file also lives in.
+    """
+    try:
+        from lz_pipeline import specpath
+    except ImportError:
+        return None
+    return specpath
+
+
+_OPEN_HEADING = "## OPEN ({n}) - resolve before build"
+
+
+def _unresolved_open(items):
+    """OPEN decisions nobody has resolved - exactly what the build gate counts."""
+    return sum(1 for i in items if i.get("state") == "OPEN"
+               and not isinstance(i.get("resolution"), dict))
+
+
+def _restate_open_heading(body: str, n: int) -> str:
+    """Re-render the agenda's `## OPEN (n)` heading in place.
+
+    `gap add` appends items to the same file, so the count `assess` wrote
+    understates the gate from the first gap onward - and a heading that
+    reports fewer blockers than exist is worse than no heading.
+    """
+    return re.sub(r"^## OPEN \(\d+\).*$", _OPEN_HEADING.format(n=n), body,
+                  count=1, flags=re.M)
 
 
 def cmd_assess(args):
@@ -1317,12 +1384,13 @@ def cmd_assess(args):
     for a in dump.get("answers", []):
         ref, q = a.get("ref", "?"), (a.get("question") or "").strip()
         ans = (a.get("answer") or "").strip()
+        tg = list(a.get("targets") or [])
         if ans:
-            answered.append((ref, q, ans))
+            answered.append((ref, q, ans, tg))
         elif (a.get("default_if_silent") or "").strip():
-            defaulted.append((ref, q, a["default_if_silent"].strip()))
+            defaulted.append((ref, q, a["default_if_silent"].strip(), tg))
         else:
-            gaps.append((ref, q, ", ".join(a.get("targets") or []) or "-"))
+            gaps.append((ref, q, tg))
     apx = dump.get("appendices", {})
 
     # the immutable decision set, hashed into the spec's provenance: build
@@ -1332,9 +1400,9 @@ def cmd_assess(args):
         [{"ref": r, "state": "OPEN", "question": q, "targets": t,
           "resolution": None} for r, q, t in gaps]
         + [{"ref": r, "state": "DEFAULTED", "question": q, "default_if_silent": d,
-            "resolution": None} for r, q, d in defaulted]
-        + [{"ref": r, "state": "ANSWERED", "question": q,
-            "resolution": None} for r, q, _ in answered])
+            "targets": t, "resolution": None} for r, q, d, t in defaulted]
+        + [{"ref": r, "state": "ANSWERED", "question": q, "targets": t,
+            "resolution": None} for r, q, _, t in answered])
     spec["provenance"] = {"source_type": "questionnaire",
                           "decisions_file": decisions_json.name,
                           "assessment_id": assessment_id,
@@ -1347,12 +1415,12 @@ def cmd_assess(args):
              "Every question lands in exactly one state - ANSWERED, DEFAULTED",
              "(silent with a documented default), or OPEN (required, no default).",
              "Nothing below was guessed.", "",
-             f"## OPEN ({len(gaps)}) - resolve before build", ""]
-    lines += [f"- **{r}** {q}  \n  targets: `{t}`" for r, q, t in gaps] or ["(none)"]
+             _OPEN_HEADING.format(n=len(gaps)), ""]
+    lines += [f"- **{r}** {q}  \n  targets: `{', '.join(t) or '-'}`" for r, q, t in gaps] or ["(none)"]
     lines += ["", f"## DEFAULTED ({len(defaulted)}) - documented defaults apply; review", ""]
-    lines += [f"- **{r}** {q}  \n  default: {d}" for r, q, d in defaulted] or ["(none)"]
+    lines += [f"- **{r}** {q}  \n  default: {d}" for r, q, d, _ in defaulted] or ["(none)"]
     lines += ["", f"## ANSWERED ({len(answered)}) - interpret into the draft spec", ""]
-    lines += [f"- **{r}** {q}" for r, q, _ in answered] or ["(none)"]
+    lines += [f"- **{r}** {q}" for r, q, _, _ in answered] or ["(none)"]
     lines += ["", "## Appendices (copy VERBATIM - never retype)", ""]
     lines += [f"- Appendix {k}: {len(v.get('rows', []))} row(s) -> `{', '.join(v.get('targets') or [])}`"
               for k, v in sorted(apx.items())] or ["(none)"]
@@ -1417,6 +1485,19 @@ def cmd_gap(args):
     doc = json.loads(dec_path.read_text(encoding="utf-8"))
     items = doc.get("items") or []
 
+    if args.action == "list":
+        # read-only, so it runs against ANY set - including an altered one,
+        # which is precisely when somebody needs to see what is in there
+        gaps = [i for i in items if str(i.get("ref", "")).startswith("G")]
+        print(f"== {len(gaps)} registered gap(s) in {dec_path.name} ==")
+        for i in gaps:
+            res = i.get("resolution") or {}
+            state = res.get("status") or "UNRESOLVED"
+            tg = i.get("targets") or []
+            print(f"  {i['ref']:4} [{state}] {', '.join([tg] if isinstance(tg, str) else tg)}")
+            print(f"       {i.get('question', '')}")
+        return 0
+
     # Refuse to launder a set that is ALREADY altered: re-stamping here would
     # bless whatever edit came before us. Only a set matching its provenance
     # may grow.
@@ -1427,20 +1508,27 @@ def cmd_gap(args):
               file=sys.stderr)
         return 3
 
-    if args.action == "list":
-        gaps = [i for i in items if str(i.get("ref", "")).startswith("G")]
-        print(f"== {len(gaps)} registered gap(s) in {dec_path.name} ==")
-        for i in gaps:
-            res = i.get("resolution") or {}
-            state = res.get("status") or "UNRESOLVED"
-            print(f"  {i['ref']:4} [{state}] {', '.join(i.get('targets') or [])}")
-            print(f"       {i.get('question', '')}")
-        return 0
-
-    if not args.field or not args.question:
-        print("gap add needs --field <Sheet.Table[row].Column> and --question <what "
-              "is missing and who can answer it>", file=sys.stderr)
+    fields = args.field or []
+    if not fields or not args.question:
+        print("gap add needs --field <Sheet.Table[row].Column> (repeat it for a gap "
+              "that spans several fields) and --question <what is missing and who "
+              "can answer it>", file=sys.stderr)
         return 2
+
+    # A target that resolves to nothing tracks nothing: "05_Network.HubSubnets
+    # and SpokeSubnets" reads like a declaration and joins to no field.
+    sp = _specpath()
+    if sp is None:
+        print("'gap add' needs the build pipeline (it resolves --field against the "
+              "schema), which this runtime-only installation does not include.",
+              file=sys.stderr)
+        return 2
+    for f in fields:
+        try:
+            sp.parse(f)
+        except sp.PathError as e:
+            print(f"--field {e}", file=sys.stderr)
+            return 2
 
     used = {str(i.get("ref", "")) for i in items}
     ref = args.ref or next(f"G{n}" for n in range(1, 1000) if f"G{n}" not in used)
@@ -1448,7 +1536,7 @@ def cmd_gap(args):
         print(f"ref {ref} already exists in {dec_path.name}", file=sys.stderr)
         return 2
     item = {"ref": ref, "state": "OPEN", "question": args.question,
-            "targets": [args.field], "resolution": None}
+            "targets": list(fields), "resolution": None}
     items.append(item)
     doc["items"] = items
     doc["gaps_registered"] = sum(1 for i in items if str(i.get("ref", "")).startswith("G"))
@@ -1468,12 +1556,103 @@ def cmd_gap(args):
                      "Values the spec needs that no questionnaire question asked for.\n"
                      "Registered by `lzctl gap add`; each one blocks `build` until "
                      "resolved in the decisions .json.\n")
-        body += f"\n- **{ref}** {args.question}  \n  field: `{args.field}`\n"
-        md.write_text(body, encoding="utf-8")
+        body += f"\n- **{ref}** {args.question}  \n  targets: `{', '.join(fields)}`\n"
+        md.write_text(_restate_open_heading(body, _unresolved_open(items)),
+                      encoding="utf-8")
 
     print(f"registered {ref} -> {dec_path.name} (now {len(items)} decisions)")
     print(f"re-stamped provenance in {spec_path.name}")
     print(f"\n== RESULT: GAP {ref} REGISTERED (OPEN - blocks build until resolved) ==")
+    return 0
+
+
+_BOOL_WORDS = {"true": True, "1": True, "yes": True, "y": True,
+               "false": False, "0": False, "no": False, "n": False}
+_ROW_KEYS = ("Name", "VPCName", "UserName", "Key")
+
+
+def _coerce(raw: str, typ: str):
+    t = (typ or "string").lower()
+    if t == "int":
+        return int(raw)
+    if t == "bool":
+        v = _BOOL_WORDS.get(raw.strip().lower())
+        if v is None:
+            raise ValueError("expected true or false")
+        return v
+    if t == "csv-list":
+        return [x.strip() for x in raw.split(",") if x.strip()]
+    if t == "json":
+        return json.loads(raw)
+    return raw
+
+
+def cmd_set(args):
+    """Put one value into the spec at a schema path.
+
+    The mechanical half of interpretation. Deciding WHAT the value is stays a
+    human/agent judgement; typing it into the right slot is not, and doing it
+    by hand-rolled JSON mutation is how a value lands under a misspelled key
+    that no builder ever reads and no validator ever misses.
+    """
+    sp = _specpath()
+    if sp is None:
+        print("'set' needs the build pipeline (it resolves --field against the "
+              "schema), which this runtime-only installation does not include.",
+              file=sys.stderr)
+        return 2
+    spec_path = Path(args.spec).resolve()
+    if not spec_path.exists():
+        print(f"spec not found: {spec_path}", file=sys.stderr)
+        return 2
+    try:
+        p = sp.parse(args.field)
+    except sp.PathError as e:
+        print(f"--field {e}", file=sys.stderr)
+        return 2
+    if not p["field"] and not p["column"]:
+        print(f"--field {args.field!r} names a table, not a value - give "
+              "Sheet.Table.field or Sheet.Table[row].Column", file=sys.stderr)
+        return 2
+    if p["column"] and not p["row"]:
+        print(f"--field {args.field!r} names a column but no row - give "
+              f"{p['sheet']}.{p['table']}[<row>].{p['column']}", file=sys.stderr)
+        return 2
+
+    typ = sp.field_type(args.field)
+    if args.null:
+        value = None
+    elif args.json is not None:
+        try:
+            value = json.loads(args.json)
+        except ValueError as e:
+            print(f"--json is not valid JSON: {e}", file=sys.stderr)
+            return 2
+    else:
+        try:
+            value = _coerce(args.value, typ)
+        except ValueError as e:
+            print(f"--value {args.value!r} is not a valid {typ}: {e}", file=sys.stderr)
+            return 2
+
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    sheet = spec.setdefault("sheets", {}).setdefault(p["sheet"], {})
+    if p["field"]:
+        sheet.setdefault(p["table"], {})[p["field"]] = value
+    else:
+        rows = [r for r in (sheet.get(p["table"]) or []) if isinstance(r, dict)]
+        row = next((r for r in rows
+                    if any(str(r.get(k)) == p["row"] for k in _ROW_KEYS)), None)
+        if row is None:
+            names = [str(next((r[k] for k in _ROW_KEYS if r.get(k)), "?")) for r in rows]
+            print(f"{p['sheet']}.{p['table']} has no row {p['row']!r} "
+                  f"(rows: {', '.join(names) or 'none'}) - add the row first; "
+                  "`set` never invents one", file=sys.stderr)
+            return 2
+        row[p["column"]] = value
+    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n",
+                         encoding="utf-8", newline="\n")
+    print(f"set {args.field} = {json.dumps(value, ensure_ascii=False)}")
     return 0
 
 
@@ -1618,10 +1797,22 @@ def main(argv=None):
                                    "an OPEN decision and re-stamps provenance)")
     p.add_argument("action", choices=["add", "list"])
     p.add_argument("--spec", "--ir", dest="spec", required=True)
-    p.add_argument("--field", help="where the value belongs: Sheet.Table[row].Column")
+    p.add_argument("--field", action="append",
+                   help="where the value belongs: Sheet.Table[row].Column "
+                        "(repeat for a gap that spans several fields)")
     p.add_argument("--question", help="what is missing, and who can answer it")
     p.add_argument("--ref", help="explicit ref (default: next free G<n>)")
     p.set_defaults(fn=cmd_gap)
+    p = sub.add_parser("set", help="write one value into the spec at a schema path")
+    p.add_argument("--spec", "--ir", dest="spec", required=True)
+    p.add_argument("--field", required=True,
+                   help="Sheet.Table.field or Sheet.Table[row].Column")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--value", help="the value, coerced to the field's declared type")
+    g.add_argument("--json", help="a JSON literal, for lists and exact types")
+    g.add_argument("--null", action="store_true",
+                   help="declare the value not known yet (null, not empty string)")
+    p.set_defaults(fn=cmd_set)
     p = sub.add_parser("verify", help="post-apply gate: every env clean or known-benign")
     p.add_argument("--envs-dir", required=True)
     p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")

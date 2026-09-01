@@ -17,6 +17,12 @@ from lz_spec import schema as wb_schema
 
 _BOOL_STRS = {"true", "false", "1", "0", "yes", "no", "y", "n"}
 
+# Sheets a complete spec may legitimately omit, so their absence is not news:
+# 11_SGACL is reserved (its tables deploy nothing yet) and 10_VPN exists only
+# for hybrid connectivity. Both are badged optional in the app. A warning that
+# fires on every spec ever written trains readers to ignore the whole list.
+OPTIONAL_SHEETS = {"10_VPN", "11_SGACL"}
+
 
 def _type_ok(v, typ: str) -> bool:
     """Accept the value forms the builders can actually consume.
@@ -27,6 +33,11 @@ def _type_ok(v, typ: str) -> bool:
     numeric strings.
     """
     if v is None:
+        return True
+    # An unresolved placeholder is LZR-032's to report; complaining about its
+    # TYPE as well is a second error for one unfilled field.
+    from .rules import is_placeholder
+    if is_placeholder(v):
         return True
     t = (typ or "string").lower()
     if t == "bool":
@@ -67,7 +78,8 @@ def check(ir: dict) -> tuple:
     for sname, sdef in known.items():
         sdata = sheets.get(sname)
         if sdata is None:
-            warnings.append(f"sheet {sname!r} missing (treated as empty)")
+            if sname not in OPTIONAL_SHEETS:
+                warnings.append(f"sheet {sname!r} missing (treated as empty)")
             continue
         if not isinstance(sdata, dict):
             errors.append(f"{sname}: expected an object of tables, got {type(sdata).__name__}")

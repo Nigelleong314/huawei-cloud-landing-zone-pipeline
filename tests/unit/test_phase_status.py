@@ -125,7 +125,8 @@ def test_blocking_decision_shows_as_a_design_blocker(tmp_path):
     assert lzctl("assess", str(dump), "--customer", "t",
                  "--workspace", str(tmp_path)).returncode == 0
     spec = tmp_path / "specs" / "lz.spec.t.json"
-    assert lzctl("gap", "add", "--spec", str(spec), "--field", "X.Y.Z",
+    assert lzctl("gap", "add", "--spec", str(spec),
+                 "--field", "08_DNS.ResolverRules[fwd].TargetIPs",
                  "--question", "missing fact").returncode == 0
 
     r = status("--workspace", str(tmp_path))

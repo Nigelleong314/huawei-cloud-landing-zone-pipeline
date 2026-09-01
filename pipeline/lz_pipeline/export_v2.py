@@ -438,7 +438,8 @@ def export(profile: dict, target: Path, version: str, compat: bool,
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser()
+    import os
+    ap = argparse.ArgumentParser(prog=os.environ.get("LZ_INVOKED_AS") or None)
     ap.add_argument("--profile", required=True)
     ap.add_argument("--target", required=True)
     ap.add_argument("--version", default="1.0.0")

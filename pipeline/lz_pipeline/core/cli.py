@@ -82,10 +82,16 @@ def _copy_scaffold(src_env: Path, dst_env: Path):
             shutil.copy2(f, dst_env / f.name)
 
 
-def check_spec(spec: dict, selected=None) -> list:
+def check_spec(spec: dict, selected=None, decisions=None, warn_sink=None) -> list:
     """validate() + rule-registry errors scoped to the selected envs.
 
-    Returns the list of blocking error strings; rule warnings print to stderr.
+    `decisions` is the parsed decisions sidecar when one exists; it lets the
+    gap-aware rules tell a declared unknown (fine) from an untracked one
+    (an error). `warn_sink` collects rule warnings so the caller can count
+    and render them with everything else - passing None keeps the legacy
+    stderr behaviour.
+
+    Returns the list of blocking error strings.
     """
     selected = selected or ENV_NAMES
     errs = [e for e in validate(spec) if _err_in_scope(e, selected)]
@@ -93,11 +99,18 @@ def check_spec(spec: dict, selected=None) -> list:
     # Platform rule registry (LZR-*): additive checks codified from the
     # platform constraints. Warnings print; in-scope errors block.
     from .. import rules as _rules
+    _rules.set_decisions_context(
+        declared=_rules.declared_targets(decisions) if decisions else None,
+        answered=_rules.answered_targets(decisions) if decisions else None,
+        loaded=decisions is not None)
     for f in _rules.run_spec_rules(spec):
         if f.severity == "error" and _err_in_scope(f.message, selected):
             errs.append(str(f))
+        elif warn_sink is not None:
+            warn_sink.append(str(f))
         else:
             print(f"  note {f}", file=sys.stderr)
+    _rules.set_decisions_context()
     return errs
 
 

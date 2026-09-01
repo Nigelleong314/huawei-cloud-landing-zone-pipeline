@@ -311,7 +311,7 @@ CHECKS = {
 def main():
     global ENVS, SPEC_IR
     ap = argparse.ArgumentParser(
-        prog="lz_spec.verify_pipeline",
+        prog=os.environ.get("LZ_INVOKED_AS") or "lz_spec.verify_pipeline",
         description="Pipeline regression harness. Targets default to the repo's "
                     "example spec + example tree; point it at a customer "
                     "workspace with --envs-dir / --spec (or LZ_VERIFY_ENVS / "

@@ -1,0 +1,166 @@
+# Validation round 2 — run prompts
+
+Ten independent agents, one customer each, profiles 11–20 from
+`HuaweiCloud-LZ-Assessment-10-Customer-Profiles-2.zip`.
+
+**Pin a commit that contains the round-2 fixes** (null-as-declared-unknown,
+LZR-032 substring matching, LZR-034/035/036, `lzctl set`, gap-add path
+validation). Round 1 pinned `d08b1f8`; that commit does **not** have them, and
+a run against it reproduces the old contradiction rather than testing the fix.
+
+## What changed from round 1, and why
+
+| Round 1 | Round 2 | Reason |
+|---|---|---|
+| Prompt said *"Example spec gives structures, not customer values."* | **Removed** | That sentence hand-patched a real conflict between `assets/intake-questionnaire/README.md` ("start from the example spec and replace values") and `questionnaire-to-spec/SKILL.md` ("copy STRUCTURE, never its values"). With it in the prompt, the run cannot tell us whether the docs now agree. |
+| Prompt said *"Use the main skills over stale conflicting asset text."* | **Removed** | Same reason: it papers over doc conflicts the run is supposed to expose. |
+| — | *"Record every pipeline command you ran, and every file you wrote by hand"* | Round 1 hand-wrote ~1,500 lines of JSON mutators because no command existed. `lzctl set` now does. Whether agents FIND it is the thing being measured. |
+| — | *"If a rule's message tells you to do something and doing it does not clear the error, record that verbatim"* | Round 1's LZR-032 promised `gap add` would resolve a placeholder; it did not. This surfaces any remaining false promise. |
+
+**Do not add anything to the prompt that explains the null/placeholder
+contract, the gap workflow, or which command writes values.** The skill has to
+teach that. If the prompt teaches it, the run measures the prompt.
+
+## Root / orchestrator prompt
+
+```
+Spin up ten independent agents, one per customer, in isolated worktrees off
+pinned commit <COMMIT> of the landing-zone pipeline. Up to six concurrent.
+
+Each agent gets exactly one questionnaire from
+HuaweiCloud-LZ-Assessment-10-Customer-Profiles-2.zip:
+
+  11_summit_retail  12_keris_telecom  13_sakura_media  14_delta_agri
+  15_orion_edu      16_bluereef_hotels 17_ironclad_mfg 18_lotus_pharma
+  19_zenith_capital 20_terrafirma_mining
+
+Per run directory: workspace/<customer>-filled.xlsx (the questionnaire, renamed),
+metadata.json (paths, commit, model), prompt.txt (the per-instance prompt below
+with placeholders filled), and an empty workspace/specs/.
+
+Install the pipeline once with `pip install .` into a shared venv; give every
+agent the absolute path to lzctl and lz-app. No cloud credentials.
+
+Agents must not read each other's run directories, must not delegate, and must
+not modify pipeline, schema, skill source, or gates. Collect each run's
+transcript, result.json, run-summary.md, and workspace/specs/ afterwards, plus
+an independent verification pass you run yourself (not the agent's own claims):
+`lzctl validate` and `lzctl status --json` on every produced spec.
+```
+
+## Per-instance prompt
+
+Fill `<...>` and hand this to each agent verbatim.
+
+```
+RUN_DIR=<run dir>
+Customer=<customer slug>
+Workspace=<run dir>/workspace
+Input=<run dir>/workspace/<customer>-filled.xlsx
+
+You are one of ten independently instantiated agents. Execute this customer's
+run, not a simulation. Read metadata.json in your RUN_DIR for paths. Work only
+in your assigned worktree. Do not inspect other customer workspaces or borrow
+their outputs. Do not delegate further.
+
+User request:
+  /questionnaire-to-spec <customer>-filled.xlsx customer=<customer>
+  /huawei-cloud-landing-zone advance          # local generation up to the next gate
+
+Advance until the spec is populated and you reach a genuine gate. Capture the
+full transcript.
+
+Follow the two repository skills exactly. Read
+workspace/skills/questionnaire-to-spec/SKILL.md and
+workspace/skills/huawei-cloud-landing-zone/SKILL.md, plus whichever referenced
+assets this customer needs. Read any applicable AGENTS.md. Where two documents
+disagree, follow what you judge correct, finish the work, and record the
+conflict as a note naming both files — do not stop on it.
+
+The pipeline is installed at <venv>/bin/lzctl (and lz-app); use those absolute
+paths. openpyxl is available. No cloud credentials are needed and none are
+provided: do not run cloud commands, do not apply, do not launch a web server.
+Do not modify pipeline, schema, skill source, or gates.
+
+Carry out intake and assess, then your own interpretation of the supplied
+answers into the neutral draft. Populate the spec substantially from the
+answers and appendix facts — not just the assess skeleton. Copy appendix facts
+verbatim from the dump; never retype a CIDR, email, or account name. Apply
+documented defaults where the skill says to. Preserve unresolved customer
+choices as what they are.
+
+Do not invent CIDRs, accounts, contacts, regions, retention periods, gateway
+IPs, ASNs, or customer approvals. Do not silently empty a table or delete a
+field to make a validator pass. Do not mark a decision resolved or claim
+customer approval without evidence in the questionnaire. A populated draft
+with documented gaps is a legitimate result; a claimed clean build is not,
+unless every prerequisite genuinely passed.
+
+Run `lzctl status --json` before you start and after you finish. Run
+`lzctl validate` on the interpreted spec and save the complete findings. Run a
+local build only if its prerequisites truly pass. "advance" is the skill
+action, not an lzctl subcommand. If you stop at a gate, give the exact next
+operator command and a short review agenda.
+
+Two things to record explicitly, because this run is measuring the tooling and
+not you:
+  1. Every pipeline command you ran, and every file you wrote by hand. If you
+     wrote a script to modify the spec, preserve it in RUN_DIR and say which
+     step needed it.
+  2. Any instruction that did not work as documented — a rule whose remediation
+     text you followed without the error clearing, a command whose --help
+     disagreed with the skill, a documented path that did not exist. Quote it
+     verbatim. These are defects in the tooling, and reporting them is part of
+     a successful run.
+
+TRANSCRIPT CONTRACT: run every shell command through <root>/runlog.py, which
+records arguments, cwd, full stdout and stderr, real exit code, timestamp and
+duration into RUN_DIR/transcript.jsonl and transcript.md. The wrapper always
+exits 0 so logging stays reliable — read its "[recorded exit_code=N]" for the
+real result, and never chain a command in a way that hides which one produced
+the code. Invoke it as:
+
+python <root>/runlog.py RUN_DIR <<'RUN_EVENT'
+{"kind":"command","label":"Short description","cwd":"<workspace>","command":["bash","-c","your command"]}
+RUN_EVENT
+
+Use kind=note, label=Progress or Final response, text=<your visible message>
+for anything you would have said to the user. Record decisions and evidence,
+not private reasoning. Do not put secrets in the logs.
+
+At completion write RUN_DIR/result.json with: customer, model, status
+(populated_draft_blocked | populated_validated | built), spec_path,
+decisions_json_path, answered_count, defaulted_count, open_count,
+added_gap_count, validation_exit_code, validation_errors (integer),
+validation_warnings (integer), phase, build_executed, cloud_contacted=false,
+remaining_blockers, hand_written_files, tooling_defects, main_outputs,
+brief_summary. Counts must come from the actual files. Also write a concise
+run-summary.md.
+
+Describe your transcript honestly as an operational log of commands, outputs
+and visible notes — it is not a native model-chat export, and it contains no
+hidden reasoning or token traces.
+
+Finish with a short message to root: output paths, blockers, validation
+outcome, and any tooling defect you hit.
+```
+
+## What to look at in the results
+
+Round 1 numbers are the baseline. Watch these, not the raw error count:
+
+- **Does anyone still hand-write a JSON mutator?** 10/10 did in round 1. If
+  `lzctl set` is discoverable, that should collapse.
+- **Can a run reach 0 validation errors with real gaps outstanding?** Round 1:
+  impossible by construction — the skill required a placeholder and the
+  validator made every placeholder an error. That is the fix to confirm.
+- **Does `## OPEN (n)` in the decisions markdown match the real open count?**
+  Round 1 understated it in 10/10, by 2–4×.
+- **Do the four sparse profiles (14, 17, 20) produce declared gaps rather than
+  invented values?** They have no usable CIDR, no email pattern, and no IdP by
+  design. An invented `10.x` range or a fabricated ASN is a failure.
+- **Does any run validate clean while empty?** Profiles 14 and 20 are the
+  cheapest to hollow out. LZR-035/036 should make that impossible.
+- **Warning count**: should now be 0 on a healthy spec. Round 1 carried a
+  permanent `11_SGACL missing` warning in 10/10.
+```

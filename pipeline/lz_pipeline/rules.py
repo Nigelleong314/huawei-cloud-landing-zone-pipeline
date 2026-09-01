@@ -84,7 +84,8 @@ ORIGINS = {
     "LZR-025": "SAFETY",    "LZR-026": "IMPLEMENTATION",
     "LZR-027": "SAFETY",    "LZR-030": "IMPLEMENTATION",
     "LZR-031": "IMPLEMENTATION", "LZR-032": "SAFETY",
-    "LZR-033": "IMPLEMENTATION",
+    "LZR-033": "IMPLEMENTATION", "LZR-034": "SAFETY",
+    "LZR-035": "SAFETY", "LZR-036": "IMPLEMENTATION",
 }
 
 REGISTRY: list = []
@@ -164,20 +165,36 @@ def _all_subnets(spec):
 
 
 # ────────────────────────────────────────────────────────────────────────────
+def is_placeholder(v) -> bool:
+    """True for an unresolved sentinel in any position.
+
+    Public so the type and format checks can stay quiet about a value this
+    already owns: "REPLACE_WITH_ER_BGP_ASN is not a valid network" tells a
+    reader nothing LZR-032 has not said better, and two errors for one
+    unfilled field made every count meaningless.
+    """
+    if not isinstance(v, str):
+        return False
+    t = v.strip().lower()
+    return any(tok in t for tok in _PLACEHOLDER_PREFIXES) or (
+        t.startswith("<") and t.endswith(">"))
+
+
 # Spec rules (executable against the parsed workbook dict)
 # ────────────────────────────────────────────────────────────────────────────
 
 @_rule("LZR-022", "error", "spec", "Every CIDR must be a valid IPv4 network (no host bits set)")
 def r_cidr_format(spec):
+    # A placeholder CIDR is LZR-032's finding, not a format complaint.
     out = []
     for src, name, cidr in _all_vpcs(spec):
-        if cidr is not None and _net(cidr) is None:
+        if cidr is not None and not is_placeholder(cidr) and _net(cidr) is None:
             out.append(f"05_Network: {src}[{name}] CIDR={cidr!r} is not a valid network (check host bits / format)")
     for t, vpc, name, cidr in _all_subnets(spec):
-        if cidr is not None and _net(cidr) is None:
+        if cidr is not None and not is_placeholder(cidr) and _net(cidr) is None:
             out.append(f"05_Network: {t}[{name}] CIDR={cidr!r} is not a valid network (check host bits / format)")
     sup = _scalar(spec.get("05_Network", {}).get("Settings", {}), "spoke_private_supernet")
-    if sup and _net(sup) is None:
+    if sup and not is_placeholder(sup) and _net(sup) is None:
         out.append(f"05_Network: Settings.spoke_private_supernet={sup!r} is not a valid network")
     return out
 
@@ -524,7 +541,11 @@ def placeholder_findings(spec) -> list:
                 if (sheet, table, column) in _PLACEHOLDER_EXEMPT:
                     continue
                 v = value.strip().lower()
-                if v.startswith(_PLACEHOLDER_PREFIXES) or (v.startswith("<") and v.endswith(">")):
+                # SUBSTRING, not prefix: "acme-lz-REPLACE_WITH_SUFFIX" is as
+                # unresolved as a bare sentinel, and prefix matching let those
+                # reach build.
+                if any(t in v for t in _PLACEHOLDER_PREFIXES) or (
+                        v.startswith("<") and v.endswith(">")):
                     out.append({"sheet": sheet, "table": table, "column": column,
                                 "path": f"{sheet}.{path}", "value": value})
     return out
@@ -544,8 +565,11 @@ def r_unresolved_placeholders(spec):
     rule is that gap's gate.
     """
     return [f"{f['path']} = {f['value']!r} is an unresolved placeholder - "
-            "supply the real value (the app's spec editor is the intended way) "
-            "or record it with `lzctl gap add`; it must not reach build"
+            "supply the real value (the app's spec editor is the intended "
+            f"way), or set the field to null and declare it with `lzctl gap "
+            f"add --field {f['path']}`. Registering a gap does NOT make a "
+            "placeholder acceptable: null is how this spec spells 'not known "
+            "yet'; it must not reach build"
             for f in placeholder_findings(spec)]
 
 
@@ -688,6 +712,172 @@ _doc("LZR-021", "error", "runtime", "Provider ~> 1.87, Terraform >= 1.6.3",
 # ────────────────────────────────────────────────────────────────────────────
 # Runners
 # ────────────────────────────────────────────────────────────────────────────
+
+def _unset(v) -> bool:
+    """A value nobody has supplied: absent, null, or blank."""
+    return v is None or (isinstance(v, str) and not v.strip())
+
+
+@_rule("LZR-034", "error", "spec",
+       "Every unset required value is either supplied or declared as a gap")
+def r_undeclared_unknowns(spec):
+    """`null` is the sanctioned way to say "not known yet" - but only once
+    somebody has been asked. An unset required field with no OPEN decision
+    naming it is an unknown nobody is tracking, and it reaches build as a
+    silently missing value.
+
+    This is what makes step 5's "0 errors" reachable while real gaps remain:
+    declare the gap and the field stops being an error, while `lzctl build`
+    still refuses until the decision carries a resolution.
+    """
+    ctx = decisions_context()
+    if not ctx["loaded"]:
+        return []                      # no decisions file: nothing to join to
+    from . import specpath
+    out = []
+    for path in specpath.required_scalars():
+        sheet, table, field = path.split(".", 2)
+        node = (spec.get(sheet) or {}).get(table)
+        if not isinstance(node, dict) or field not in node:
+            continue
+        if not _unset(node.get(field)):
+            continue
+        if path in ctx["declared"]:
+            continue
+        out.append(f"{sheet}: {table}.{field} is unset and no OPEN decision "
+                   f"tracks it - supply the value, or record who owes it with "
+                   f"`lzctl gap add --field {path} --question \"...\"`")
+    return out
+
+
+@_rule("LZR-035", "error", "spec",
+       "An answered question's target must not be left empty")
+def r_dropped_answers(spec):
+    """The customer answered; the spec says nothing. Emptying a table is the
+    cheapest way to make a validator go quiet, so the one thing that must
+    never validate clean is an ANSWERED decision whose target holds nothing.
+    """
+    ctx = decisions_context()
+    if not ctx["loaded"]:
+        return []
+
+    def _touched(sheet_name) -> bool:
+        """Has anything on this sheet been interpreted yet?
+
+        On a neutral draft NOTHING is populated, so every answered target is
+        empty and this rule would fire on all of them - noise that buries the
+        findings a reader can act on. The failure worth catching is SELECTIVE:
+        a sheet somebody filled in, with one answered table emptied out.
+        """
+        for tbl in (spec.get(sheet_name) or {}).values():
+            if isinstance(tbl, list) and tbl:
+                return True
+            if isinstance(tbl, dict) and any(not _unset(v) for v in tbl.values()):
+                return True
+        return False
+
+    out = []
+    for path, ref in sorted(ctx["answered"].items()):
+        parts = path.split(".")
+        if len(parts) < 2:
+            continue
+        sheet, table = parts[0], parts[1]
+        if not _touched(sheet):
+            continue
+        node = (spec.get(sheet) or {}).get(table)
+        if node is None:
+            continue
+        if len(parts) == 2:
+            if isinstance(node, list) and not node:
+                out.append(f"{sheet}: {table} is empty, but decision {ref} is "
+                           f"ANSWERED - the answer was dropped. Fill it, or "
+                           f"re-open the decision if the answer does not apply")
+        elif isinstance(node, dict) and _unset(node.get(parts[2])):
+            out.append(f"{sheet}: {table}.{parts[2]} is unset, but decision "
+                       f"{ref} is ANSWERED - the answer was dropped. Fill it, "
+                       f"or re-open the decision if the answer does not apply")
+    return out
+
+
+@_rule("LZR-036", "error", "spec",
+       "An enabled network plane must define at least one VPC")
+def r_enabled_plane_is_empty(spec):
+    """enable_hub/enable_spoke are the switches the builders read. Leaving a
+    plane switched on with no VPCs generates an env that deploys nothing,
+    which looks identical to a clean run."""
+    n = spec.get("05_Network") or {}
+    st = n.get("Settings") or {}
+    out = []
+    for flag, table in (("enable_hub", "HubVPCs"), ("enable_spoke", "SpokeVPCs")):
+        v = st.get(flag)
+        on = v is True or (isinstance(v, str) and v.strip().lower() in ("true", "1", "yes", "y"))
+        if on and not (n.get(table) or []):
+            out.append(f"05_Network: {flag} is on but {table} is empty - "
+                       f"the env would deploy nothing. Add the VPCs, or turn "
+                       f"{flag} off deliberately")
+    return out
+
+# Decisions context for the rules that need to know what has been DECLARED.
+# Set by check_spec() for the duration of one run; empty means "no decisions
+# file", in which case those rules stay silent rather than guess.
+_CTX = {"declared": frozenset(), "answered": {}, "loaded": False}
+
+
+def set_decisions_context(declared=None, answered=None, loaded=False):
+    _CTX["declared"] = frozenset(declared or ())
+    _CTX["answered"] = dict(answered or {})
+    _CTX["loaded"] = bool(loaded)
+
+
+def decisions_context() -> dict:
+    return dict(_CTX)
+
+
+def declared_targets(decisions_doc: dict) -> set:
+    """Normalized field paths an OPEN decision already tracks.
+
+    Both original questionnaire OPENs and agent-registered gaps count: each
+    is a value somebody has been asked for. Unparseable targets are skipped
+    - they declare nothing a machine can join to a field.
+    """
+    from . import specpath
+    out = set()
+    for item in (decisions_doc or {}).get("items", []):
+        if item.get("state") != "OPEN":
+            continue
+        tg = item.get("targets") or []
+        for t in ([tg] if isinstance(tg, str) else tg):
+            for one in str(t).replace(" and ", ",").split(","):
+                one = one.strip()
+                if not one:
+                    continue
+                try:
+                    out.add(specpath.normalize(one))
+                except Exception:
+                    continue
+    return out
+
+
+def answered_targets(decisions_doc: dict) -> dict:
+    """{normalized path: ref} for ANSWERED decisions - the customer supplied
+    something for these, so an empty target means the answer was dropped."""
+    from . import specpath
+    out = {}
+    for item in (decisions_doc or {}).get("items", []):
+        if item.get("state") != "ANSWERED":
+            continue
+        tg = item.get("targets") or []
+        for t in ([tg] if isinstance(tg, str) else tg):
+            for one in str(t).replace(" and ", ",").split(","):
+                one = one.strip()
+                if not one:
+                    continue
+                try:
+                    out.setdefault(specpath.normalize(one), item.get("ref", "?"))
+                except Exception:
+                    continue
+    return out
+
 
 def run_spec_rules(spec: dict) -> list:
     findings = []

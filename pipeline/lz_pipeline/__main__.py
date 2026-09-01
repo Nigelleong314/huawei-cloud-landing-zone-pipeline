@@ -10,6 +10,7 @@ its output is byte-identical to the workbook path.
 """
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -42,16 +43,38 @@ def cmd_spec_validate(args):
         ir = model.load(p)
     errors, warnings = schema_check.check(ir)
     from .core.cli import check_spec
-    errors += check_spec(ir["sheets"])
+    # The decisions sidecar tells a DECLARED unknown from an untracked one.
+    # Without it the gap-aware rules stay silent rather than guess.
+    errors += check_spec(ir["sheets"], decisions=_load_decisions(p, ir),
+                         warn_sink=warnings)
     for w in warnings:
         print(f"  warn: {w}")
     for e in errors:
         print(f"  error: {e}")
     from lz_pipeline.rules import REGISTRY as _reg
     n_exec = sum(1 for r in _reg if r.fn is not None)
-    print(f"spec-validate: {len(errors)} error(s), {len(warnings)} warning(s) "
+    print(f"validate: {len(errors)} error(s), {len(warnings)} warning(s) "
           f"(rule registry: {n_exec} machine-enforced, {len(_reg) - n_exec} documented)")
     return 1 if errors else 0
+
+
+def _load_decisions(spec_path: Path, ir: dict):
+    """The spec's decisions sidecar, or None when it has no lineage.
+
+    Located through `provenance.decisions_file` so it follows the spec
+    through copies and renames, exactly like the build gate.
+    """
+    prov = (ir or {}).get("provenance") or {}
+    name = prov.get("decisions_file")
+    if not name:
+        return None
+    cand = spec_path.parent / name
+    if not cand.exists():
+        return None
+    try:
+        return json.loads(cand.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def _decisions_gate(ir_path: Path, ir: dict):
@@ -204,19 +227,26 @@ def cmd_deps(args):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="lz_pipeline")
+    # lzctl delegates by spawning this module, so a delegated `--help` would
+    # otherwise advertise a command shape nobody typed ("lz_pipeline
+    # spec-validate" for `lzctl validate`). The caller names itself here.
+    invoked = os.environ.get("LZ_INVOKED_AS")
+    ap = argparse.ArgumentParser(prog=invoked.split()[0] if invoked else "lz_pipeline")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("spec-export", help="workbook -> lz.spec.json")
+    def add_parser(name, **kw):
+        return sub.add_parser(name, **(dict(kw, prog=invoked) if invoked else kw))
+
+    p = add_parser("spec-export", help="workbook -> lz.spec.json")
     p.add_argument("workbook")
     p.add_argument("-o", "--out", required=True)
     p.set_defaults(fn=cmd_spec_export)
 
-    p = sub.add_parser("spec-validate", help="structural + semantic validation")
+    p = add_parser("spec-validate", help="structural + semantic validation")
     p.add_argument("spec", help="lz.spec.json or workbook.xlsx")
     p.set_defaults(fn=cmd_spec_validate)
 
-    p = sub.add_parser("build", help="IR -> envs (byte-identical to workbook path)")
+    p = add_parser("build", help="IR -> envs (byte-identical to workbook path)")
     p.add_argument("--spec", "--ir", dest="ir", required=True,
                    help="the JSON spec (--ir is an accepted alias)")
     p.add_argument("--envs-dir", required=True)
@@ -224,7 +254,7 @@ def main(argv=None):
     p.add_argument("--only")
     p.set_defaults(fn=cmd_build)
 
-    p = sub.add_parser("deps", help="regenerate <envs-dir>/deps.json (build writes it too)")
+    p = add_parser("deps", help="regenerate <envs-dir>/deps.json (build writes it too)")
     p.add_argument("--envs-dir", required=True)
     p.set_defaults(fn=cmd_deps)
 
