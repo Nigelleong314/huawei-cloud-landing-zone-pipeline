@@ -31,12 +31,12 @@ The `questionnaire-to-spec` skill drives the intake phase and depends on this sk
 
 For every task, follow this operating loop:
 
-1. **Place the task on the phase graph** (Phase contract below; authoritative copy in `schemas/phases.json`) — which phase is it in, and is its entry artifact present?
+1. **Place the task on the phase graph** — run `lzctl status --json` (read-only) and render it per the Rendering section below; it answers which phase the workspace is in, what needs a recheck or is blocked, and what the next command is. The contract is below; the authoritative copy is `schemas/phases.json`.
 2. **Load only the asset(s)** matching the task from the capability table below.
 3. **Execute through `lzctl`**, never around it — every action is a command a human could have typed.
 4. **Use deterministic gate results, never subjective judgment**: exit codes and rule findings decide pass/fail (0 ok, 1 error, 2 changes, 3 destructive/blocked).
 5. **Write judgment into artifacts** — spec edits, decision resolutions, triage notes — so a human can review the diff.
-6. **Stop at gates you cannot pass**: an unresolved OPEN decision, a failing validation, an untriaged destructive plan. Ask; never guess, never bypass.
+6. **Stop at gates you cannot pass**: an unresolved OPEN decision, an unfilled gap value, a failing validation, an untriaged destructive plan. Ask; never guess, never bypass — and when the missing answer is the customer's to give, hand them the app (see "The app" below) rather than a JSON file to edit.
 
 Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud behavior · [IMPLEMENTATION] how this pipeline behaves · [RUNBOOK] operational procedure.
 
@@ -44,6 +44,7 @@ Tags: [DOMAIN] how to design a landing zone · [PLATFORM] verified Huawei Cloud 
 |---|---|---|---|---|
 | intake | Convert questionnaire to spec | filled questionnaire | draft spec + decisions file | [assets/intake-questionnaire/](assets/intake-questionnaire/README.md) |
 | intake | Extract facts from ad-hoc asks | chat/email/ticket request | gap list + questions to ask | [assets/discovery-protocol/](assets/discovery-protocol/README.md) |
+| intake / design | Have a human review the draft and fill gap values | draft spec + decisions agenda | human-approved spec, gaps filled | "The app" section below (`lz-app`) |
 | design | Structure accounts and OUs | org + governance requirements | account/OU/EP decisions | [assets/accounts-ous/](assets/accounts-ous/README.md) |
 | design | Design hub-spoke network | spec network sheets | ER + route-table decisions | [assets/network-topology/](assets/network-topology/README.md) |
 | design | Wire on-prem connectivity | site/peer details | VPN design, DC/CC boundary | [assets/hybrid-connectivity/](assets/hybrid-connectivity/README.md) |
@@ -81,11 +82,13 @@ form exists for precision. Actions:
 
 | Action | Scope | What it runs |
 |---|---|---|
-| *(none)* or `status` | **Completely read-only.** Place the workspace on the phase graph, run the gates, report state + the one next action. Also detects an interrupted apply (lock file, `lzctl-logs/` tail, `state-backups/`) and presents the recovery procedure — inspection and instructions only, never an automatic resume or reapply. | `lzctl validate`, decisions-file inspection, `lzctl order` |
-| `advance` | **Local generation only** — from the current phase up to the next decision gate or the cloud boundary, whichever comes first. Never contacts the cloud; stops before the first authenticated plan and says exactly what the operator does next. | `lzctl intake` / `assess` / `validate` / `build` / `preflight` as the phase requires |
+| *(none)* or `status` | **Completely read-only.** Place the workspace on the phase graph, run the gates, report state + the one next action. Also detects an interrupted apply (lock file, `lzctl-logs/` tail, `state-backups/`) and presents the recovery procedure — inspection and instructions only, never an automatic resume or reapply. | `lzctl status`, `lzctl validate`, `lzctl order` |
+| `advance` | **Local generation only** — from the current phase up to the next decision gate or the cloud boundary, whichever comes first. Never contacts the cloud; stops before the first authenticated plan and says exactly what the operator does next. | `lzctl status` (before and after), then `lzctl intake` / `assess` / `validate` / `build` / `preflight` as the phase requires |
+| `back <phase>` | **Re-enter an earlier phase deliberately.** Records who decided and why, and names what the re-entry invalidates. Undoes nothing — see "Backtracking" below. | `lzctl back <phase> --reason "..."` |
 | `plan [env[,env...]\|all]` | May contact the cloud and write plan artifacts. Preflight, ordered plans, triage summary with exit-code reading. | `lzctl preflight`, `plan`, `triage` |
 | `verify` | Post-apply verification, drift sweep, and (on request) the evidence bundle. | `lzctl verify`, `drift`, `report` |
 | `docs` | **Local customer-document regeneration only.** No drift sweep, no cloud contact. | `lzctl docs` |
+| `review` | **Hand the work to a human in the app.** Start the local UI, name the spec to load and the exact list of fields to check or fill, then stop and wait. Never contacts the cloud itself; the human may run cloud jobs from the app. | `lz-app --workspace <dir>` |
 
 Qualifiers are an **allowlist**, mapped one-to-one onto CLI arguments —
 `spec=<path>` (`--spec`), `envs=<dir>` (`--envs-dir`),
@@ -98,6 +101,169 @@ at the apply gate and presents the operator command; the typed destructive
 confirmation is always a human at a terminal. There is no `resume` action —
 an interrupted apply is a recovery incident handled by `status` as described
 above.
+
+## Rendering: how results reach the human
+
+The CLI emits data; the presentation is YOURS, in the transcript — there is
+no terminal to look at. The facts for the progress renders come from one
+read-only command:
+
+    lzctl status --json [--workspace <dir>] [--spec <spec>] [--envs-dir <envs>] [--quick]
+
+Its exit code is a gate like every other: **0** on track · **2** something
+needs a recheck · **3** something is blocked. Never paste the raw JSON, and
+never paste the CLI's plain-text form — that exists only for a human at a
+prompt.
+
+Four rules govern every render — the phase report and every verb verdict
+(plan, apply, verify, validate, decisions, docs — exact goldens in
+[rendering.md](rendering.md)):
+
+1. **Verdict first.** The first line after a header answers "am I OK, and
+   what now" — never context before verdict.
+2. **Exceptions only.** Render what deviates; compress the healthy remainder
+   to one count/list line. Error lists are the one exception to the
+   exception: errors are the actionable content and are never summarized
+   away (cap 20, then "and n more").
+3. **One Next.** Exactly one fenced bash block per render — alternates as
+   comments inside it, never a second block — always followed by the
+   provenance line `runner · cloud: x · undo: y` (or log/artifact paths
+   where the record is a file). Never drop `undo` — it is what stops an
+   apply being read as reversible.
+4. **Words only.** The whole palette: **bold** (subject, current phase,
+   section labels, the deviating item), `###` verb headers, plain bullets,
+   tables only for per-env verdict grids and the full-form phase table,
+   fenced bash, *italics* for hints and asides, `---` only before the strip.
+   No decorative symbols — tick/cross/arrow glyphs say nothing the sentence
+   does not. No blockquotes. Uppercase only when quoting the gate's own
+   words (DRIFT, DESTRUCTIVE, "Do NOT re-apply blindly").
+
+And one rule of substance over style: **say what the report says.** Do not
+assert a phase is complete because you just ran its command, and do not
+soften a blocker into a note.
+
+**Phases are numbered.** A phase renders as `03-build` — its zero-padded
+1-based position in the `phases` array plus its name, the same shape as the
+env directories (`05-network`) — everywhere a phase is named: headers,
+bullets, footers, table rows, the strip. The number shows graph order (and
+the shape of a re-entry: `done: 01-intake, 02-design, 05-deploy, 06-verify_post`
+says phases 3 and 4 are being redone) without the reader knowing the graph.
+
+### The strip — closes every working reply
+
+Every reply in which this skill ran a command, edited the spec or the tree,
+or discussed the engagement ends with a one-line strip — the last lines of
+the reply, below everything else, even below a full report:
+
+---
+**frasers** · 03-build · 4/7 · recheck: 03-build, 04-verify_pre · next: `lzctl check regen-diff`
+
+Slots, all from `status --json`: customer · current phase · complete/total ·
+worst state (`blocked: <phases>` outranks `recheck: <phases>`; when neither
+exists, `on track`) · `next:` the first command of the current phase's
+`next`, name and subcommand only. One line, nothing else.
+
+### The phase report — default form (exception-first)
+
+Render when the phase picture changes — a phase completes, a blocker or
+recheck appears or clears — and when the user asks where things stand.
+Routine turns get the strip alone; a verb that ran this turn gets its card
+(rendering.md) plus the strip.
+
+**FRASERS** — 03-build · 4/7 complete · 13 envs
+
+**Needs attention**
+- **03-build** — the spec is newer than 9 of 13 envs; timestamp hint only, `lzctl check regen-diff` proves it
+- **04-verify_pre** — re-plan after the tree is regenerated; planning from a stale tree is a forbidden transition
+
+**Next**
+```bash
+lzctl check regen-diff --envs-dir huawei-lz/envs-frasers --spec lz_spec/lz.spec.frasers.json
+lzctl build ...   # only if regen-diff reports differences
+```
+agent · cloud: none · undo: regenerate or delete the tree
+
+done: 01-intake, 02-design, 05-deploy, 06-verify_post · pending: 07-deliver
+
+Slot rules — omission-driven, everything from the JSON:
+
+- **Header**: customer — numbered current phase · complete/total · env count. The
+  `spec`/`envs` paths belong to the full form only.
+- **Needs attention**: one bold-led bullet per phase whose status is
+  `recheck` or `blocked`, in graph order with `blocked` first, each in the
+  gate's own words (`blockers`, else `notes`). All clear: the section is
+  the single line `On track — nothing needs attention.`
+- **Needs from you**: when the current phase has `needs`, a bold-labelled
+  line naming what a person must supply. Omitted when empty.
+- **Next**: the current phase's `next` commands, one fenced block (rule 3),
+  provenance line after.
+- *Journal*: while a re-entry's invalidated phases are incomplete, one
+  italic line under the header — *re-entered design 2026-09-01 (tester):
+  supernet moved*. Omitted otherwise.
+- *Hints* (`hints`, e.g. "Timestamp hint only. Content may still match.")
+  render italic above the footer. Omitted when empty.
+- **Footer**: `done: <phases> · pending: <phases>` — the compressed healthy
+  remainder. A phase already under Needs attention never repeats here.
+
+The **full form** — the complete seven-row phase table, a card per live
+phase, the journal — renders on explicit ask only ("full status", `-v`);
+its golden is in [rendering.md](rendering.md).
+
+**Staleness is derived**: edit the spec and the tree reports `recheck` on its
+own, whether or not anyone declared it — which is how "plan or apply from a
+stale tree" gets caught rather than remembered. `recheck` is a prompt to
+verify, not a verdict: `lzctl check regen-diff` settles it either way.
+
+## Backtracking
+
+Going back is normal — a customer changes an answer, a workshop moves a CIDR.
+
+    lzctl back design --reason "customer moved the prod supernet after the IP workshop"
+
+It is a **re-entry, never an undo.** It deletes nothing and touches no cloud
+resource; it records who decided and why in `lz.spec.<customer>.journal.jsonl`
+(shown by `status`, collected into the evidence bundle), and names the phases
+that must be redone in order. The staleness that follows is derived from the
+files themselves, so the journal only has to carry the part a machine cannot
+infer: the reason.
+
+Two hard rules:
+
+1. **Backtracking past an apply changes the configuration, not the estate.**
+   Applied resources stay applied. The next plan diffs your new configuration
+   against live infrastructure, so read it as a change to production — a row
+   removed from the spec plans a **destroy**. `back` says this out loud when
+   apply logs exist.
+2. **Undoing deployed infrastructure is never a phase operation.** It is
+   Terraform under a human's typed confirmation, or state surgery — see
+   assets/state-surgery and assets/plan-triage-drift. No skill action does it.
+
+## The app — where humans verify and fill gaps
+
+`lz-app` is the human half of the contract: a local, loopback-only UI over the
+same spec, the same validator, and the same `lzctl` jobs. Route every decision
+that belongs to a person through it instead of asking them to hand-edit
+generated JSON or read a plan out of a terminal.
+
+    lz-app --workspace <workspace>            # http://127.0.0.1:8600
+    lz-app --port 8611 --no-browser           # if 8600 is taken / headless
+
+It is a server: start it in the BACKGROUND or hand the operator the command —
+never block the session waiting on it. Bind loopback only; a non-loopback bind
+serves the CSRF token to anyone who can reach the page.
+
+| The human needs to… | In the app | Agent's part |
+|---|---|---|
+| resolve an OPEN decision or fill a gap | **Decisions & gaps** (top of the rail): resolution + who decided + why; each gap deep-links to its sheet | register gaps with `lzctl gap add`, then stop |
+| review a draft spec and fill gap values | spec dropdown, then **Load**, edit sheets, **Validate**, **Save** | name the spec and list the exact fields/sentinels to fill, then stop |
+| confirm a design before it is built | sheet-by-sheet read, MANDATORY / OPTIONAL-billable / AUTO / RESERVED badges | point at the sheets your interpretation touched |
+| see what a change would do | **Plan** job (env picker, dependency order, triage + cost summary) | say which envs and what you expect |
+| apply | **Apply** job — dry-run by default, warning box + typed confirmation, destructive plans blocked by triage | never run it; present it |
+| check live drift / hand over | **Drift**, **Export artifact** | interpret the report afterwards |
+
+After a human saves in the app, **re-read the spec from disk** — it is now the
+source of truth and any in-memory copy is stale. Their edits are reviewable as
+a spec diff.
 
 ## Companion skill (optional)
 
@@ -169,7 +335,7 @@ The `huawei-cloud-terraform-generator` skill (separate distribution, not include
 | Phase | Entry criteria | Exit artifacts | Forbidden transitions |
 |---|---|---|---|
 | intake | a requirement source (questionnaire, LLD, or described target) | neutral draft spec + decisions files (ANSWERED/DEFAULTED/OPEN) | design without a decisions file |
-| design | draft spec + decisions files | OPEN items resolved; validation passes with 0 errors | build with unresolved OPEN decisions (`lzctl build` exits 3) |
+| design | draft spec + decisions files | OPEN items resolved; every `REPLACE_WITH_` gap filled by a human in the app; validation passes with 0 errors | build with unresolved OPEN decisions (`lzctl build` exits 3), or with a placeholder still in the spec |
 | build | spec validating with 0 errors | generated envs + fresh deps.json | plan/apply from a stale tree |
 | verify_pre | built tree | clean plan triage + passing harness | apply with untriaged destructive changes |
 | deploy | reviewed plan + approvals (typed confirm for destructive) | applied envs in dependency order + state backups + run logs | applying out of dependency order |

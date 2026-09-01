@@ -20,6 +20,20 @@ A phase does not start until the previous phase's exit artifact exists and its g
 
 Exit codes follow Terraform's plan convention where relevant: **0** ok / no changes, **1** error, **2** changes present (or stopped/needs attention), **3** destructive changes present.
 
+### `lzctl status [--workspace DIR] [--spec SPEC] [--envs-dir <envs>] [--json] [-v] [--quick]`
+
+Where the workspace sits on the phase graph. Completely read-only.
+
+`--json` is the contract: every phase with its state, plain-English status (`complete` / `recheck` / `blocked` / `pending`), gist, exit artifacts, blockers, notes, needs, the next command(s), and the runner / cloud-access / undo triple — plus the re-entry journal. **Callers format it; this command does not paint a terminal UI.** The agent renders it into its own reply in two forms — a one-line strip closing every working reply, and an exception-first report when the phase picture changes (goldens in the huawei-cloud-landing-zone skill: SKILL.md "Rendering" + rendering.md); the plain-text form exists only for a human at a prompt.
+
+Every phase's state is **derived from artifacts**, never from a stored pointer: the spec and its decisions file, `<env>/terraform.tfvars.json` + `deps.json`, `<env>/tf.plan`, `lzctl-logs/*-{plan,apply,drift}.log`, `state-backups/`, `evidence/`. A phase reports `recheck` on its own the moment its inputs change (edit the spec → the tree needs a recheck → so do the plans), and an interrupted apply (`.lzctl.lock`) reports `blocked` with the recovery procedure. Timestamps only *suggest* a mismatch — `lzctl check regen-diff` proves it. `--quick` skips the validator subprocess and says so. Exit **0** on track, **2** something needs a recheck, **3** something is blocked.
+
+### `lzctl back PHASE --reason "why" [--by WHO] [--workspace DIR] [--spec SPEC]`
+
+Deliberate re-entry of an earlier phase. Appends `{at, by, from_phase, phase, reason, invalidates}` to `specs/lz.spec.<customer>.journal.jsonl` (shown by `status`) and prints the phases that must be redone in order.
+
+**It undoes nothing** — no file is deleted and no cloud resource is touched; staleness is derived from the files themselves, so the journal carries only what a machine cannot infer: the reason and who decided. When apply logs exist it warns that the estate stays applied and that the next plan diffs the new configuration against live infrastructure — a row removed from the spec plans a destroy. Undoing deployed infrastructure is Terraform under a human's typed confirmation, or state surgery; never a phase operation. Exit 0, 1 if the target is not earlier than the current phase, 2 on an unknown phase.
+
 ### `lzctl preflight --envs-dir <envs>`
 
 Checks: terraform on PATH and ≥ 1.6.3; `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` set; `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` both `when_required` (or state save fails *after* apply); envs dir and `deps.json` present. Exit 0 all passed, 1 otherwise.
@@ -94,7 +108,9 @@ These need the installed pipeline (a runtime-only handover installation says so 
 lzctl validate <spec.json>                       # -> python -m lz_pipeline spec-validate
 lzctl build --spec <spec> --envs-dir <envs> [--scaffold-dir <dir>] [--only 05,06]
 # (--ir is an accepted alias for --spec on build and docs)
-lzctl check [regen-diff|validate|template-check] # -> python -m lz_spec.verify_pipeline
+lzctl check [all|regen-diff|validate|template-check|rules|deps|fmt|unit] \
+            [--envs-dir <envs>] [--spec <spec>]   # -> python -m lz_spec.verify_pipeline
+lzctl deps --envs-dir <envs>                      # regenerate deps.json (build writes it too)
 ```
 
 Delegated commands preserve the caller's working directory — relative paths resolve exactly as supplied (locked by `tests/unit/test_cli_contract.py`).

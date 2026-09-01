@@ -41,6 +41,45 @@ def test_workflow_doc_matches_phase_graph():
             f"docs/workflow.md phase table is missing canonical phase {name!r}")
 
 
+def test_lzctl_phase_table_matches_phase_graph():
+    """`lzctl status` restates the graph as a progress bar; the runner ships
+    standalone (no schemas/ beside it), so the table is embedded and this
+    guard is the only thing keeping it honest."""
+    from lz_pipeline.lzctl import PHASES, PHASE_DOC
+    assert list(PHASES) == phase_names(), (
+        "lzctl.PHASES drifted from schemas/phases.json")
+    assert set(PHASE_DOC) == set(phase_names()), (
+        "lzctl.PHASE_DOC is missing or inventing a phase")
+    for name, doc in PHASE_DOC.items():
+        for field in ("summary", "who", "cloud", "reversible"):
+            assert doc.get(field), f"{name}: PHASE_DOC.{field} is empty"
+
+
+def test_skill_render_doctrine():
+    """The render spec is doctrine: the system (rules + strip + default
+    report) lives in SKILL.md, the verb goldens in rendering.md — and both
+    files obey their own words-only law. `—` and `·` are vocabulary, not
+    decoration; everything in `banned` is."""
+    skill_dir = REPO / "skills/huawei-cloud-landing-zone"
+    skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    assert "## Rendering" in skill
+    for rule in ("Verdict first", "Exceptions only", "One Next", "Words only"):
+        assert rule in skill, f"SKILL.md lost the {rule!r} rule"
+    assert "**frasers** · 03-build · 4/7" in skill, "the strip example is the strip spec"
+    assert "Needs attention" in skill, "the default report leads with exceptions"
+    assert "Phases are numbered" in skill, "the numbering rule is doctrine"
+
+    rendering = (skill_dir / "rendering.md").read_text(encoding="utf-8")
+    for verb in ("PLAN", "APPLY", "VERIFY", "VALIDATE", "DECISIONS", "DOCS"):
+        assert f"### {verb} —" in rendering, f"rendering.md lost the {verb} golden"
+    assert "| 01-intake |" in rendering, "full-form table rows carry phase numbers"
+
+    banned = set("✓✗≈○▸←→━═█░")
+    for name, text in (("SKILL.md", skill), ("rendering.md", rendering)):
+        hits = set(text) & banned
+        assert not hits, f"{name} breaks its own words-only law: {hits}"
+
+
 def test_no_skip_rule_is_true_of_the_graph():
     doc = json.loads((REPO / "schemas" / "phases.json").read_text(encoding="utf-8"))
     order = list(doc["phases"].keys())
