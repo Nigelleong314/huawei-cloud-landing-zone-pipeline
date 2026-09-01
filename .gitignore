@@ -37,3 +37,9 @@ venv/
 Thumbs.db
 .DS_Store
 ~$*
+
+# eval runs are outputs; the two runs of record predate this rule
+tests/evaluation/results/
+
+# export release metadata (written by export_v2 --releases-dir)
+releases/

@@ -1,9 +1,8 @@
 """Model adapter for the evaluation harness.
 
-The harness never talks to a provider SDK directly; it calls run_model()
-through an adapter chosen by name, so adding a provider = adding a function.
-The first adapter shells out to headless Claude Code (`claude -p --bare`),
-which needs no API key beyond the operator's existing login.
+The harness never talks to a provider SDK directly; it calls run_model(),
+which shells out to headless Claude Code (`claude -p`) and needs no API key
+beyond the operator's existing login.
 
 Context isolation: children run from an empty temp cwd (no project CLAUDE.md,
 hooks, or project plugins); every fixture carries its own doctrine, so all
@@ -11,7 +10,6 @@ models receive identical context - that is the point of the matrix.
 """
 
 import json
-import os
 import shutil
 import tempfile
 import subprocess
@@ -23,7 +21,7 @@ class AdapterError(RuntimeError):
     pass
 
 
-def _claude_cli(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
+def run_model(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> dict:
     exe = shutil.which("claude")
     if exe is None:
         raise AdapterError("claude CLI not on PATH - install Claude Code or "
@@ -54,17 +52,3 @@ def _claude_cli(model: str, prompt: str, timeout: int = DEFAULT_TIMEOUT) -> dict
         "session_id": payload.get("session_id"),
         "raw": payload,
     }
-
-
-ADAPTERS = {
-    "claude-cli": _claude_cli,
-    # "anthropic-api": add here when running via API key / CI
-}
-
-
-def run_model(model: str, prompt: str, adapter: str = None,
-              timeout: int = DEFAULT_TIMEOUT) -> dict:
-    name = adapter or os.environ.get("LZ_EVAL_ADAPTER", "claude-cli")
-    if name not in ADAPTERS:
-        raise AdapterError(f"unknown adapter {name!r}; have: {sorted(ADAPTERS)}")
-    return ADAPTERS[name](model, prompt, timeout=timeout)

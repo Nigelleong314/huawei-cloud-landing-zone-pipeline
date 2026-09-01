@@ -23,23 +23,16 @@ from adapter import run_model, AdapterError  # noqa: E402
 DEFAULT_MODELS = ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
 
 
-def _strip_fences(text: str) -> str:
-    t = text.strip()
-    m = re.match(r"^```[a-zA-Z]*\n(.*)\n```$", t, re.S)
-    return m.group(1).strip() if m else t
-
-
 def _try_json(text: str):
     """Tolerant extraction, mirroring how the pipeline would consume model
     output: strict parse first, then the first fenced block, then the first
     balanced {...} / [...] span. A model that wraps correct JSON in prose
     fails the format instruction but not the schema check - the deterministic
     layer compensates, which is the architecture under test."""
-    for candidate in (text.strip(), _strip_fences(text)):
-        try:
-            return json.loads(candidate)
-        except Exception:
-            pass
+    try:
+        return json.loads(text.strip())
+    except Exception:
+        pass
     m = re.search(r"```[a-zA-Z]*\n(.*?)\n```", text, re.S)
     if m:
         try:
@@ -119,6 +112,18 @@ def score(fx: dict, text: str) -> dict:
     return {"pass": all(checks.values()) and bool(checks), "checks": checks}
 
 
+def _aggregate(rows):
+    """Per model x category tallies + the scores.json summary shape."""
+    agg = {}
+    for r in rows:
+        a = agg.setdefault((r["model"], r["category"]), {"pass": 0, "total": 0})
+        a["total"] += 1
+        a["pass"] += 1 if r["pass"] else 0
+    summary = [{"model": m, "category": c, "passed": v["pass"], "total": v["total"]}
+               for (m, c), v in sorted(agg.items())]
+    return agg, summary
+
+
 def rescore(results_dir: Path) -> int:
     """Re-score saved transcripts with the current fixtures/scorer.
     No model calls: responses are immutable evidence; scoring is versioned."""
@@ -148,17 +153,12 @@ def rescore(results_dir: Path) -> int:
                      "category": fx["category"], "trial": t["trial"],
                      "pass": verdict["pass"],
                      "failed_checks": [k for k, v in verdict["checks"].items() if not v]})
-    agg = {}
-    for r in rows:
-        a = agg.setdefault((r["model"], r["category"]), {"pass": 0, "total": 0})
-        a["total"] += 1
-        a["pass"] += 1 if r["pass"] else 0
+    agg, summary = _aggregate(rows)
     out = results_dir / "scores-rescored.json"
     out.write_text(json.dumps({
         "note": "re-scored from saved transcripts after scorer fixes; "
                 "responses unchanged",
-        "summary": [{"model": m, "category": c, "passed": v["pass"], "total": v["total"]}
-                    for (m, c), v in sorted(agg.items())],
+        "summary": summary,
         "rows": rows}, indent=2), encoding="utf-8")
     passed = sum(r["pass"] for r in rows)
     for (m, c), v in sorted(agg.items()):
@@ -173,7 +173,6 @@ def main(argv=None):
     ap.add_argument("--models", default=",".join(DEFAULT_MODELS))
     ap.add_argument("--trials", type=int, default=2)
     ap.add_argument("--only", help="comma list of fixture ids")
-    ap.add_argument("--adapter", default=None)
     ap.add_argument("--rescore", metavar="RESULTS_DIR",
                     help="re-score saved transcripts; no model calls")
     args = ap.parse_args(argv)
@@ -198,7 +197,7 @@ def main(argv=None):
                 prompt = doc["shared_context"] + "\n\n---\nTASK:\n" + fx["task"]
                 tag = f"{model}--{fx['id']}--t{trial}"
                 try:
-                    r = run_model(model, prompt, adapter=args.adapter)
+                    r = run_model(model, prompt)
                     verdict = score(fx, r["text"])
                     # Security evidence is captured from the RAW text before
                     # redaction, so a later --rescore of the redacted
@@ -247,15 +246,7 @@ def main(argv=None):
                                  "pass": False, "error": str(e)[:200]})
                     print(f"ERROR {tag}: {e}")
 
-    # aggregate: per model x category
-    agg = {}
-    for r in rows:
-        key = (r["model"], r["category"])
-        a = agg.setdefault(key, {"pass": 0, "total": 0})
-        a["total"] += 1
-        a["pass"] += 1 if r["pass"] else 0
-    summary = [{"model": m, "category": c, "passed": v["pass"], "total": v["total"]}
-               for (m, c), v in sorted(agg.items())]
+    agg, summary = _aggregate(rows)
     (out / "scores.json").write_text(json.dumps({
         "run": ts, "models": models, "trials": args.trials,
         "total_runs": len(rows), "total_cost_usd": round(total_cost, 4),
