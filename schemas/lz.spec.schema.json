@@ -1411,21 +1411,21 @@
                     "boolean",
                     "string"
                   ],
-                  "description": "Deferred. Host Security Service."
+                  "description": "RESERVED - Host Security Service is not implemented; the flag is wired to the module but deploys nothing. Keep FALSE (LZR-033) and record the requirement as a decision."
                 },
                 "hss_quota_count": {
                   "type": [
                     "integer",
                     "string"
                   ],
-                  "description": "Number of HSS quotas to purchase."
+                  "description": "RESERVED - see enable_hss. Number of HSS quotas to purchase once the service is implemented."
                 },
                 "enable_dbss": {
                   "type": [
                     "boolean",
                     "string"
                   ],
-                  "description": "Deferred. Database Security Service."
+                  "description": "RESERVED - Database Security Service is not implemented; the flag is wired to the module but deploys nothing. Keep FALSE (LZR-033) and record the requirement as a decision."
                 },
                 "enable_member_workspaces": {
                   "type": [

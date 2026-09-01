@@ -1399,9 +1399,9 @@ M5_SECURITY = Sheet(
             rows=[
                 KV("security_account",         "string", "lz-security",  "lz-security",  "Account name from module 1 where the SecMaster workspace is deployed."),
                 KV("secmaster_workspace_name", "string", "lz-secmaster", "lz-secmaster", "Name of the SecMaster workspace."),
-                KV("enable_hss",               "bool",   False,           False,           "Deferred. Host Security Service."),
-                KV("hss_quota_count",          "int",    0,               0,               "Number of HSS quotas to purchase."),
-                KV("enable_dbss",              "bool",   False,           False,           "Deferred. Database Security Service."),
+                KV("enable_hss",               "bool",   False,           False,           "RESERVED - Host Security Service is not implemented; the flag is wired to the module but deploys nothing. Keep FALSE (LZR-033) and record the requirement as a decision."),
+                KV("hss_quota_count",          "int",    0,               0,               "RESERVED - see enable_hss. Number of HSS quotas to purchase once the service is implemented."),
+                KV("enable_dbss",              "bool",   False,           False,           "RESERVED - Database Security Service is not implemented; the flag is wired to the module but deploys nothing. Keep FALSE (LZR-033) and record the requirement as a decision."),
                 KV("enable_member_workspaces", "bool",   False,           False,           "Reserved for a future Pattern B upgrade."),
             ],
         ),

@@ -83,7 +83,8 @@ ORIGINS = {
     "LZR-022": "SAFETY",    "LZR-023": "SAFETY",   "LZR-024": "SAFETY",
     "LZR-025": "SAFETY",    "LZR-026": "IMPLEMENTATION",
     "LZR-027": "SAFETY",    "LZR-030": "IMPLEMENTATION",
-    "LZR-031": "IMPLEMENTATION",
+    "LZR-031": "IMPLEMENTATION", "LZR-032": "SAFETY",
+    "LZR-033": "IMPLEMENTATION",
 }
 
 REGISTRY: list = []
@@ -483,6 +484,92 @@ def r_sgacl_reserved(spec):
         if n:
             out.append(f"11_SGACL: {t} has {n} enabled row(s) but network-ACL support is not implemented "
                        "(tables are reserved; see terraform/modules/secgroups/README.md)")
+    return out
+
+
+_PLACEHOLDER_PREFIXES = ("replace_with", "replace-with", "tbd", "to be confirmed", "xxx")
+# The VPN PSK is the ONE sanctioned placeholder: LZR-027 demands it there
+# (a literal secret would be worse), and lzctl preflight/apply blocks a
+# placeholder psk before it can become a live tunnel key.
+_PLACEHOLDER_EXEMPT = {("10_VPN", "Connections", "PSK")}
+
+
+def _walk_strings(node, sheet, table, path=""):
+    """(path, column, value) for every string leaf under a sheet table."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk_strings(v, sheet, table, f"{path}.{k}" if path else str(k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            label = None
+            if isinstance(v, dict):
+                label = v.get("Name") or v.get("VPCName") or v.get("UserName") or v.get("Key")
+            yield from _walk_strings(v, sheet, table, f"{path}[{label or i}]")
+    elif isinstance(node, str):
+        yield path, path.rsplit(".", 1)[-1], node
+
+
+def placeholder_findings(spec) -> list:
+    """Every unresolved placeholder in a spec, structured.
+
+    Public because the app renders these as a to-do list with deep links,
+    and app and CLI must never disagree about what counts as a placeholder.
+    """
+    out = []
+    for sheet, tables in (spec or {}).items():
+        if not isinstance(tables, dict):
+            continue
+        for table, node in tables.items():
+            for path, column, value in _walk_strings(node, sheet, table, table):
+                if (sheet, table, column) in _PLACEHOLDER_EXEMPT:
+                    continue
+                v = value.strip().lower()
+                if v.startswith(_PLACEHOLDER_PREFIXES) or (v.startswith("<") and v.endswith(">")):
+                    out.append({"sheet": sheet, "table": table, "column": column,
+                                "path": f"{sheet}.{path}", "value": value})
+    return out
+
+
+@_rule("LZR-032", "error", "spec",
+       "No unresolved placeholder may survive into a buildable spec")
+def r_unresolved_placeholders(spec):
+    """A `REPLACE_WITH_...` sentinel is how the intake flow records a value
+    nobody has supplied yet. It must never reach build: the generated tfvars
+    would carry it into Terraform, where it either fails at the API with an
+    opaque error or - worse - is accepted as a real value.
+
+    `lzctl assess` cannot catch these: it classifies only what the
+    QUESTIONNAIRE left blank, so a fully answered questionnaire yields zero
+    OPEN items while the spec still needs facts no question asked for. This
+    rule is that gap's gate.
+    """
+    return [f"{f['path']} = {f['value']!r} is an unresolved placeholder - "
+            "supply the real value (the app's spec editor is the intended way) "
+            "or record it with `lzctl gap add`; it must not reach build"
+            for f in placeholder_findings(spec)]
+
+
+@_rule("LZR-033", "error", "spec",
+       "Reserved security toggles deploy nothing - HSS/DBSS must stay FALSE")
+def r_reserved_security_toggles(spec):
+    """`enable_hss` / `enable_dbss` are wired from the sheet to the security
+    module's variables, but no resource consumes them: turning them on
+    deploys NOTHING while reading as a delivered control in the spec, the
+    generated tfvars, and any document built from them.
+
+    Record the intent to adopt HSS/DBSS as a decision or a follow-up, not as
+    a spec value that silently does nothing. Remove this rule when the
+    module actually implements them.
+    """
+    s = (spec.get("07_Security") or {}).get("Settings") or {}
+    out = []
+    for field, service in (("enable_hss", "Host Security Service"),
+                           ("enable_dbss", "Database Security Service")):
+        if _truthy(s.get(field)):
+            out.append(f"07_Security: Settings.{field}=TRUE but {service} is NOT "
+                       "implemented in terraform/modules/security - the flag deploys "
+                       "nothing. Set it FALSE and record the requirement as a "
+                       "decision/follow-up instead of a value that reads as delivered")
     return out
 
 

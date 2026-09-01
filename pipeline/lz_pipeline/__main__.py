@@ -170,8 +170,37 @@ def cmd_build(args):
     print(f"== build: {Path(args.ir).name} -> {envs_dir.name} ==")
     be.build_from_spec(spec, envs_dir, scaffold, selected, ak, sk,
                        customer=ir.get("customer") or "")
+    dep_errs = write_deps(envs_dir)
     print(f"\n== RESULT: BUILT {len(selected)} env(s) from {Path(args.ir).name} ==")
-    return 0
+    return 1 if dep_errs else 0
+
+
+def write_deps(envs_dir: Path) -> list:
+    """(Re)write <envs-dir>/deps.json from the tree's remote-state references.
+
+    build's exit artifact is "generated envs + FRESH deps.json": preflight
+    fails without it and the apply order comes from it, so a built tree that
+    lacks one is not deployable. Written here (not only by depsgraph's own
+    CLI) so nobody has to reach around lzctl to finish a build.
+    """
+    import json
+    from . import depsgraph
+    doc = depsgraph.build(envs_dir)
+    errs = depsgraph.check(doc["envs"])
+    (envs_dir / "deps.json").write_text(json.dumps(doc, indent=2) + "\n",
+                                        encoding="utf-8", newline="\n")
+    print(f"wrote {envs_dir / 'deps.json'} ({len(doc['apply_order'])} envs in order)")
+    for e in errs:
+        print(f"  ERROR deps: {e}", file=sys.stderr)
+    return errs
+
+
+def cmd_deps(args):
+    envs_dir = Path(args.envs_dir).resolve()
+    if not envs_dir.exists():
+        print(f"envs dir not found: {envs_dir}", file=sys.stderr)
+        return 2
+    return 1 if write_deps(envs_dir) else 0
 
 
 def main(argv=None):
@@ -194,6 +223,10 @@ def main(argv=None):
     p.add_argument("--scaffold-dir")
     p.add_argument("--only")
     p.set_defaults(fn=cmd_build)
+
+    p = sub.add_parser("deps", help="regenerate <envs-dir>/deps.json (build writes it too)")
+    p.add_argument("--envs-dir", required=True)
+    p.set_defaults(fn=cmd_deps)
 
     args = ap.parse_args(argv)
     return args.fn(args)

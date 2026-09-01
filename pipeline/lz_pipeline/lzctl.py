@@ -275,6 +275,552 @@ def psk_problems(envs: Path):
     return out
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Phase status: where this workspace is on the graph, derived from artifacts
+#
+# Nothing here is remembered. Every phase's state is recomputed from what is
+# on disk, so the report cannot drift from reality the way a stored pointer
+# would - and editing the spec automatically makes everything downstream
+# STALE without anyone having to declare it.
+#
+# The canonical graph is schemas/phases.json; this table restates the parts a
+# progress report needs. tests/unit/test_doctrine_sync.py fails if they drift.
+# ────────────────────────────────────────────────────────────────────────────
+
+PHASES = ("intake", "design", "build", "verify_pre", "deploy", "verify_post", "deliver")
+
+PHASE_DOC = {
+    "intake": dict(
+        gist="turn the questionnaire into a draft",
+        summary="Turn a requirement source into a neutral draft spec plus the decisions agenda.",
+        who="agent", cloud="none",
+        reversible="re-run assess --force"),
+    "design": dict(
+        gist="resolve decisions, validate clean",
+        summary="Interpret answers into the spec, resolve every OPEN decision, validate clean.",
+        who="agent drafts, human approves", cloud="none",
+        reversible="the spec is a reviewable diff"),
+    "build": dict(
+        gist="generate the env tree",
+        summary="Generate the env tree (tfvars + *.generated.tf) and a fresh deps.json.",
+        who="agent", cloud="none",
+        reversible="regenerate or delete the tree"),
+    "verify_pre": dict(
+        gist="prove the tree before it touches anything",
+        summary="Prove the tree before it touches anything: harness, preflight, ordered plans, triage.",
+        who="agent", cloud="read-only (plan)",
+        reversible="plans write nothing"),
+    "deploy": dict(
+        gist="apply in dependency order",
+        summary="Apply in dependency order, with a state backup and a reviewed plan per env.",
+        who="HUMAN at a terminal", cloud="WRITES",
+        reversible="per-resource; account + PoC EP creation never"),
+    "verify_post": dict(
+        gist="re-plan every env",
+        summary="Re-plan everything: every env clean or known-benign, or the apply left it inconsistent.",
+        who="agent", cloud="read-only (plan)",
+        reversible="read-only"),
+    "deliver": dict(
+        gist="package evidence, docs and artifact",
+        summary="Package the evidence bundle, the generated documents, and the handover artifact.",
+        who="agent", cloud="none",
+        reversible="regenerate"),
+}
+
+
+_REL_BASE = None      # workspace root, so a report prints paths a human can retype
+
+
+def _rel(p):
+    """Workspace-relative path, or the absolute one when it lies outside."""
+    if p is None:
+        return "-"
+    p = Path(p)
+    if _REL_BASE:
+        try:
+            return str(p.resolve().relative_to(_REL_BASE)).replace("\\", "/")
+        except ValueError:
+            pass
+    return str(p)
+
+
+def _n(count, word, plural=None):
+    """'1 snapshot' / '2 snapshots'. Cheap, but '(s)' reads like a placeholder
+    nobody finished."""
+    return f"{count} {word if count == 1 else (plural or word + 's')}"
+
+
+def _mtime(p: Path):
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _newest(paths):
+    times = [t for t in (_mtime(p) for p in paths) if t is not None]
+    return max(times) if times else None
+
+
+def _logs(envs: Path, kind: str):
+    d = envs / "lzctl-logs"
+    return sorted(d.glob(f"*-{kind}.log")) if d.is_dir() else []
+
+
+def _find_spec(explicit, cwd: Path):
+    if explicit:
+        return Path(explicit).resolve()
+    for d in (cwd / "specs", cwd / "lz_spec", cwd):
+        if not d.is_dir():
+            continue
+        cands = [p for p in sorted(d.glob("lz.spec.*.json"))
+                 if not p.name.endswith((".decisions.json", ".schema.json", ".journal.jsonl"))]
+        if len(cands) == 1:
+            return cands[0].resolve()
+        if len(cands) > 1:
+            return cands  # ambiguous: caller reports the choice
+    return None
+
+
+def _find_envs(explicit, cwd: Path):
+    if explicit:
+        return Path(explicit).resolve()
+    cands = [p for p in sorted(cwd.glob("envs*"))
+             if p.is_dir() and any(re.match(r"^\d{2}-", c.name) for c in p.iterdir() if c.is_dir())]
+    if len(cands) == 1:
+        return cands[0].resolve()
+    tf = cwd / "terraform" / "envs-example"
+    return tf.resolve() if tf.is_dir() else None
+
+
+def _decisions_status(spec_path: Path):
+    """(blocking, open, note) for a spec's decisions gate - stdlib only, same
+    rule `lzctl build` enforces."""
+    if spec_path is None or not spec_path.exists():
+        return (0, 0, "no spec")
+    try:
+        ir = json.loads(spec_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return (0, 0, f"unreadable spec ({e})")
+    prov = ir.get("provenance") or {}
+    dec = spec_path.with_name(prov.get("decisions_file")
+                              or (spec_path.stem + ".decisions.json"))
+    if not dec.exists():
+        return (0, 0, "no decisions file (spec has no questionnaire lineage)")
+    doc = json.loads(dec.read_text(encoding="utf-8"))
+    items = doc.get("items") or []
+    open_items = [i for i in items if i.get("state") == "OPEN"]
+    blocking = [i for i in open_items if not isinstance(i.get("resolution"), dict)]
+    note = f"{dec.name}: {len(blocking)} blocking of {len(open_items)} open"
+    if prov.get("decision_set_sha256") and \
+            _decision_set_sha256(items) != prov["decision_set_sha256"]:
+        return (max(1, len(blocking)), len(open_items),
+                note + " - DECISION SET ALTERED (build will refuse)")
+    return (len(blocking), len(open_items), note)
+
+
+def _validate_status(spec_path: Path):
+    """(errors, warnings, note). Runs the real validator so status can never
+    disagree with the gate; unavailable in a runtime-only install."""
+    if spec_path is None or not spec_path.exists():
+        return (None, None, "no spec")
+    r = subprocess.run([sys.executable, "-X", "utf8", "-m", "lz_pipeline",
+                        "spec-validate", str(spec_path)],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    m = re.search(r"spec-validate: (\d+) error\(s\), (\d+) warning\(s\)", r.stdout or "")
+    if not m:
+        return (None, None, "validator unavailable (runtime-only install)")
+    return (int(m.group(1)), int(m.group(2)),
+            f"{_n(int(m.group(1)), 'error')}, {_n(int(m.group(2)), 'warning')}")
+
+
+def phase_report(spec_path, envs, deep=True):
+    """Every phase's state, derived from artifacts. Never reads a stored
+    pointer: `status` after a crash is as accurate as `status` after a
+    clean run."""
+    ph = {p: dict(state="todo", artifacts=[], blockers=[], notes=[],
+                  inputs=[], next=None) for p in PHASES}
+    spec_mtime = _mtime(spec_path) if spec_path else None
+
+    # ── intake ──────────────────────────────────────────────────────────
+    p = ph["intake"]
+    if spec_path is None:
+        p["blockers"].append("no spec found - pass --spec, or run `lzctl intake` + `lzctl assess`")
+        p["inputs"].append("a filled questionnaire (xlsx), an LLD, or a described target")
+        p["next"] = "lzctl intake <filled.xlsx> -o dump.json  &&  lzctl assess dump.json --customer <id>"
+    else:
+        p["artifacts"].append((True, f"spec drafted ({_rel(spec_path)})"))
+        dec = spec_path.with_name(spec_path.stem + ".decisions.json")
+        p["artifacts"].append((dec.exists(),
+                               f"decisions file present ({dec.name})" if dec.exists()
+                               else "no decisions file (not questionnaire-derived)"))
+        p["state"] = "done"
+        if not dec.exists():
+            p["notes"].append("no decisions file: this spec did not come from a questionnaire, "
+                              "so there is no intake gate to clear")
+
+    # ── design ──────────────────────────────────────────────────────────
+    p = ph["design"]
+    blocking, n_open, dec_note = _decisions_status(spec_path)
+    errors = warnings = None
+    if spec_path is not None:
+        p["notes"].append(dec_note)
+        if deep:
+            errors, warnings, val_note = _validate_status(spec_path)
+            p["notes"].append("validate: " + val_note)
+        else:
+            p["notes"].append("validate: not run (--quick) - phase state assumes it would pass")
+        if blocking:
+            p["blockers"].append(f"{_n(blocking, 'OPEN decision')} without a resolution "
+                                 "- `lzctl build` exits 3 until each records who decided and why")
+            p["inputs"].append("a resolution per open decision (the app's Decisions & gaps view)")
+        if errors:
+            p["blockers"].append(f"{_n(errors, 'validation error')} - run `lzctl validate` for the list")
+            p["inputs"].append("the values the validator names (placeholders included: LZR-032)")
+        # errors is None when the validator did not run (--quick, or a
+        # runtime-only install): unknown is not the same as failing, so the
+        # phase is judged on what WAS checked and the note says so.
+        if ph["intake"]["state"] == "done" and not blocking and not errors:
+            p["state"] = "done"
+        p["next"] = f"lzctl validate {_rel(spec_path)}" if (errors or blocking) else None
+
+    # ── build ───────────────────────────────────────────────────────────
+    p = ph["build"]
+    tfvars, oldest_tfvars = [], None
+    if envs and envs.is_dir():
+        tfvars = sorted(envs.glob("*/terraform.tfvars.json"))
+        times = [t for t in (_mtime(f) for f in tfvars) if t is not None]
+        oldest_tfvars = min(times) if times else None
+        deps = envs / "deps.json"
+        p["artifacts"].append((bool(tfvars),
+                               f"terraform.tfvars.json present in all {_n(len(tfvars), 'env')}"
+                               if tfvars else "terraform.tfvars.json missing - nothing generated yet"))
+        p["artifacts"].append((deps.exists(),
+                               "deps.json present" if deps.exists() else "deps.json missing"))
+        if tfvars and deps.exists():
+            p["state"] = "done"
+            if spec_mtime and oldest_tfvars and spec_mtime > oldest_tfvars:
+                # Timestamps are a HINT, not proof: a spec edit that touches
+                # four envs leaves the other nine correct but older. Err
+                # toward "re-verify" and name the check that settles it -
+                # regen-diff regenerates and compares bytes.
+                behind = sum(1 for f in tfvars
+                             if (_mtime(f) or 0) < spec_mtime)
+                p["state"] = "stale"
+                p["blockers"].append(
+                    f"the spec is newer than {behind} of {len(tfvars)} envs - the tree may "
+                    "not match it. Timestamps only suggest that; regeneration proves it")
+                p["next"] = (
+                    f"lzctl check regen-diff --envs-dir {_rel(envs)} "
+                    f"--spec {_rel(spec_path) if spec_path else '<spec>'}"
+                    "   ->   lzctl build ...   # only if regen-diff reports differences")
+        elif tfvars and not deps.exists():
+            p["blockers"].append("deps.json missing - preflight fails and apply order falls "
+                                 "back to numeric prefix (`lzctl deps --envs-dir " + _rel(envs) + "`)")
+    else:
+        p["artifacts"].append((False, "no env tree generated yet"))
+    if p["state"] in ("todo", "stale") and not p["next"]:
+        p["next"] = (f"lzctl build --spec {_rel(spec_path) if spec_path else '<spec>'} "
+                     f"--envs-dir {_rel(envs) if envs else '<envs>'}"
+                     + ("" if (envs and envs.is_dir()) else " --scaffold-dir terraform/scaffold"))
+
+    # ── verify_pre ──────────────────────────────────────────────────────
+    p = ph["verify_pre"]
+    if envs and envs.is_dir():
+        plans = sorted(envs.glob("*/tf.plan"))
+        newest_plan = _newest(plans)
+        p["artifacts"].append((bool(plans),
+                               f"{len(plans)} of {len(tfvars) or len(plans)} envs planned"
+                               if plans else "no env planned yet"))
+        plan_logs = _logs(envs, "plan")
+        p["artifacts"].append((bool(plan_logs),
+                               f"{_n(len(plan_logs), 'plan run')} logged"
+                               if plan_logs else "no plan run logged"))
+        if plans and len(plans) >= len(tfvars) and newest_plan:
+            p["state"] = "done"
+            if oldest_tfvars and newest_plan < oldest_tfvars:
+                p["state"] = "stale"
+                p["blockers"].append("plans are older than the generated tree - re-plan before "
+                                     "apply (a plan file is only a claim about the tree it came from)")
+        elif plans:
+            p["notes"].append(f"{len(plans)}/{len(tfvars)} envs planned")
+        if ph["build"]["state"] == "stale":
+            p["state"] = "stale"
+            p["notes"].append("Recheck follows build: regenerate first, then re-plan. "
+                              "Planning from a tree that no longer matches the spec is a "
+                              "forbidden transition.")
+    if p["state"] in ("todo", "stale"):
+        p["inputs"].append("HW_ACCESS_KEY / HW_SECRET_KEY (or per-env secrets.auto.tfvars.json)")
+        e = _rel(envs)
+        p["next"] = (f"lzctl check all --envs-dir {e} --spec {spec_path.name if spec_path else '<spec>'}"
+                     f"   ->   lzctl preflight --envs-dir {e}   ->   lzctl plan --envs-dir {e} --all")
+
+    # ── deploy ──────────────────────────────────────────────────────────
+    p = ph["deploy"]
+    if envs and envs.is_dir():
+        backups = sorted((envs / "state-backups").glob("*.tfstate.json")) \
+            if (envs / "state-backups").is_dir() else []
+        apply_logs = _logs(envs, "apply")
+        p["artifacts"].append((bool(backups),
+                               f"{_n(len(backups), 'state snapshot')} kept"
+                               if backups else "no state backup taken"))
+        p["artifacts"].append((bool(apply_logs),
+                               f"{_n(len(apply_logs), 'apply run')} logged"
+                               if apply_logs else "never applied from this tree"))
+        if apply_logs:
+            p["state"] = "done"
+            last_apply = _newest(apply_logs)
+            if oldest_tfvars and last_apply and last_apply < oldest_tfvars:
+                p["state"] = "stale"
+                p["notes"].append("the tree changed after the last apply - the estate no longer "
+                                  "matches this configuration")
+        lock = envs / ".lzctl.lock"
+        if lock.exists():
+            p["state"] = "blocked"
+            p["blockers"].append(f"{_rel(lock)} present - an apply was interrupted. Do NOT re-apply "
+                                 "blindly: read the newest lzctl-logs/*-apply.log, check "
+                                 "state-backups/, then clear the lock deliberately")
+            p["inputs"].append("a human decision on the interrupted run - resuming an apply is "
+                               "never automatic")
+            # A blocked phase still needs a next step: inspection, not apply.
+            p["next"] = (f"read {_rel(envs)}/lzctl-logs/<newest>-apply.log and "
+                         f"`lzctl verify --envs-dir {_rel(envs)}` to see what actually landed, "
+                         f"BEFORE removing {_rel(lock)}")
+            p["next_meta"] = dict(who="HUMAN - inspection first, then a deliberate decision",
+                                  cloud="read-only (re-plan)",
+                                  reversible="this step only looks")
+    if p["state"] in ("todo", "stale"):
+        p["who_note"] = True
+        p["inputs"].append("a reviewed plan + a human at a terminal for the typed confirmation")
+        p["next"] = f"lzctl apply --envs-dir {_rel(envs)} --all      # HUMAN runs this, never the agent"
+
+    # ── verify_post ─────────────────────────────────────────────────────
+    p = ph["verify_post"]
+    if envs and envs.is_dir():
+        drift_logs = _logs(envs, "drift")
+        p["artifacts"].append((bool(drift_logs),
+                               f"{_n(len(drift_logs), 'verification')} logged"
+                               if drift_logs else "never verified"))
+        last_apply = _newest(_logs(envs, "apply"))
+        last_drift = _newest(drift_logs)
+        if drift_logs and last_apply and last_drift and last_drift > last_apply:
+            p["state"] = "done"
+        elif drift_logs:
+            p["notes"].append("the last verification predates the last apply - re-verify")
+    if p["state"] == "todo" and ph["deploy"]["state"] == "done":
+        p["next"] = f"lzctl verify --envs-dir {_rel(envs)}"
+
+    # ── deliver ─────────────────────────────────────────────────────────
+    p = ph["deliver"]
+    if envs and envs.is_dir():
+        ev = sorted((envs / "evidence").glob("*")) if (envs / "evidence").is_dir() else []
+        p["artifacts"].append((bool(ev),
+                               f"{_n(len(ev), 'evidence bundle')} built"
+                               if ev else "no evidence bundle"))
+        if ev:
+            p["state"] = "done"
+    if p["state"] == "todo" and ph["verify_post"]["state"] == "done":
+        p["next"] = f"lzctl report --envs-dir {_rel(envs)}   ->   lzctl docs --envs-dir {_rel(envs)} --out-dir dist/docs"
+    return ph
+
+
+def _current_phase(ph):
+    for name in PHASES:
+        if ph[name]["state"] != "done":
+            return name
+    return PHASES[-1]
+
+
+# ── Reporting ───────────────────────────────────────────────────────────────
+#
+# `status` reports FACTS; presentation is the caller's job. The agent renders
+# the phase report into its own transcript (the format is specified in the
+# huawei-cloud-landing-zone skill), so this file carries no colour, no box
+# glyphs, and no terminal layout - just --json for a caller that formats, and
+# a terse text form for a human who ran the command by hand.
+
+STATE_WORD = {"done": "complete", "stale": "recheck", "blocked": "blocked", "todo": "pending"}
+STATE_HINT = {
+    "stale": "Timestamp hint only. Content may still match.",
+    "blocked": "Something must be decided by a person before this can move.",
+}
+
+
+def _wrap(text, indent, hang=None, width=78):
+    import textwrap
+    return textwrap.fill(text, width=width, initial_indent=" " * indent,
+                         subsequent_indent=" " * (indent if hang is None else hang),
+                         break_long_words=False, break_on_hyphens=False)
+
+
+def status_document(spec_path, envs, ph):
+    """The phase report as data - the contract every caller formats from."""
+    cur = _current_phase(ph)
+    return {
+        "customer": spec_path.stem.replace("lz.spec.", "") if spec_path else None,
+        "spec": _rel(spec_path), "envs": _rel(envs),
+        "complete": sum(1 for n in PHASES if ph[n]["state"] == "done"),
+        "total": len(PHASES),
+        "current": cur,
+        "env_count": len(list(envs.glob("*/terraform.tfvars.json")))
+                     if envs and envs.is_dir() else 0,
+        "hints": [STATE_HINT[s] for s in ("stale", "blocked")
+                  if any(ph[n]["state"] == s for n in PHASES)],
+        "phases": [{
+            "name": name,
+            "state": ph[name]["state"],
+            "status": STATE_WORD[ph[name]["state"]],
+            "current": name == cur,
+            "gist": PHASE_DOC[name]["gist"],
+            "summary": PHASE_DOC[name]["summary"],
+            "artifacts": [{"present": ok, "what": label}
+                          for ok, label in ph[name]["artifacts"]],
+            "blockers": ph[name]["blockers"],
+            "notes": ph[name]["notes"],
+            "needs": ph[name]["inputs"],
+            "next": [x.strip() for x in re.split(r"\s+->\s+", ph[name]["next"])]
+                    if ph[name]["next"] else [],
+            "runner": (ph[name].get("next_meta") or PHASE_DOC[name])["who"],
+            "cloud_access": (ph[name].get("next_meta") or PHASE_DOC[name])["cloud"],
+            "undo": (ph[name].get("next_meta") or PHASE_DOC[name])["reversible"],
+        } for name in PHASES],
+        "remaining": [n for n in PHASES if ph[n]["state"] != "done"],
+    }
+
+
+def print_status(doc, verbose=False):
+    """Terse text for a human at a prompt. Deliberately plain: the readable
+    version of this report is the one the agent renders in its transcript."""
+    print(f"{doc['customer'] or '(no spec)'}: {doc['complete']}/{doc['total']} complete"
+          + (f", {_n(doc['env_count'], 'env')}" if doc["env_count"] else ""))
+    print(f"  spec {doc['spec']}")
+    print(f"  envs {doc['envs']}")
+    print()
+    width = max(len(p["name"]) for p in doc["phases"])
+    for ph_ in doc["phases"]:
+        mark = ">" if ph_["current"] else " "
+        print(f"{mark} {ph_['name'].ljust(width)}  {ph_['status']}")
+    for hint in doc["hints"]:
+        print()
+        print(f"  {hint}")
+
+    for ph_ in doc["phases"]:
+        if not verbose and not ph_["current"] and ph_["state"] not in ("stale", "blocked"):
+            continue
+        print()
+        print(f"{ph_['name']} / {ph_['gist']}")
+        for b in ph_["blockers"]:
+            print(_wrap(f"! {b}", 2, hang=4))
+        for n in ph_["notes"]:
+            print(_wrap(n, 2))
+        for a in ph_["artifacts"]:
+            print(f"  [{'x' if a['present'] else ' '}] {a['what']}")
+        for i in ph_["needs"]:
+            print(_wrap(f"needs: {i}", 2, hang=4))
+        for i, step in enumerate(ph_["next"], 1):
+            lead = "  next: " if len(ph_["next"]) == 1 else f"  {i}. "
+            print(lead + step)
+        if ph_["next"]:
+            print(_wrap(f"runner {ph_['runner']} | cloud {ph_['cloud_access']} "
+                        f"| undo {ph_['undo']}", 2, hang=4))
+    print()
+    print(f"remaining: {', '.join(doc['remaining']) or 'none'}")
+
+
+def cmd_status(args):
+    global _REL_BASE
+    cwd = Path(args.workspace or ".").resolve()
+    _REL_BASE = cwd
+    spec = _find_spec(getattr(args, "spec", None), cwd)
+    if isinstance(spec, list):
+        print("several specs found - pass --spec <path>:", file=sys.stderr)
+        for s in spec:
+            print(f"  {s}", file=sys.stderr)
+        return 2
+    envs = _find_envs(getattr(args, "envs_dir", None), cwd)
+    ph = phase_report(spec, envs, deep=not args.quick)
+    doc = status_document(spec, envs, ph)
+    doc["journal"] = _journal_entries(spec)
+
+    if getattr(args, "json", False):
+        print(json.dumps(doc, indent=2, ensure_ascii=False))
+    else:
+        print_status(doc, verbose=args.verbose)
+        for e in doc["journal"][-3:]:
+            print(f"  journal {e['at'].split('T')[0]} -> {e['phase']} "
+                  f"({e['by']}): {e['reason']}")
+
+    blocked = [n for n in PHASES if ph[n]["state"] == "blocked"]
+    stale = [n for n in PHASES if ph[n]["state"] == "stale"]
+    return 3 if blocked else (2 if stale else 0)
+
+
+def _journal_entries(spec_path):
+    j = _journal_path(spec_path)
+    if not j or not j.exists():
+        return []
+    return [json.loads(x) for x in j.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
+def _journal_path(spec_path):
+    return spec_path.with_suffix(".journal.jsonl") if spec_path else None
+
+
+def cmd_back(args):
+    """Re-enter an earlier phase deliberately, and record WHY.  # noqa: D401
+
+    This never undoes anything - it cannot: applied infrastructure is undone
+    by Terraform under a human's typed confirmation, not by a status command.
+    What it does is make the decision auditable, and say plainly what the
+    re-entry invalidates. Staleness itself is DERIVED (edit the spec and the
+    tree is stale whether or not anyone ran this), so the journal is the
+    honest part: the reason, and who decided.
+    """
+    global _REL_BASE
+    cwd = Path(args.workspace or ".").resolve()
+    _REL_BASE = cwd
+    spec = _find_spec(getattr(args, "spec", None), cwd)
+    if isinstance(spec, list) or spec is None:
+        print("need exactly one spec - pass --spec <path>", file=sys.stderr)
+        return 2
+    if args.phase not in PHASES:
+        print(f"unknown phase {args.phase!r}; one of: {', '.join(PHASES)}", file=sys.stderr)
+        return 2
+    envs = _find_envs(getattr(args, "envs_dir", None), cwd)
+    ph = phase_report(spec, envs, deep=False)
+    cur = _current_phase(ph)
+    if PHASES.index(args.phase) >= PHASES.index(cur):
+        print(f"already at or before {args.phase} (current: {cur}) - nothing to re-enter",
+              file=sys.stderr)
+        return 1
+
+    invalidated = PHASES[PHASES.index(args.phase) + 1:]
+    # "Has this ever been applied?" is evidence, not phase state: a deploy
+    # blocked by an interrupted-apply lock has still touched the cloud.
+    applied = bool(envs and envs.is_dir() and _logs(envs, "apply"))
+    entry = {"at": datetime.datetime.now().isoformat(timespec="seconds"),
+             "by": getattr(args, "by", None) or getpass.getuser(),
+             "from_phase": cur, "phase": args.phase, "reason": args.reason,
+             "invalidates": list(invalidated)}
+    j = _journal_path(spec)
+    with j.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry) + "\n")
+
+    print(f"== re-entering {args.phase} (from {cur}) ==")
+    print(f"   reason: {args.reason}")
+    print(f"   logged: {_rel(j)}")
+    print(f"\n   invalidates (must be redone in order): {', '.join(invalidated)}")
+    print("   nothing was deleted. Re-running each phase regenerates its artifacts;")
+    print("   `lzctl status` shows what is stale from here.")
+    if applied:
+        print("\n   WARNING: this estate is already APPLIED. Going back changes the")
+        print("   CONFIGURATION only - the deployed resources stay exactly as they are.")
+        print("   The next plan diffs your new configuration against live infrastructure,")
+        print("   so read that plan as a change to production, not as a fresh install.")
+        print("   Removing a resource from the spec plans a DESTROY. Triage before apply.")
+    return 0
+
+
 def cmd_preflight(args):
     envs = Path(args.envs_dir)
     problems = []
@@ -835,6 +1381,102 @@ def cmd_assess(args):
     return 0
 
 
+def cmd_gap(args):
+    """Register a gap found while interpreting - the ONLY sanctioned way to
+    add to a decision set after assessment.
+
+    `assess` can only classify what the QUESTIONNAIRE left blank. Facts the
+    spec needs that no question asked for (an on-prem resolver IP, a peer
+    gateway's public IP, a certificate ID) surface later, during
+    interpretation - and until now had nowhere to live: the decision set is
+    hash-bound, so appending by hand is indistinguishable from tampering and
+    blocks the build.
+
+    This command appends the item and re-stamps BOTH sides atomically -
+    decisions .json, decisions .md, and the spec's provenance hash - so the
+    gap becomes a real OPEN item that blocks `build` until somebody resolves
+    it and records who decided. A hand-edited set still fails, exactly as
+    before.
+    """
+    spec_path = Path(args.spec).resolve()
+    if not spec_path.exists():
+        print(f"spec not found: {spec_path}", file=sys.stderr)
+        return 2
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    prov = spec.get("provenance") or {}
+    if prov.get("source_type") != "questionnaire":
+        print("this spec has no questionnaire lineage (no provenance block), so it "
+              "has no decision set to add to - record the gap wherever this spec's "
+              "requirements live", file=sys.stderr)
+        return 2
+    dec_path = spec_path.with_name(prov.get("decisions_file")
+                                   or (spec_path.stem + ".decisions.json"))
+    if not dec_path.exists():
+        print(f"decisions file missing: {dec_path}", file=sys.stderr)
+        return 2
+    doc = json.loads(dec_path.read_text(encoding="utf-8"))
+    items = doc.get("items") or []
+
+    # Refuse to launder a set that is ALREADY altered: re-stamping here would
+    # bless whatever edit came before us. Only a set matching its provenance
+    # may grow.
+    if _decision_set_sha256(items) != prov.get("decision_set_sha256"):
+        print("decision set does not match the spec's provenance hash - it was "
+              "altered outside this command. Restore it (or re-run `lzctl assess`) "
+              "before adding gaps; `gap add` will not re-stamp an edited set.",
+              file=sys.stderr)
+        return 3
+
+    if args.action == "list":
+        gaps = [i for i in items if str(i.get("ref", "")).startswith("G")]
+        print(f"== {len(gaps)} registered gap(s) in {dec_path.name} ==")
+        for i in gaps:
+            res = i.get("resolution") or {}
+            state = res.get("status") or "UNRESOLVED"
+            print(f"  {i['ref']:4} [{state}] {', '.join(i.get('targets') or [])}")
+            print(f"       {i.get('question', '')}")
+        return 0
+
+    if not args.field or not args.question:
+        print("gap add needs --field <Sheet.Table[row].Column> and --question <what "
+              "is missing and who can answer it>", file=sys.stderr)
+        return 2
+
+    used = {str(i.get("ref", "")) for i in items}
+    ref = args.ref or next(f"G{n}" for n in range(1, 1000) if f"G{n}" not in used)
+    if ref in used:
+        print(f"ref {ref} already exists in {dec_path.name}", file=sys.stderr)
+        return 2
+    item = {"ref": ref, "state": "OPEN", "question": args.question,
+            "targets": [args.field], "resolution": None}
+    items.append(item)
+    doc["items"] = items
+    doc["gaps_registered"] = sum(1 for i in items if str(i.get("ref", "")).startswith("G"))
+
+    prov["decision_set_sha256"] = _decision_set_sha256(items)
+    prov["decision_count"] = len(items)
+    spec["provenance"] = prov
+
+    dec_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    md = dec_path.with_name(dec_path.name.replace(".json", ".md"))
+    if md.exists():
+        body = md.read_text(encoding="utf-8").rstrip("\n")
+        if "## Gaps found during interpretation" not in body:
+            body += ("\n\n## Gaps found during interpretation\n\n"
+                     "Values the spec needs that no questionnaire question asked for.\n"
+                     "Registered by `lzctl gap add`; each one blocks `build` until "
+                     "resolved in the decisions .json.\n")
+        body += f"\n- **{ref}** {args.question}  \n  field: `{args.field}`\n"
+        md.write_text(body, encoding="utf-8")
+
+    print(f"registered {ref} -> {dec_path.name} (now {len(items)} decisions)")
+    print(f"re-stamped provenance in {spec_path.name}")
+    print(f"\n== RESULT: GAP {ref} REGISTERED (OPEN - blocks build until resolved) ==")
+    return 0
+
+
 def cmd_verify(args):
     """Post-apply verification: every env must be clean or known-benign."""
     print("== post-apply verification (re-plan + triage every env) ==")
@@ -881,7 +1523,21 @@ def cmd_report(args):
     return 0 if drift_rc == 0 else 2
 
 
-DELEGATES = ("build", "validate", "spec-validate", "check", "export")
+DELEGATES = ("build", "validate", "spec-validate", "check", "export", "deps")
+
+
+def _version() -> str:
+    """Installed distribution version, or a marker when running standalone.
+
+    This file also ships loose inside the handover artifact, where there is
+    no installed distribution to ask - hence the fallback rather than an
+    import of the package it usually lives in.
+    """
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+        return version("huawei-cloud-landing-zone-pipeline")
+    except Exception:
+        return "standalone runner (no installed distribution)"
 
 
 def main(argv=None):
@@ -892,6 +1548,7 @@ def main(argv=None):
     if argv and argv[0] in DELEGATES:
         return _pipeline_delegate(argv[0], argv[1:])
     ap = argparse.ArgumentParser(prog="lzctl", description=__doc__.splitlines()[0])
+    ap.add_argument("--version", action="version", version=f"lzctl {_version()}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def common(p):
@@ -937,6 +1594,34 @@ def main(argv=None):
     p.add_argument("--workspace", help="workspace dir (default: cwd); writes specs/ inside it")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_assess)
+    p = sub.add_parser("status", help="where this workspace is on the phase graph "
+                                      "(read-only; derived from artifacts)")
+    p.add_argument("--workspace", help="workspace root (default: cwd)")
+    p.add_argument("--spec", "--ir", dest="spec", help="spec to report on (default: the one in specs/)")
+    p.add_argument("--envs-dir", help="env tree (default: the one envs* dir found)")
+    p.add_argument("--verbose", "-v", action="store_true", help="print every phase, not just the live ones")
+    p.add_argument("--quick", action="store_true", help="skip the validator subprocess")
+    p.add_argument("--json", action="store_true",
+                   help="the phase report as data - what an agent formats from; "
+                        "the plain text form is only for a human at a prompt")
+    p.set_defaults(fn=cmd_status)
+    p = sub.add_parser("back", help="deliberately re-enter an earlier phase, with a "
+                                    "recorded reason (never undoes anything)")
+    p.add_argument("phase", help=f"one of: {', '.join(PHASES)}")
+    p.add_argument("--reason", required=True, help="why - this is the audit trail")
+    p.add_argument("--by", help="who decided (default: the OS user)")
+    p.add_argument("--workspace", help="workspace root (default: cwd)")
+    p.add_argument("--spec", "--ir", dest="spec")
+    p.add_argument("--envs-dir")
+    p.set_defaults(fn=cmd_back)
+    p = sub.add_parser("gap", help="register a gap found while interpreting (appends "
+                                   "an OPEN decision and re-stamps provenance)")
+    p.add_argument("action", choices=["add", "list"])
+    p.add_argument("--spec", "--ir", dest="spec", required=True)
+    p.add_argument("--field", help="where the value belongs: Sheet.Table[row].Column")
+    p.add_argument("--question", help="what is missing, and who can answer it")
+    p.add_argument("--ref", help="explicit ref (default: next free G<n>)")
+    p.set_defaults(fn=cmd_gap)
     p = sub.add_parser("verify", help="post-apply gate: every env clean or known-benign")
     p.add_argument("--envs-dir", required=True)
     p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")
@@ -952,7 +1637,8 @@ def main(argv=None):
                 "validate": "spec validation (structural + semantic + platform rules)",
                 "spec-validate": "alias of validate",
                 "check": "the pipeline regression harness (7 checks)",
-                "export": "handover artifact export"}[verb]
+                "export": "handover artifact export",
+                "deps": "regenerate <envs-dir>/deps.json (build writes it too)"}[verb]
         # registered for --help only; real dispatch happens in main() before
         # argparse so the delegated argv passes through completely untouched
         p = sub.add_parser(verb, help=f"pipeline-side: {hint}")

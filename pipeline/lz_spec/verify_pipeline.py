@@ -10,11 +10,18 @@ The CANONICAL config store is the json spec IR; the Excel workbook is a
 GENERATED artifact, not an input.
 
 Targets default to the repo's example spec + example tree; point the harness
-at a customer workspace with LZ_VERIFY_IR and LZ_VERIFY_ENVS.
+at a customer workspace with --envs-dir / --spec (or LZ_VERIFY_ENVS /
+LZ_VERIFY_IR), e.g.
+
+  lzctl check all --envs-dir <envs> --spec <lz.spec.json>
+
+A pip-installed runtime has no repo-relative default tree, so the flags are
+the only way to target one there; a missing target exits 2 with a message.
 
 Exit code 0 = all requested checks passed.
 """
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -302,14 +309,38 @@ CHECKS = {
 
 
 def main():
-    which = sys.argv[1] if len(sys.argv) > 1 else "all"
+    global ENVS, SPEC_IR
+    ap = argparse.ArgumentParser(
+        prog="lz_spec.verify_pipeline",
+        description="Pipeline regression harness. Targets default to the repo's "
+                    "example spec + example tree; point it at a customer "
+                    "workspace with --envs-dir / --spec (or LZ_VERIFY_ENVS / "
+                    "LZ_VERIFY_IR).")
+    ap.add_argument("check", nargs="?", default="all",
+                    choices=["all", *CHECKS], help="which check to run (default: all)")
+    ap.add_argument("--envs-dir", help="env tree to check (overrides LZ_VERIFY_ENVS)")
+    ap.add_argument("--spec", "--ir", dest="spec",
+                    help="spec IR to regenerate from (overrides LZ_VERIFY_IR)")
+    args = ap.parse_args()
+    if args.envs_dir:
+        ENVS = Path(args.envs_dir).resolve()
+    if args.spec:
+        SPEC_IR = Path(args.spec).resolve()
+
+    # Fail with a sentence, not a traceback from inside shutil.copytree: a
+    # pip-installed runtime has no repo-relative default tree, so the default
+    # targets simply do not exist there.
+    for label, path, flag in (("env tree", ENVS, "--envs-dir"), ("spec", SPEC_IR, "--spec")):
+        if not path.exists():
+            print(f"harness {label} not found: {path}\n"
+                  f"  pass {flag} <path> (or set the matching LZ_VERIFY_* env var)")
+            sys.exit(2)
+
+    which = args.check
     if which == "all":
         results = [fn() for fn in CHECKS.values()]
-    elif which in CHECKS:
-        results = [CHECKS[which]()]
     else:
-        print(f"unknown check {which!r}; one of: all, {', '.join(CHECKS)}")
-        sys.exit(2)
+        results = [CHECKS[which]()]
     print()
     # tri-state: True / False / "skip" ("skip" is truthy on purpose - a skip
     # is not a failure). NEVER sum(results): it TypeErrors on the strings.
