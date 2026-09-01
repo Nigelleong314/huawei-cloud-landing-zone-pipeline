@@ -1,10 +1,9 @@
 """04-perimeter: per-account TMS tags + Config/RMS fan-out."""
 import re
 
-import json
 from pathlib import Path
-from ..helpers import MODULE_SOURCE_ROOT, _truthy, _scalar, _split_csv, _account_names, _acct_alias
-from ..writer import _backup_if_exists
+from ..helpers import MODULE_SOURCE_ROOT, _account_names, _acct_alias
+from ..writer import write_generated
 from .common import _assume_role_provider, _provider_alias_block
 
 
@@ -51,14 +50,11 @@ def _emit_perimeter_tag_codegen(env_dir: Path, spec: dict):
 
     config_lines = _perimeter_config_codegen(spec)
 
-    for fname, lines in (
+    write_generated(env_dir, (
         ("providers.generated.tf", prov),
         ("tagging.generated.tf", calls),
         ("config.generated.tf", config_lines),
-    ):
-        path = env_dir / fname
-        _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    ))
 
 
 def _perimeter_config_codegen(spec: dict) -> list:

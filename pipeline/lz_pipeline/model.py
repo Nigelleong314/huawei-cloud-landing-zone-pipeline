@@ -69,7 +69,3 @@ def load(path: Path) -> dict:
         raise ValueError(f"{path}: unsupported schema_version {ir.get('schema_version')!r}")
     return ir
 
-
-def sheets(ir: dict) -> dict:
-    """The spec dict the builders consume."""
-    return ir["sheets"]

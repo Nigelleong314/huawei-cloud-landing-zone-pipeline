@@ -73,11 +73,3 @@ def check(env_names=None) -> list:
                             f"before consumer {c} - one-pass apply order is broken")
     return errs
 
-
-def edges() -> list:
-    """(owner, consumer) pairs - the apply-order edges data lookups imply."""
-    out = []
-    for r in SHARED_RESOURCES:
-        for c in r["consumers"]:
-            out.append((r["owner"], c))
-    return out

@@ -1,11 +1,8 @@
 """06-observability: audit/ops fan-out + LTS log-converge codegen."""
-import re
-
-import json
 from pathlib import Path
 from ..helpers import MODULE_SOURCE_ROOT, _truthy, _scalar, _split_csv, _csv_or_all, _account_names, _acct_alias, _lts_admin
-from ..writer import _backup_if_exists
-from .common import _assume_role_provider, _provider_alias_block
+from ..writer import write_generated
+from .common import _assume_role_provider
 
 
 _AUDIT_MODULE_SRC = MODULE_SOURCE_ROOT + "/compliance-audit"
@@ -32,14 +29,12 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
         ops = _account_names(spec)
     # De-duplicate (preserve first-seen order) so a repeated account in the
     # accounts cell doesn't emit duplicate provider/module blocks.
-    _seen = set()
-    ops = [a for a in ops if a and not (a in _seen or _seen.add(a))]
+    ops = [a for a in dict.fromkeys(ops) if a]
 
     # No-transfer CTS accounts (CTS on, no OBS/LTS). The admin already has the
     # central org tracker, so never duplicate a tracker there.
     cts_nt = _split_csv(_scalar(obs.get("AuditSettings", {}), "cts_no_transfer_accounts", ""))
-    _seen2 = set()
-    cts_nt = [a for a in cts_nt if a and a != admin and not (a in _seen2 or _seen2.add(a))]
+    cts_nt = [a for a in dict.fromkeys(cts_nt) if a and a != admin]
 
     # Org log aggregation (module 12): source accounts need per-account LTS
     # lookups; the LTS admin runs the converge + archive bucket.
@@ -144,14 +139,11 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
     owned_ep = str((dns7.get("Settings", {}) or {}).get("enterprise_project_name") or "").strip()
     lc_lines = _logconverge_codegen(lagg_on, lagg_admin, lc_rows, lc_accounts, owned, owned_ep)
 
-    for fname, lines in (
+    write_generated(env_dir, (
         ("providers.generated.tf", prov),
         ("observability.generated.tf", calls),
         ("logconverge.generated.tf", lc_lines),
-    ):
-        path = env_dir / fname
-        _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    ))
 
 
 def _logconverge_codegen(enabled: bool, admin: str, rows: list, accounts: list,

@@ -1,6 +1,5 @@
 """Workbook -> spec dict (sentinel-driven sheet/table parser)."""
 
-import json
 from pathlib import Path
 from openpyxl import load_workbook
 from .helpers import _truthy, _coerce

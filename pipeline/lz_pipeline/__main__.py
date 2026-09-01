@@ -42,7 +42,7 @@ def cmd_spec_validate(args):
         ir = model.load(p)
     errors, warnings = schema_check.check(ir)
     from .core.cli import check_spec
-    errors += check_spec(model.sheets(ir))
+    errors += check_spec(ir["sheets"])
     for w in warnings:
         print(f"  warn: {w}")
     for e in errors:
@@ -143,7 +143,7 @@ def cmd_build(args):
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 3
-    spec = model.sheets(ir)
+    spec = ir["sheets"]
 
     envs_dir = Path(args.envs_dir).resolve()
     scaffold = Path(args.scaffold_dir).resolve() if args.scaffold_dir else None

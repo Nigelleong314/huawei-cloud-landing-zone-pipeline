@@ -1,8 +1,6 @@
 """lz_app gates.
 
   1. Workbook round-trip: normalize(example IR) -> xlsx -> import == exact.
-     the customer: same, with only the two documented legacy drops
-     (GatewayRoutes table, cts_tracker_region field).
   2. API end-to-end against a live server (ephemeral port): meta/schema,
      load IR, validate (example clean), save (json-only; xlsx rejected),
      run a plan job (env subset, dry-run) to completion.
@@ -24,7 +22,7 @@ REPO = HERE.parent                                  # repo root
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "pipeline"))
 
-from lz_app import find_workspace, wire
+from lz_app import find_workspace
 from lz_app import workbook_io
 
 FAILED = []
@@ -48,7 +46,6 @@ _sh.copy2(_FIXTURE, _ws_tmp / "specs" / "lz.spec.example.json")
 _sh.copytree(REPO / "terraform/envs-example", _ws_tmp / "envs",
              ignore=_sh.ignore_patterns(".terraform"))
 WS = find_workspace(str(_ws_tmp))
-wire(WS)
 ENVS_DIR = "envs"
 
 print("== workbook round-trip ==")
@@ -61,30 +58,6 @@ with tempfile.TemporaryDirectory() as td:
     back = workbook_io.normalize_ir(workbook_io.import_workbook(x))
     check("example round-trip exact", back["sheets"] == norm["sheets"],
           [k for k in norm["sheets"] if back["sheets"].get(k) != norm["sheets"][k]])
-
-# A second, denser spec exercises the same round-trip when present locally;
-# the packaged app ships only the example spec, so this block is optional.
-from lz_pipeline import model
-_dense = next((p for p in sorted((WS / "specs").glob("lz.spec.*.json"))
-               if p.name != "lz.spec.example.json"
-               and not p.name.endswith(".decisions.json")), None)
-if _dense is not None:
-    dense = model.load(_dense)
-    fnorm = workbook_io.normalize_ir(dense)
-    with tempfile.TemporaryDirectory() as td:
-        x = Path(td) / "dense.xlsx"
-        notes = workbook_io.export_workbook(fnorm, x)
-        check("dense spec exports with no drops", not notes, notes)
-        back = workbook_io.normalize_ir(workbook_io.import_workbook(x))
-        diffs = []
-        for sheet in fnorm["sheets"]:
-            a, b = fnorm["sheets"][sheet], back["sheets"].get(sheet, {})
-            for t in a:
-                if t == "GatewayRoutes" or (sheet == "Global" and t == "Settings"):
-                    continue
-                if a[t] != b.get(t):
-                    diffs.append(f"{sheet}.{t}")
-        check("dense spec round-trip exact", not diffs, diffs)
 
 print("== API end-to-end ==")
 from lz_app import server

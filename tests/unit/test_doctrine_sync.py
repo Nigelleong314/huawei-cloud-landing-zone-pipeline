@@ -129,11 +129,10 @@ def test_pipeline_written_filenames_are_ignored_or_retained():
                            cwd=REPO, capture_output=True, stdin=subprocess.DEVNULL)
         assert r.returncode == 1, (
             f"{name!r} must be retained (committed) but .gitignore excludes it")
-    # the handover exporter must exclude every ignored artifact class STANDALONE
-    legacy = (REPO / "pipeline/lz_spec/export_handover.py").read_text(encoding="utf-8")
-    for token in ('".tfplan"', '"tf.plan"', '".lzctl.lock"'):
-        assert token in legacy, (
-            f"export_handover.py must exclude {token} STANDALONE - export_v2's "
-            "runtime patch of its globals disappears the day the modules are "
-            "folded together, and a plan/lock artifact would ship")
-    assert '"secrets.auto.tfvars.json"' in legacy
+    # the handover exporter must exclude every ignored artifact class
+    exporter = (REPO / "pipeline/lz_pipeline/export_v2.py").read_text(encoding="utf-8")
+    for token in ('".tfplan"', '"tf.plan"', '".lzctl.lock"',
+                  '"secrets.auto.tfvars.json"'):
+        assert token in exporter, (
+            f"export_v2.py must exclude {token} - a plan/lock/secrets artifact "
+            "would ship in the handover")

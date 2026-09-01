@@ -73,8 +73,7 @@ commit, never silently:
 - Second eval adapter (non-Claude provider) via `tests/evaluation/adapter.py`.
 - E2E bench: accept the gate-stop profile (unresolved item + zero envs +
   explicit escalation) as an alternative Phase B pass.
-- Fold `lz_spec/export_handover.py` into `export_v2.py` next time export
-  code is touched; dedupe the two identical example-spec copies likewise.
+- Dedupe the two identical example-spec copies.
 - **OBS-native remote apply lock** (conditional-PUT lock object in the state
   bucket) - the advisory lock is machine-local and CI concurrency only
   serializes runs that go through CI; this is the top operational gap.

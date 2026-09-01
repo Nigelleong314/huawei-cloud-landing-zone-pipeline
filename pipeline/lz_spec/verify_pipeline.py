@@ -195,7 +195,7 @@ def check_rules() -> bool:
     sys.path.insert(0, str(HERE))
     sys.path.insert(0, str(HERE.parent))
     from lz_pipeline import rules, model
-    spec = model.sheets(model.load(SPEC_IR))
+    spec = model.load(SPEC_IR)["sheets"]
     modules = REPO / "terraform" / "modules"
     findings = rules.run_spec_rules(spec) + rules.run_tree_rules(ENVS, modules)
     errors = [f for f in findings if f.severity == "error"]
@@ -224,10 +224,10 @@ def check_deps() -> bool:
         current = json.loads(on_disk.read_text(encoding="utf-8"))
         if current.get("envs") != doc["envs"]:
             stale = True
-            print(f"  deps.json is STALE - re-run: python -m lz_pipeline.depsgraph --envs-dir {ENVS} --write")
+            print(f"  deps.json is STALE - re-run: python -m lz_pipeline deps --envs-dir {ENVS}")
     else:
         stale = True
-        print("  deps.json missing - run depsgraph.py --write")
+        print("  deps.json missing - run python -m lz_pipeline deps --envs-dir <envs>")
     n = len(doc["envs"])
     print("deps:", f"PASS ({n}/{n} envs ordered, registry clean, deps.json fresh)"
           if not errs and not stale else "FAILED")

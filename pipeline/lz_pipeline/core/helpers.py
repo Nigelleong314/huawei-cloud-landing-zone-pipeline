@@ -3,7 +3,6 @@
 import json
 import re
 from collections import defaultdict
-from pathlib import Path
 import os
 
 # Where emitted env HCL finds the module library, relative to each env dir.
@@ -74,10 +73,10 @@ def _scalar(table: dict, key: str, default=None):
     return default if v is None else v
 
 
-def _tags_from(spec, table: str) -> dict:
-    """Global.<table> Key/Value rows -> {key: value} map (keys lowercased)."""
+def _tags_from(spec) -> dict:
+    """Global.MasterDefaultTags Key/Value rows -> {key: value} (keys lowercased)."""
     out = {}
-    for r in (spec.get("Global", {}).get(table) or []):
+    for r in (spec.get("Global", {}).get("MasterDefaultTags") or []):
         k = r.get("Key")
         if k is None or str(k).strip() == "":
             continue
@@ -89,12 +88,8 @@ def _tags_from(spec, table: str) -> dict:
 def _default_tags(spec) -> dict:
     """The single default-tag set for ALL accounts (master + members). The separate
     member DefaultTags table was removed — everything now uses MasterDefaultTags."""
-    return _tags_from(spec, "MasterDefaultTags")
+    return _tags_from(spec)
 
-
-def _master_default_tags(spec) -> dict:
-    """Alias of _default_tags now that there is one shared set (MasterDefaultTags)."""
-    return _default_tags(spec)
 
 
 def _drop_none(d: dict) -> dict:

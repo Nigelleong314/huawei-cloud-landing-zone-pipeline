@@ -298,7 +298,6 @@ async function saveSpec(){
     srcLabel(r.file||r.path); $("saveAs").value="";
     await refreshFiles(r.file);
     toast("Saved "+(r.file||r.path),"ok");
-    if(r.notes&&r.notes.length) cards("results", r.notes.map(x=>({sev:"note",msg:x})));
   }catch(e){ toast("Save failed: "+e.message,"err"); }
 }
 const DECISIONS_VIEW="__decisions__";
@@ -325,7 +324,7 @@ function nav(){
     b.appendChild(num);
     b.appendChild(document.createTextNode(m?m[2]:(s.label||s.name)));
     if(s.badge==="optional"){const p=document.createElement("span");p.className="pill opt";p.textContent="opt";p.title=s.badge_note||"";b.appendChild(p);}
-    b.onclick=()=>{CUR=s.name; render(); [...n.querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x===b));};
+    b.onclick=()=>navSelect(s.name);
     n.appendChild(b);
   }
 }
@@ -547,8 +546,8 @@ function inputFor(val,type,en,onch,fk,sample){
   return el;
 }
 function coerce(v,t){
+  // ints become numbers; everything else (incl. "TRUE"/"FALSE" bools) stays a string
   if(t==="int"){const n=Number(v); return Number.isFinite(n)?n:v;}
-  if(t==="bool"){return v;}   // keep "TRUE"/"FALSE" strings - parser semantics
   return v;
 }
 function renderScalar(e,sheet,t){
@@ -657,8 +656,7 @@ function cards(id,items){
       const {s,i}=sheet;
       body.appendChild(document.createTextNode(msg.slice(0,i)));
       const a=document.createElement("a"); a.className="sheetlink"; a.textContent=s.name;
-      a.onclick=()=>{CUR=s.name; render();
-        [...$("nav").querySelectorAll("button")].forEach(x=>x.classList.toggle("active",x.dataset.sheet===s.name));};
+      a.onclick=()=>navSelect(s.name);
       body.appendChild(a);
       body.appendChild(document.createTextNode(msg.slice(i+s.name.length)));
     }else body.textContent=msg;

@@ -29,8 +29,6 @@ _SHEET_ENV = {
 }
 
 
-_FIELD_ENV = {}
-
 
 def _is_scaffold(name: str) -> bool:
     return not (name.endswith((".generated.tf", ".bak")) or
@@ -66,9 +64,6 @@ def _select_envs(only: str) -> list:
 
 
 def _err_in_scope(err: str, selected: list) -> bool:
-    for prefix, env in _FIELD_ENV.items():        # field-level first (most specific)
-        if err.startswith(prefix):
-            return env in selected
     for prefix, env in _SHEET_ENV.items():
         if err.startswith(prefix):
             return env is None or env in selected

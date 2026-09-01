@@ -9,14 +9,10 @@ directory prefix). An inversion is exactly the class of bug behind the old
 06/07 double-apply and fails the check.
 
 Usage:
-    py depsgraph.py --envs-dir envs            # print + check
-    py depsgraph.py --envs-dir ... --write                          # also write <envs>/deps.json
+    py -m lz_pipeline deps --envs-dir <envs>
 """
 
-import argparse
-import json
 import re
-import sys
 from pathlib import Path
 
 # A consumed state key, wherever it appears: as a literal in a
@@ -93,33 +89,3 @@ def build(envs_dir: Path) -> dict:
         "apply_order": apply_order(graph),
         "envs": graph,
     }
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--envs-dir", required=True)
-    ap.add_argument("--write", action="store_true", help="write <envs-dir>/deps.json")
-    ap.add_argument("--quiet", action="store_true")
-    args = ap.parse_args()
-
-    envs_dir = Path(args.envs_dir)
-    doc = build(envs_dir)
-    errs = check(doc["envs"])
-
-    if not args.quiet:
-        for env in doc["apply_order"]:
-            deps = doc["envs"][env]["consumes"]
-            print(f"{env}  <-  {', '.join(deps) if deps else '(nothing)'}")
-    for e in errs:
-        print(f"ERROR: {e}", file=sys.stderr)
-
-    if args.write:
-        out = envs_dir / "deps.json"
-        out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8", newline="\n")
-        if not args.quiet:
-            print(f"wrote {out}")
-    return 1 if errs else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

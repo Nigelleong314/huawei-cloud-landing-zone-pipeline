@@ -4,8 +4,8 @@ import re
 from pathlib import Path
 from ..helpers import MODULE_SOURCE_ROOT, _account_names, _acct_alias
 from ..templating import render_lines
-from ..writer import _backup_if_exists
-from .common import _assume_role_provider, _provider_alias_block
+from ..writer import _backup_if_exists, write_generated
+from .common import _provider_alias_block
 
 
 _IDENTITY_MODULE_SRC = MODULE_SOURCE_ROOT + "/identity"
@@ -57,14 +57,11 @@ def _emit_identity_codegen(env_dir: Path, spec: dict):
         outs.append(f'    "{n}" = module.iam_baseline_{_acct_alias(n)}.agency_urns')
     outs += ["  }", "}", ""]
 
-    for fname, lines in (
+    write_generated(env_dir, (
         ("providers.generated.tf", prov),
         ("iam-baseline.generated.tf", calls),
         ("outputs.generated.tf", outs),
-    ):
-        path = env_dir / fname
-        _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    ))
 
     _emit_app_permission_sets(env_dir, spec)
 

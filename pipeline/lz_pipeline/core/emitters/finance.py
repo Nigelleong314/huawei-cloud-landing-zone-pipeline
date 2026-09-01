@@ -1,11 +1,11 @@
 """02-finance: per-account enterprise-project fan-out."""
 
 from pathlib import Path
-from ..helpers import MODULE_SOURCE_ROOT, _truthy, _scalar, _acct_alias
-from ..builders import _multi_ep_enabled, _eps_accounts, _cost_centers_by_account
+from ..helpers import MODULE_SOURCE_ROOT, _acct_alias
+from ..builders import _cost_centers_by_account
 from ..templating import render_lines
-from ..writer import _backup_if_exists
-from .common import _assume_role_provider, _provider_alias_block
+from ..writer import write_generated
+from .common import _provider_alias_block
 
 
 _FINANCIAL_MODULE_SRC = MODULE_SOURCE_ROOT + "/financial"
@@ -57,11 +57,8 @@ def _emit_finance_codegen(env_dir: Path, spec: dict):
         outs.append(f'    "{a}" = module.{_mod(a)}.cost_center_ep_ids')
     outs += ["  }", "}", ""]
 
-    for fname, lines in (
+    write_generated(env_dir, (
         ("providers.generated.tf", prov),
         ("cost-centers.generated.tf", calls),
         ("outputs.generated.tf", outs),
-    ):
-        path = env_dir / fname
-        _backup_if_exists(path)
-        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+    ))

@@ -2,7 +2,11 @@
 
 import json
 from pathlib import Path
-from .helpers import (_home_region, ENV_NAMES, _truthy, _scalar, _tags_from, _default_tags, _master_default_tags, _drop_none, _group_by, _csv_or_all, _split_csv, _parse_kv_csv, _normalize_ou_parent, _render_tag_policy, _account_names, _acct_alias)
+from .helpers import (_home_region, _truthy, _scalar, _default_tags, _drop_none, _group_by, _csv_or_all, _split_csv, _parse_kv_csv, _normalize_ou_parent, _render_tag_policy, _account_names)
+
+
+def _lc(v, default):
+    return str(v).strip().lower() if v is not None and str(v).strip() != "" else default
 
 
 def build_00_bootstrap(spec):
@@ -165,7 +169,7 @@ def build_03_identity(spec):
     out = {
         "home_region":             _home_region(g),
         "default_tags":             _default_tags(spec),
-        "master_default_tags":      _master_default_tags(spec),  # IC content runs in master
+        "master_default_tags":      _default_tags(spec),  # IC content runs in master
         "foundation_state_bucket": _scalar(g, "state_bucket_name", ""),
     }
     # enable_identity_center_content / enable_iam_baseline are structural (the env
@@ -399,8 +403,6 @@ _CONFIG_FIELD_MAP = {
 def build_06_observability(spec):
     g = spec.get("Global", {}).get("Settings", {})
     obs = spec.get("06_Observability", {})  # modules 6 + 7 share this env/sheet
-    m6 = obs
-    m7 = obs
     s6 = obs.get("AuditSettings", {})
     s7 = obs.get("OpsSettings", {})
 
@@ -453,14 +455,14 @@ def build_06_observability(spec):
     if s7.get("topic_name") is not None:
         out["topic_name"] = s7["topic_name"]
 
-    subs = m7.get("Subscribers") or []
+    subs = obs.get("Subscribers") or []
     if subs:
         out["subscribers"] = [
             {"protocol": x["Protocol"], "endpoint": x["Endpoint"]}
             for x in subs if x.get("Protocol") and x.get("Endpoint")
         ]
 
-    ns = m7.get("OneClickNamespaces") or []
+    ns = obs.get("OneClickNamespaces") or []
     if ns:
         out["one_click_alarms"] = [
             {
@@ -812,9 +814,6 @@ def build_08_cfw(spec):
         if s.get(k) is not None:
             out[k] = s[k]
 
-    def _lc(v, default):
-        return str(v).strip().lower() if v is not None and str(v).strip() != "" else default
-
     ag = m.get("AddressGroups") or []
     if ag:
         out["address_groups"] = [
@@ -917,9 +916,6 @@ def build_10_vpn(spec):
     if s.get("vpn_account") is not None:
         out["vpn_account"] = s["vpn_account"]
 
-    def _lc(v, default):
-        return str(v).strip().lower() if v is not None and str(v).strip() != "" else default
-
     gws = m.get("Gateways") or []
     if gws:
         out["gateways"] = [
@@ -989,9 +985,6 @@ def build_09_sgacl(spec):
         "default_tags":            _default_tags(spec),
         "foundation_state_bucket": _scalar(g, "state_bucket_name", ""),
     }
-
-    def _lc(v, default):
-        return str(v).strip().lower() if v is not None and str(v).strip() != "" else default
 
     def _s(v):
         """Excel cell -> clean string ('' for blank; 443 -> '443', 443.0 -> '443')."""

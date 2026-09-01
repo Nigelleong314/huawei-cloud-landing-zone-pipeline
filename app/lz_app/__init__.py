@@ -22,13 +22,9 @@ def find_workspace(explicit: str = None) -> Path:
     code checkout: code comes from the installed packages. Resolution:
     --workspace flag, LZ_WORKSPACE, then a walk-up looking for something
     workspace-shaped, else the current directory (specs/ created on use)."""
-    candidates = []
+    explicit = explicit or os.environ.get("LZ_WORKSPACE")
     if explicit:
-        candidates.append(Path(explicit))
-    if os.environ.get("LZ_WORKSPACE"):
-        candidates.append(Path(os.environ["LZ_WORKSPACE"]))
-    if candidates:
-        c = candidates[0]
+        c = Path(explicit)
         if not c.is_dir():
             raise SystemExit(f"workspace not found: {c}")
         return c.resolve()
@@ -39,8 +35,3 @@ def find_workspace(explicit: str = None) -> Path:
             return p.resolve()
         p = p.parent
     return Path.cwd().resolve()
-
-
-def wire(workspace: Path):
-    """Kept for compatibility; packages are installed, nothing to inject."""
-    return None

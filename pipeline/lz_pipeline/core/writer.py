@@ -44,3 +44,10 @@ def _render_backend_hcl(bucket: str, region: str) -> str:
 def _backup_if_exists(path: Path):
     if path.exists():
         shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+
+
+def write_generated(env_dir: Path, files):
+    for fname, lines in files:
+        path = env_dir / fname
+        _backup_if_exists(path)
+        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")

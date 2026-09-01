@@ -79,7 +79,7 @@ with tempfile.TemporaryDirectory() as td:
     p = Path(td) / "ir.json"
     model.save(ir, p)
     reloaded = model.load(p)
-    check("save/load round-trip exact", model.sheets(reloaded) == spec_direct)
+    check("save/load round-trip exact", reloaded["sheets"] == spec_direct)
 
 print("== IR build == workbook build (byte-identical) ==")
 with tempfile.TemporaryDirectory(prefix="lz-p1-") as td:

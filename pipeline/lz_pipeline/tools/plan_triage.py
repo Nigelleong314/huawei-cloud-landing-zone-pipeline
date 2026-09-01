@@ -15,7 +15,7 @@ Exit codes: 0 = no changes; 2 = changes, none destructive; 3 = destructive.
 
 Usage:
     terraform plan -out tf.plan && terraform show -json tf.plan > plan.json
-    py tools/plan_triage.py plan.json [plan2.json ...] [--rules rules.json] [--json]
+    py tools/plan_triage.py plan.json [plan2.json ...] [--json]
 
 Benign rules file format (defaults built in):
     [{"type": "huaweicloud_dns_endpoint", "paths": ["ip_addresses(\\[.*)?"]},
@@ -284,46 +284,31 @@ def cost_report(name: str, plan: dict, pricing: dict) -> str:
     return "\n".join(lines)
 
 
-def main_files(paths, rules=None):
+def main_files(paths, rules=None, as_json=False):
     """Library entry: triage a list of plan-JSON files; returns worst exit code."""
     worst = 0
+    results = {}
     for pth in paths:
         plan = json.loads(Path(pth).read_text(encoding="utf-8"))
         buckets = triage(plan, rules)
-        print(report(str(pth), buckets))
+        results[str(pth)] = buckets
+        if not as_json:
+            print(report(str(pth), buckets))
         if buckets["destructive"]:
             worst = max(worst, 3)
         elif sum(len(v) for v in buckets.values()):
             worst = max(worst, 2)
+    if as_json:
+        print(json.dumps(results, indent=2))
     return worst
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plans", nargs="+", help="terraform show -json output file(s)")
-    ap.add_argument("--rules", help="benign rules JSON (default: built-in LZR-019 set)")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
-
-    benign = DEFAULT_BENIGN
-    if args.rules:
-        benign = json.loads(Path(args.rules).read_text(encoding="utf-8"))
-
-    if not args.json:
-        return main_files(args.plans, benign)
-
-    worst = 0
-    results = {}
-    for p in args.plans:
-        plan = json.loads(Path(p).read_text(encoding="utf-8"))
-        buckets = triage(plan, benign)
-        results[p] = buckets
-        if buckets["destructive"]:
-            worst = max(worst, 3)
-        elif sum(len(v) for v in buckets.values()):
-            worst = max(worst, 2)
-    print(json.dumps(results, indent=2))
-    return worst
+    return main_files(args.plans, as_json=args.json)
 
 
 if __name__ == "__main__":
