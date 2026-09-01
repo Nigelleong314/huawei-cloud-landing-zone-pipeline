@@ -66,9 +66,15 @@ def dump(path: Path) -> dict:
     for sheet in SURVEY_SHEETS:
         if sheet not in wb.sheetnames:
             continue
-        for row in wb[sheet].iter_rows(min_row=3):
-            ref, question, guidance, response = [row[i].value if i < len(row) else None
-                                                 for i in range(4)]
+        ws = wb[sheet]
+        # locate the response column by header so forms filled on older
+        # templates (no Example Response column) still parse
+        hdr = [str(c.value or "") for c in ws[2]]
+        resp_i = next((i for i, h in enumerate(hdr) if h == "Customer Response"), 3)
+        for row in ws.iter_rows(min_row=3):
+            ref, question, guidance, response = [
+                row[i].value if i < len(row) else None
+                for i in (0, 1, 2, resp_i)]
             ref = str(ref).strip() if ref else ""
             if not re.fullmatch(r"[CD]\d+", ref):   # category band / blank row
                 continue

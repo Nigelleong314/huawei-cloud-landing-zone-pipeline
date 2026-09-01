@@ -88,7 +88,9 @@ def test_intake_redacts_pasted_secrets(blank_questionnaire, tmp_path):
             target = row[0].row
             break
     assert target
-    ws.cell(row=target, column=4,
+    hdr = [str(c.value or "") for c in ws[2]]
+    resp_col = hdr.index("Customer Response") + 1
+    ws.cell(row=target, column=resp_col,
             value="our VPN pre-shared key is Hx7#tQ9zWpM4 and the site is SG-DC1")
     wb.save(filled)
     out = tmp_path / "dump.json"

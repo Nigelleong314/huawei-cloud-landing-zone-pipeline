@@ -52,6 +52,23 @@ spec diff, decision resolutions) — never in bypassed gates.
    - **Prose answers are interpreted** against their `targets`. Consult the
      packaged `example.spec.json` for field shapes and `schema.py` for
      meanings — copy STRUCTURE from the example, never its values.
+   - **Resource names are inferred, not asked one by one.** Derive every
+     resource `Name`-class value (VPCs, subnets, EIPs, NATs, buckets, vaults,
+     log groups, endpoints, ...) from the customer's stated naming convention,
+     applied consistently across all sheets; honor service limits (bucket
+     names lowercase + globally unique). No stated convention → use the
+     question's documented default pattern and record the convention as a
+     DEFAULTED item so the customer reviews it once, not per resource. Names
+     are proposals — a name the customer wrote explicitly (any appendix row)
+     stays verbatim and is never "normalized" to the pattern.
+   - **Enterprise-project and tag design are inferred the same way.** Derive
+     the EP layout (`02_Finance.CostCenters` rows + `AppPermissionSets`
+     scoping) from the workload/environment/cost-allocation answers, and the
+     tag plan — key naming, `Global.MasterDefaultTags`, `TagPolicies` /
+     `MandatoryTags` entries — from the tagging answer, keeping tag keys and
+     EP names consistent with the resource-naming convention. Each inferred
+     design lands as ONE reviewable DEFAULTED item (the layout / the key
+     set), not one per resource.
    - **DEFAULTED items** (silent with a documented `default_if_silent`):
      apply the stated default to the draft. They never block the build, but
      the customer reviews them via the decisions .md.

@@ -58,17 +58,19 @@ CATEGORIES = [
 Q = []
 
 
-def _q(tier, cat, question, guidance, wiring, default=""):
+def _q(tier, cat, question, guidance, wiring, default="", example=""):
     assert cat in CATEGORIES, cat
     Q.append({"tier": tier, "category": cat, "question": question,
-              "guidance": guidance, "wiring": wiring, "default": default})
+              "guidance": guidance, "wiring": wiring, "default": default,
+              "example": example})
 
 
 # ── Organization & Accounts ─────────────────────────────────────────────────
 _q("core", "Organization & Accounts",
    "Describe your current cloud footprint: which providers you use (AWS, Azure, GCP, Alibaba, Huawei), roughly how many accounts / subscriptions / projects, and what each is for.",
    "Free text; attach an account inventory or org chart if you have one. This shapes the account and OU structure we propose.",
-   ["01_Foundation.OrganizationalUnits"])
+   ["01_Foundation.OrganizationalUnits"],
+   example="AWS: ~25 accounts, one per team; Azure: 8 subscriptions (legacy ERP); no Huawei footprint yet.")
 _q("core", "Organization & Accounts",
    "If you already have Huawei Cloud accounts, what runs in them today? Would you accept a fresh set of Landing Zone accounts, with existing workloads migrated or redeployed into them?",
    "Greenfield accounts give the cleanest governance baseline. If some accounts must be adopted as-is, list them and what they host.",
@@ -82,7 +84,8 @@ _q("core", "Organization & Accounts",
 _q("core", "Organization & Accounts",
    "If you built a landing zone or account hierarchy on another cloud (AWS OUs, Azure management groups, GCP folders), describe it. What worked well and what would you change?",
    "A diagram or export is ideal. We mirror proven structure where it fits Huawei Organizations.",
-   ["01_Foundation.OrganizationalUnits"])
+   ["01_Foundation.OrganizationalUnits"],
+   example="AWS Control Tower: Security / Infrastructure / Workloads OUs. Worked well; too many SCP exceptions crept in.")
 _q("core", "Organization & Accounts",
    "Which Huawei Cloud region is your primary deployment region, and do you have secondary-region or disaster-recovery ambitions? Any data-residency constraints on where data may live?",
    "e.g. ap-southeast-3 (Singapore) primary. Residency constraints become an org-wide region guardrail.",
@@ -90,10 +93,20 @@ _q("core", "Organization & Accounts",
     "04_Perimeter.SCPs.AllowedRegions"],
    "Single region ap-southeast-3, region-lock guardrail staged (not enforced).")
 _q("core", "Organization & Accounts",
-   "What naming and email conventions should we follow? Each Huawei account needs a globally unique email address - do you have a pattern (e.g. cloud-<account>@yourco.com), and do you have a resource-naming standard?",
-   "Plus-addressing (team+lz-prod@yourco.com) works if your mail system supports it. If you have no standard, we apply Huawei best-practice naming.",
+   "What email convention should account mailboxes follow? Each Huawei account needs a globally unique email address - do you have a pattern (e.g. cloud-<account>@yourco.com)?",
+   "Plus-addressing (team+lz-prod@yourco.com) works if your mail system supports it.",
    ["01_Foundation.CoreAccounts.Email", "01_Foundation.WorkloadAccounts.Email"],
-   "Huawei best-practice naming convention.")
+   "cloud-<account>@<your-domain> pattern proposed in the draft.",
+   example="cloud-<account>@acme.com, e.g. cloud-lz-prod@acme.com (plus-addressing not supported).")
+_q("core", "Organization & Accounts",
+   "Do you have a cloud resource naming convention (VPCs, subnets, gateways, buckets, vaults, log groups, ...)? State the pattern and an example, e.g. <org>-<region>-<env>-<service>-<nn> -> acme-sg-prd-vpc-01.",
+   "Every named resource in the draft design is generated from this pattern, so one answer names the whole estate consistently. Note any hard limits (bucket names are globally unique and lowercase; some services cap length).",
+   ["05_Network.HubVPCs.VPCName", "05_Network.HubSubnets.Name",
+    "05_Network.SpokeVPCs.VPCName", "05_Network.EIPs.Name",
+    "05_Network.NATGateways.Name", "06_Observability.AuditSettings",
+    "08_DNS.ResolverEndpoints.Name"],
+   "Huawei best-practice naming (<org>-<region>-<env>-<service>-<nn>); all resource names inferred from it in the draft spec, flagged for review.",
+   example="<org>-<region>-<env>-<service>-<nn>, e.g. acme-sg-prd-vpc-01; buckets lowercase with acme- prefix.")
 _q("deep", "Organization & Accounts",
    "How do you expect the account estate to grow over the next 12-24 months - new workloads, business units, or countries? Who approves creating a new account?",
    "Growth expectations size the OU structure and the account-vending process.",
@@ -103,7 +116,8 @@ _q("deep", "Organization & Accounts",
 _q("core", "Identity & Access",
    "Which teams will work in the cloud (platform, application, security, network, database, finance, ...) and what is each team responsible for?",
    "Appendix C (Teams & Access) has a table for this. Teams map to Identity Center groups and permission sets.",
-   ["03_Identity.Groups"])
+   ["03_Identity.Groups"],
+   example="Platform team (LZ + network), AppDev (portal), SecOps (SOC + audit), DBA; finance needs read-only cost views.")
 _q("core", "Identity & Access",
    "How should people sign in to Huawei Cloud: federated through your corporate identity provider (Entra ID / AD FS / Okta / other), or as natively managed Identity Center users? Which IdP product and version do you run?",
    "Federation keeps joiner-mover-leaver in your IdP. Native IC users need no IdP integration but are managed separately.",
@@ -112,7 +126,8 @@ _q("core", "Identity & Access",
 _q("core", "Identity & Access",
    "Does your identity provider support SAML 2.0 for sign-in and SCIM for automatic user/group provisioning?",
    "Both supported: full federation with auto-provisioning. SAML only: federation with manual user sync.",
-   ["03_Identity.Settings"])
+   ["03_Identity.Settings"],
+   example="Entra ID - SAML 2.0 and SCIM both available.")
 _q("core", "Identity & Access",
    "Do third parties (vendors, MSPs, auditors, outsourced developers) need access? Who, to which accounts or applications, at what permission level, and standing or time-boxed?",
    "Third-party access gets its own groups and least-privilege permission sets so it can be revoked cleanly.",
@@ -126,11 +141,13 @@ _q("core", "Identity & Access",
 _q("deep", "Identity & Access",
    "Describe your CI/CD and automation landscape: which pipeline tools (GitHub Actions, GitLab, Jenkins, ...), where they run, and how automation should authenticate to Huawei Cloud (short-lived federated credentials vs long-lived access keys).",
    "We strongly prefer OIDC/assume-role federation for pipelines; long-lived AK/SK is a last resort with rotation requirements.",
-   ["03_Identity.PermissionSets", "03_Identity.AppPermissionSets"])
+   ["03_Identity.PermissionSets", "03_Identity.AppPermissionSets"],
+   example="GitHub Actions (cloud-hosted); OIDC federation preferred, no static keys in pipelines.")
 _q("deep", "Identity & Access",
    "How is emergency (break-glass) access handled today? Who holds root/master credentials, are they MFA-protected, and how is their use audited?",
    "Informs custody of the management-account root user and the break-glass runbook.",
-   ["03_Identity.Settings"])
+   ["03_Identity.Settings"],
+   example="Root credentials sealed with IT security, MFA on; every use requires a ticket and is reviewed.")
 _q("deep", "Identity & Access",
    "How granular should permissions be? Are standard tiers (administrator / power user / read-only) per account enough, or do specific teams need permissions scoped to a single application's resources within a shared account?",
    "App-scoped permission sets use enterprise-project scoping - more setup, tighter blast radius. Also note preferred session duration and a portal alias (the sign-in URL name) if you have one.",
@@ -142,7 +159,8 @@ _q("deep", "Identity & Access",
 _q("core", "Network",
    "Describe your current network: data centres, offices, existing cloud networks, and how they interconnect. Attach a topology diagram if one exists.",
    "Even a rough sketch helps. This anchors the hub-and-spoke design and interconnect plan.",
-   ["05_Network.HubVPCs"])
+   ["05_Network.HubVPCs"],
+   example="Two DCs (SG + KL) linked by MPLS; AWS VPCs reach on-prem via Transit Gateway; offices on SD-WAN.")
 _q("core", "Network",
    "Which connectivity do you need between Huawei Cloud and your on-premises sites or other clouds? Private line (Direct Connect), site-to-site VPN, or both - and does the link need high availability?",
    "List each site/cloud that must reach Huawei Cloud. VPN specifics (devices, IPs, routing) come in the deep-dive section.",
@@ -163,7 +181,8 @@ _q("core", "Network",
    "Appendix B (IP Plan) has a table for known allocations and ranges to avoid. We recommend one supernet, centrally carved.",
    ["05_Network.Settings.spoke_private_supernet", "05_Network.HubVPCs",
     "05_Network.HubSubnets", "05_Network.SpokeVPCs", "05_Network.SpokeSubnets"],
-   "Huawei plans subnets within a customer-provided supernet.")
+   "Huawei plans subnets within a customer-provided supernet.",
+   example="10.20.0.0/16 reserved for Huawei Cloud (on-prem uses 10.0-10.19); Huawei plans the subnets.")
 _q("core", "Network",
    "How many VPCs do you expect per account - one per account, one per environment, or several per application? Any reason to deviate from one VPC per workload account?",
    "One VPC per workload account is the LZ default; the account boundary already isolates environments.",
@@ -186,11 +205,13 @@ _q("deep", "Network",
    "For each VPN site: what VPN device (vendor/model), does it have a static public IP, BGP or static routing (and your on-prem AS number), which on-prem subnets must be reachable, expected throughput, and do you want dual tunnels for HA?",
    "One answer block per site is fine. BGP with dual tunnels is our recommended HA pattern.",
    ["10_VPN.Gateways", "10_VPN.CustomerGateways", "10_VPN.Connections",
-    "05_Network.EnterpriseRouter.er_asn"])
+    "05_Network.EnterpriseRouter.er_asn"],
+   example="HQ: Fortinet 200F, static IP, BGP (AS 65010), reach 10.0.0.0/12, ~200 Mbit/s, dual tunnels.")
 _q("deep", "Network",
    "If you plan multiple regions: which traffic flows between them (replication, DR failover, user traffic) and with what bandwidth expectations?",
    "Skip if single-region.",
-   [])
+   [],
+   example="Skip - single region for now; DR ambition revisited next year.")
 _q("deep", "Network",
    "Within each VPC, how should subnets be divided - by tier (web / app / db), by AZ, by size? Any sizing rules you follow today?",
    "Default: an app subnet and a db subnet per VPC, plus small platform subnets the design adds automatically.",
@@ -199,7 +220,8 @@ _q("deep", "Network",
 _q("deep", "Network",
    "Do you run or plan Kubernetes/containers (CCE)? If yes: which workloads, and any preference on container networking? Container clusters consume IP space quickly - factor this into the IP plan.",
    "Skip if no containers planned.",
-   ["05_Network.SpokeVPCs"])
+   ["05_Network.SpokeVPCs"],
+   example="CCE planned for the portal re-platform next year; reserve a /20 per cluster in the IP plan.")
 _q("deep", "Network",
    "DNS: which internal domains do you use, where are the authoritative servers, and must cloud workloads resolve on-prem names (or on-prem resolve cloud names)? Any public domains you want hosted on Huawei Cloud DNS?",
    "e.g. 'corp.internal on two on-prem DCs; cloud must resolve it; keep public zones at our registrar'. This shapes private zones, resolver endpoints and forwarding rules. Note whether DNS queries should be logged for security analytics.",
@@ -227,7 +249,8 @@ _q("deep", "Network",
 _q("core", "Security",
    "Which security products do you use today (perimeter firewalls, EDR, SIEM, vulnerability management, PAM), and which must carry over or integrate with the cloud?",
    "e.g. an existing PAM/bastion that must reach cloud servers, or an IPS policy to replicate.",
-   ["09_CFW.Settings"])
+   ["09_CFW.Settings"],
+   example="Palo Alto perimeter, CrowdStrike EDR, Splunk SIEM - EDR and SIEM must extend to cloud servers.")
 _q("core", "Security",
    "Cloud Firewall expectations: should intrusion prevention observe first or block immediately? Do you want antivirus scanning at the perimeter? Should the firewall notify on attack detections and high traffic - and to whom? Billing: pay-per-use or monthly subscription?",
    "Default rollout: IPS in observe mode first, then block after tuning; attack + high-traffic alerts to the ops mailbox; pay-per-use until sizing is proven.",
@@ -281,7 +304,8 @@ _q("core", "Compliance & Audit",
    "Which regulatory or industry frameworks apply to you (e.g. MAS TRM, PDPA, PCI-DSS, ISO 27001, SOC 2), and do auditors need evidence reports from the cloud platform?",
    "Frameworks map to continuous-compliance rule packs evaluated against all accounts.",
    ["04_Perimeter.ConfigConformancePacks"],
-   "Landing Zone best-practice pack only.")
+   "Landing Zone best-practice pack only.",
+   example="ISO 27001 + PDPA; auditors want a yearly conformance evidence export.")
 _q("core", "Compliance & Audit",
    "Do you run continuous compliance monitoring today (AWS Config rules, Azure Policy)? Which account/team should own compliance tooling and its findings on Huawei Cloud?",
    "Typically the security account owns the recorder, aggregator and rule packs.",
@@ -313,7 +337,8 @@ _q("core", "Operations & Monitoring",
 _q("deep", "Operations & Monitoring",
    "Who should receive platform alerts, and how? List email addresses (or SMS numbers) per team/severity. Note: email subscribers must click a confirmation link before alerts flow.",
    "These become subscriptions on the central alerting topic (also used by firewall and DDoS alarms).",
-   ["06_Observability.Subscribers", "06_Observability.OpsSettings.topic_name"])
+   ["06_Observability.Subscribers", "06_Observability.OpsSettings.topic_name"],
+   example="ops-team@acme.com (all severities); oncall SMS +65 9xxx xxxx (critical only).")
 _q("deep", "Operations & Monitoring",
    "Do you integrate with a SIEM (Splunk, Sentinel, QRadar)? Which logs must reach it and by which ingestion method?",
    "Cloud logs can be pulled from the central archive or streamed; the method affects the aggregation design.",
@@ -323,7 +348,8 @@ _q("deep", "Operations & Monitoring",
    "Backup and disaster recovery: what must be backed up (servers, databases, file/object data), with what RPO/RTO and retention? Any long-term archive requirement (e.g. move year-old backups to deep archive)?",
    "The LZ provisions the platform; workload backup policy is designed against these answers and lands with the workload rollout.",
    [],
-   "Recorded for the workload phase; no platform default.")
+   "Recorded for the workload phase; no platform default.",
+   example="All servers nightly (RPO 24h); databases RPO 15 min; keep 30 days hot + 1 year archive.")
 
 # ── Finance & Cost Management ───────────────────────────────────────────────
 _q("core", "Finance & Cost Management",
@@ -336,6 +362,12 @@ _q("core", "Finance & Cost Management",
    "Dimensions become cost-centre enterprise projects + the tag plan from the Network section.",
    ["02_Finance.CostCenters"],
    "Cost centres per business unit, prod/dev typed.")
+_q("core", "Finance & Cost Management",
+   "How should resources be grouped INSIDE accounts using Enterprise Projects - Huawei's in-account grouping construct (closest analogue: Azure resource groups, or AWS tag-based resource groups)? By application, environment, department, cost centre - or do you have no preference?",
+   "Enterprise projects scope both cost reporting and permissions (an admin can be limited to one EP), so the grouping outlives billing. No preference: the design derives an EP layout from your workload and cost-allocation answers.",
+   ["02_Finance.CostCenters", "03_Identity.AppPermissionSets"],
+   "One EP per application per environment tier, derived from the workload list; flagged for review.",
+   example="Group by app + environment, e.g. portal-prd-ep / portal-uat-ep - mirrors our Azure resource-group layout.")
 _q("deep", "Finance & Cost Management",
    "How should shared costs be handled - platform accounts (network hub, security, logging) and shared resources used by many departments? Showback, chargeback, or absorbed centrally?",
    "Common pattern: platform costs absorbed centrally or split pro-rata by consumption.",
@@ -344,7 +376,8 @@ _q("deep", "Finance & Cost Management",
 _q("deep", "Finance & Cost Management",
    "Do you have an existing Huawei Cloud commercial arrangement (enterprise agreement, partner/reseller, committed spend), and do you want budget alerts at defined thresholds sent to finance?",
    "Commercial structure can constrain how accounts attach to billing; budget alerts reuse the ops alerting topic.",
-   ["06_Observability.Subscribers"])
+   ["06_Observability.Subscribers"],
+   example="Partner/reseller agreement via <partner>; alert finance@acme.com at 80% of monthly budget.")
 
 # ── Appendices (optional structured tables) ─────────────────────────────────
 APPENDICES = [
@@ -509,7 +542,7 @@ def write_workbook(out: Path):
         r += 1
 
     # Survey sheets ----------------------------------------------------------
-    widths = {"A": 7, "B": 52, "C": 48, "D": 55}
+    widths = {"A": 7, "B": 46, "C": 40, "D": 34, "E": 50}
     for tier, sheet_name, subtitle in [
         ("core", "Core Questions", "Core Questions - please answer all"),
         ("deep", "Deep-Dive Questions", "Deep-Dive Questions - answer where applicable; blank = best-practice default"),
@@ -518,14 +551,14 @@ def write_workbook(out: Path):
         for col, w in widths.items():
             ws.column_dimensions[col].width = w
         _title(ws, f"Huawei Cloud Landing Zone Assessment - {subtitle}", 4)
-        _headers(ws, 2, ["No.", "Question", "Guidance & Examples", "Customer Response"])
+        _headers(ws, 2, ["No.", "Question", "Guidance", "Example Response", "Customer Response"])
         ws.freeze_panes = "A3"
         r = 3
         for cat in CATEGORIES:
             qs = [q for q in Q if q["tier"] == tier and q["category"] == cat]
             if not qs:
                 continue
-            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=5)
             c = ws.cell(row=r, column=1, value=cat)
             c.font = Font(name="Calibri", bold=True, color="375623")
             c.fill = PatternFill("solid", fgColor=BAND)
@@ -533,15 +566,18 @@ def write_workbook(out: Path):
             ws.row_dimensions[r].height = 18
             r += 1
             for q in qs:
-                cells = [q["ref"], q["question"], q["guidance"], None]
+                ex = q["example"] or q["default"]
+                cells = [q["ref"], q["question"], q["guidance"], ex or None, None]
                 for i, v in enumerate(cells, 1):
                     c = ws.cell(row=r, column=i, value=v)
                     c.alignment = wrap
                     c.border = border
                     if i == 4:
+                        c.font = Font(italic=True, size=10, color="595959")
+                    if i == 5:
                         c.fill = PatternFill("solid", fgColor=FILL_IN)
                 ws.row_dimensions[r].height = _est_height(
-                    [(q["question"], 48), (q["guidance"], 44)])
+                    [(q["question"], 42), (q["guidance"], 36), (ex, 30)])
                 r += 1
 
     # Appendix sheets --------------------------------------------------------
