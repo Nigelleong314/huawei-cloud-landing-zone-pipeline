@@ -67,12 +67,12 @@ class Sheet:
 
 INDEX = Sheet(
     name="Index",
-    description="Workbook map. Informational only — no fields to fill.",
+    description="Workbook map for reference only. No input is required on this sheet.",
     tables=[
         Table(
             name="SheetIndex",
             kind="object-table",
-            description="Sheets are ordered by deploy/apply sequence — fill and apply top to bottom.",
+            description="Sheets follow the deployment sequence. Complete and apply them from top to bottom.",
             mandatory=True,
             columns=[
                 ("Apply",     "string", "Apply order"),
@@ -82,18 +82,18 @@ INDEX = Sheet(
                 ("Notes",     "string", "Hints"),
             ],
             sample_rows=[
-                {"Apply": "—", "Sheet": "Global",          "FeedsEnv": "all (+ 00-bootstrap)", "Module": "—",  "Notes": "Region, state bucket, default tags"},
-                {"Apply": "1", "Sheet": "01_Foundation",   "FeedsEnv": "01-foundation",        "Module": "01", "Notes": "Org, OUs, accounts, IC bootstrap"},
+                {"Apply": "—", "Sheet": "Global",          "FeedsEnv": "all (+ 00-bootstrap)", "Module": "—",  "Notes": "Region, Terraform state bucket, and default tags"},
+                {"Apply": "1", "Sheet": "01_Foundation",   "FeedsEnv": "01-foundation",        "Module": "01", "Notes": "Organization, OUs, accounts, and Identity Center bootstrap"},
                 {"Apply": "2", "Sheet": "02_Finance",      "FeedsEnv": "02-finance",           "Module": "08", "Notes": "Cost-center enterprise projects"},
-                {"Apply": "3", "Sheet": "03_Identity",     "FeedsEnv": "03-identity",          "Module": "02", "Notes": "IC users/groups + IAM baseline"},
-                {"Apply": "4", "Sheet": "04_Perimeter",    "FeedsEnv": "04-perimeter",         "Module": "04", "Notes": "SCPs + predefined tags (per-account)"},
-                {"Apply": "5", "Sheet": "05_Network",      "FeedsEnv": "05-network",           "Module": "03", "Notes": "Hub (ER/CFW/NAT/ELB/EIP) + spokes, deployed together in one apply. BEFORE observability: creates the CFW/flow-log streams the converge aggregates"},
-                {"Apply": "6", "Sheet": "06_Observability","FeedsEnv": "06-observability",     "Module": "06+07+12", "Notes": "CTS/buckets/KMS/LTS + SMN/CES + org log aggregation (LTS converge -> archive OBS). DNS query-log converge row resolves only after 08-network-dns exists (greenfield: re-apply after 08)"},
-                {"Apply": "7", "Sheet": "07_Security",     "FeedsEnv": "07-security",          "Module": "05+13", "Notes": "SecMaster + Basic Anti-DDoS on EIPs + dedicated WAF (hub DMZ). Needs only 01/05/06 - applies right after observability"},
-                {"Apply": "8", "Sheet": "08_DNS",          "FeedsEnv": "08-network-dns",       "Module": "DNS", "Notes": "Public/private zones + records + hybrid resolver (inbound/outbound endpoints, forwarding rules, access logs)"},
-                {"Apply": "9", "Sheet": "09_CFW",          "FeedsEnv": "09-network-cfw",       "Module": "CFW", "Notes": "Firewall rules on the 05-network hub CFW: address/domain/service groups + internet (EIP/NAT) + VPC ACL rules + black/white lists"},
-                {"Apply": "10", "Sheet": "10_VPN",         "FeedsEnv": "10-network-vpn",       "Module": "VPN", "Notes": "Enterprise S2C VPN: gateways (VPC/ER attach via 05-network remote state) + customer gateways + IPsec connections. Apply after 05-network."},
-                {"Apply": "11", "Sheet": "11_SGACL",       "FeedsEnv": "11-network-sgacl",     "Module": "15", "Notes": "Workload security groups + rules (per-account fan-out, delete_default_rules). NetworkACLs/ACLRules tables reserved, not implemented"},
+                {"Apply": "3", "Sheet": "03_Identity",     "FeedsEnv": "03-identity",          "Module": "02", "Notes": "Identity Center users and groups, permission sets, and IAM baseline"},
+                {"Apply": "4", "Sheet": "04_Perimeter",    "FeedsEnv": "04-perimeter",         "Module": "04", "Notes": "Service control policies and predefined tags for each account"},
+                {"Apply": "5", "Sheet": "05_Network",      "FeedsEnv": "05-network",           "Module": "03", "Notes": "Hub and spoke networking, including ER, CFW, NAT, ELB, and EIPs. Deploy this before observability because it creates firewall and flow-log streams used by log aggregation."},
+                {"Apply": "6", "Sheet": "06_Observability","FeedsEnv": "06-observability",     "Module": "06+07+12", "Notes": "CTS, OBS, KMS, LTS, SMN, CES, and organization-wide log aggregation. For a greenfield deployment, re-apply after DNS so the DNS query-log source exists."},
+                {"Apply": "7", "Sheet": "07_Security",     "FeedsEnv": "07-security",          "Module": "05+13", "Notes": "SecMaster, Basic Anti-DDoS for EIPs, and dedicated WAF in the hub DMZ. Deploy after network and observability."},
+                {"Apply": "8", "Sheet": "08_DNS",          "FeedsEnv": "08-network-dns",       "Module": "DNS", "Notes": "Public and private DNS zones, records, hybrid resolver endpoints, forwarding rules, and access logs"},
+                {"Apply": "9", "Sheet": "09_CFW",          "FeedsEnv": "09-network-cfw",       "Module": "CFW", "Notes": "Cloud Firewall address, domain, and service groups, plus internet and VPC ACL rules, allowlists, and blocklists"},
+                {"Apply": "10", "Sheet": "10_VPN",         "FeedsEnv": "10-network-vpn",       "Module": "VPN", "Notes": "Enterprise site-to-cloud VPN gateways, customer gateways, and IPsec connections. Apply after the network environment."},
+                {"Apply": "11", "Sheet": "11_SGACL",       "FeedsEnv": "11-network-sgacl",     "Module": "15", "Notes": "Workload security groups and rules for each account. Network ACL tables are reserved for future use."},
             ],
         ),
     ],
@@ -102,15 +102,15 @@ INDEX = Sheet(
 
 GLOBAL = Sheet(
     name="Global",
-    description="Workspace-wide inputs. AK/SK never live here — pass via $env:HW_ACCESS_KEY and $env:HW_SECRET_KEY.",
+    description="Workspace-wide inputs. Do not store AK/SK credentials in this workbook. Provide them through $env:HW_ACCESS_KEY and $env:HW_SECRET_KEY.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
-            description="Required for every env.",
+            description="Required for every environment.",
             rows=[
-                KV("home_region",         "string", "ap-southeast-3", "ap-southeast-3",   "Primary deployment region (Huawei region ID)."),
-                KV("state_bucket_name",   "string", "",               "example-lz-tfstate",   "Globally unique OBS bucket name for tfstate. Created by 00-bootstrap."),
+                KV("home_region",         "string", "ap-southeast-3", "ap-southeast-3",   "Primary Huawei Cloud deployment region ID."),
+                KV("state_bucket_name",   "string", "",               "example-lz-tfstate",   "Globally unique OBS bucket name for Terraform state. Created by 00-bootstrap."),
             ],
         ),
         Table(
@@ -118,12 +118,12 @@ GLOBAL = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "The SINGLE default-tag set applied to taggable resources in EVERY account — the "
-                "master (management) account AND all member accounts (via cross-account provider "
-                "aliases). Each row is one Key/Value pair. Add/remove rows freely (e.g. owner, "
-                "costcenter, bu, env, compliance). EXCEPTION: huaweicloud_organizations_account "
-                "resources (the vended accounts themselves, 01-foundation) are deliberately "
-                "UNTAGGED — that env's provider carries no default_tags."
+                "Default tags applied to supported resources in the management account and all"
+                " member accounts through cross-account provider aliases. Each row is one "
+                "key/value pair. Add or remove rows as needed, for example owner, costcenter, "
+                "bu, env, or compliance. Organization account resources created in "
+                "01-foundation are intentionally untagged because that environment does not "
+                "use provider default tags."
             ),
             columns=[
                 ("Key",   "string", "Tag key."),
@@ -142,24 +142,24 @@ GLOBAL = Sheet(
 
 M1_ORG = Sheet(
     name="01_Foundation",
-    description="Env 01-foundation (module 1): Organization, OUs, accounts, Identity Center bootstrap.",
+    description="Environment 01-foundation (module 1): organization, OUs, accounts, and Identity Center bootstrap.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
-            description="Org-level scalars. Core accounts (log-archive, security) are MANDATORY and live in the CoreAccounts table.",
+            description="Organization-level settings. The core logging and security accounts are required and are defined in the CoreAccounts table.",
             rows=[
-                KV("identity_center_alias",       "string", "",                                "lz-portal",                       "Optional IC alias; '' = no alias set."),
-                KV("cross_account_agency_name",   "string", "OrganizationAccountAccessAgency", "OrganizationAccountAccessAgency", "Trust agency name auto-created in each vended account."),
-                KV("create_enterprise_project",   "bool",   False,                             True,                               "Create the bootstrap EP. M8 creates additional cost-center EPs."),
-                KV("enterprise_project_name",     "string", "landing-zone",                    "landing-zone",                    "Name of the bootstrap EP."),
-                KV("enforce_tag_keys_scp",        "bool",   False,                             True,                               "Fold a 9th guardrail into the consolidated SCP (04-perimeter) that DENIES create actions unless the request tag keys are in the TagPolicies TagKey set (g:TagKeys, case-sensitive). Tag policies alone only flag; this blocks."),
+                KV("identity_center_alias",       "string", "",                                "lz-portal",                       "Optional Identity Center alias. Leave blank to use no alias."),
+                KV("cross_account_agency_name",   "string", "OrganizationAccountAccessAgency", "OrganizationAccountAccessAgency", "Trust agency name created automatically in each provisioned account."),
+                KV("create_enterprise_project",   "bool",   False,                             True,                               "Create the bootstrap enterprise project. Module 8 creates the additional cost-center enterprise projects."),
+                KV("enterprise_project_name",     "string", "landing-zone",                    "landing-zone",                    "Name of the bootstrap enterprise project."),
+                KV("enforce_tag_keys_scp",        "bool",   False,                             True,                               "Add a ninth guardrail to the consolidated SCP in 04-perimeter. It blocks create actions when request tag keys are outside the TagPolicies TagKey set. Tag policies alone report non-compliance; this control enforces it."),
             ],
         ),
         Table(
             name="EnabledPolicyTypes",
             kind="object-table",
-            description="Org root policy types. CLOSED ENUM — only the two rows below are valid. Toggle Enabled, do not add new rows.",
+            description="Organization root policy types. Only the two rows below are valid. Toggle Enabled and do not add additional rows.",
             mandatory=True,  # don't auto-add an Enabled column; we put it explicitly
             columns=[
                 ("Name",        "string", "Policy type name (do not edit)"),
@@ -175,10 +175,10 @@ M1_ORG = Sheet(
             name="OrganizationalUnits",
             kind="object-table",
             description=(
-                "Every row here is created. Delete rows you don't want. "
-                "Parent='root' (or blank) attaches under the org root; "
-                "Parent='<OUName>' nests under another row's Name. Cycles fail at plan time. "
-                "Org root itself is implicit — do not add a row for it."
+                "Each row creates an organizational unit. Delete rows you do not need. "
+                "Parent='root' or blank places the OU under the organization root. "
+                "Parent='<OUName>' nests it under another OU in this table. Cycles fail during"
+                " planning. Do not add a row for the organization root."
             ),
             mandatory=True,  # no Enabled column — presence in the table = enabled
             columns=[
@@ -196,7 +196,7 @@ M1_ORG = Sheet(
         Table(
             name="CoreAccounts",
             kind="object-table",
-            description="MANDATORY core accounts (logging + security). At minimum: lz-infra + lz-security.",
+            description="Required core accounts for logging and security. At minimum, include lz-infra and lz-security.",
             mandatory=True,
             columns=[
                 ("Name",        "string", "Account name (used as map key)"),
@@ -212,7 +212,7 @@ M1_ORG = Sheet(
         Table(
             name="WorkloadAccounts",
             kind="object-table",
-            description="Workload accounts. Every row here is created — delete rows you don't want. Each row gets vended with a cross-account agency.",
+            description="Workload accounts. Each row creates an account with a cross-account access agency. Delete rows you do not need.",
             mandatory=True,  # no Enabled column — presence in the table = create
             columns=[
                 ("Name",        "string", "Account name"),
@@ -229,12 +229,11 @@ M1_ORG = Sheet(
             name="TrustedServices",
             kind="object-table",
             description=(
-                "Huawei Organizations trusted services. Toggle Enabled per row. "
-                "DelegatedAdmin = account name (must match a Name from CoreAccounts or WorkloadAccounts above) "
-                "to delegate org-wide administration of that service to a member account; leave blank to keep admin in master. "
-                "Append rows for services Huawei adds after this list was generated; verify the principal via "
-                "data \"huaweicloud_organizations_trusted_services_options\" {}. "
-                "AccessAnalyzer and COC support max 1 delegated admin; the rest are unlimited."
+                "Huawei Organizations trusted services. Toggle Enabled for each service. "
+                "DelegatedAdmin is an account name from CoreAccounts or WorkloadAccounts. "
+                "Leave it blank to keep administration in the management account. Add rows "
+                "only for supported services added after this template was generated, and "
+                "verify the service principal first."
             ),
             mandatory=True,  # explicit Enabled column below; no auto-prepend
             columns=[
@@ -265,12 +264,12 @@ M1_ORG = Sheet(
             name="TagPolicies",
             kind="object-table",
             description=(
-                "Custom tag policies beyond the default one. Every row = one policy enforcing one tag key. "
-                "TagValue is a comma-separated allowed-value list; blank = any value allowed (key presence + casing only). "
-                "Scope is a comma-separated list of '<service>:<resourceType>' (e.g. 'ecs:instance,rds:db'); "
-                "BLANK = applies to ALL taggable resource types across every service. "
-                "Tag policies are ADVISORY (flag non-compliance); for hard blocking use M4 BroadSCP 4.0.5. "
-                "Requires tag_policy enabled in EnabledPolicyTypes."
+                "Custom tag policies in addition to the default policy. Each row defines one "
+                "required tag key. TagValue is a comma-separated list of allowed values; leave"
+                " it blank to allow any value while enforcing key presence and casing. Scope "
+                "is a comma-separated list of '<service>:<resourceType>'; leave it blank to "
+                "apply to all taggable resource types. Tag policies report non-compliance. Use"
+                " the module 4 SCP guardrail when you need hard enforcement."
             ),
             mandatory=True,  # every row gets shipped
             columns=[
@@ -292,20 +291,20 @@ M1_ORG = Sheet(
 
 M2_IDENTITY = Sheet(
     name="03_Identity",
-    description="Env 03-identity (module 2): Identity Center content + per-account IAM baseline.",
+    description="Environment 03-identity (module 2): Identity Center configuration and the per-account IAM baseline.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
             rows=[
-                KV("enable_identity_center_content", "bool", True,  True,  "Create IC users/groups/permission_sets in master."),
-                KV("enable_iam_baseline",            "bool", True,  True,  "Apply per-account IAM hardening (password/login/protection policies + agencies)."),
-                KV("session_duration",               "string","PT8H","PT8H","ISO-8601 duration for permission-set sessions."),
-                KV("ic_min_password_length",         "int",  12,    14,    "IC password policy minimum length."),
-                KV("ic_password_max_age_days",       "int",  90,    90,    "IC password expiry in days."),
-                KV("ic_mfa_required",                "bool", True,  True,  "Require MFA for IC users."),
+                KV("enable_identity_center_content", "bool", True,  True,  "Create Identity Center users, groups, and permission sets in the management account."),
+                KV("enable_iam_baseline",            "bool", True,  True,  "Apply per-account IAM hardening, including password, login, operation-protection policies, and agencies."),
+                KV("session_duration",               "string","PT8H","PT8H","ISO 8601 duration for permission-set sessions."),
+                KV("ic_min_password_length",         "int",  12,    14,    "Minimum password length for Identity Center local users."),
+                KV("ic_password_max_age_days",       "int",  90,    90,    "Password expiry period, in days, for Identity Center local users."),
+                KV("ic_mfa_required",                "bool", True,  True,  "Require MFA for Identity Center users."),
                 KV("iam_session_timeout_minutes",    "int",  60,    60,    "Per-account IAM console session timeout."),
-                KV("iam_lockout_duration_minutes",   "int",  15,    15,    "Per-account IAM lockout duration after failed logins."),
+                KV("iam_lockout_duration_minutes",   "int",  15,    15,    "Per-account IAM lockout duration after failed sign-in attempts."),
             ],
         ),
         Table(
@@ -328,7 +327,7 @@ M2_IDENTITY = Sheet(
         Table(
             name="Users",
             kind="object-table",
-            description="IC users. GroupNames is comma-separated; values must exist in the Groups table.",
+            description="Identity Center users. GroupNames is a comma-separated list and each value must match a group in the Groups table.",
             mandatory=True,
             columns=[
                 ("UserName",    "string",   "Login name"),
@@ -345,7 +344,7 @@ M2_IDENTITY = Sheet(
         Table(
             name="PermissionSets",
             kind="object-table",
-            description="Permission sets. SystemPolicies is comma-separated v2012 policy names.",
+            description="Permission sets. SystemPolicies is a comma-separated list of Huawei Cloud v2012 policy names.",
             mandatory=True,
             columns=[
                 ("Name",            "string",   "PS name"),
@@ -364,7 +363,7 @@ M2_IDENTITY = Sheet(
         Table(
             name="AccountAssignments",
             kind="object-table",
-            description="(Group → PermissionSet → Account) bindings. AccountName must match an account from M1.",
+            description="Bindings between groups, permission sets, and accounts. AccountName must match an account defined in module 1.",
             mandatory=True,
             columns=[
                 ("AccountName",   "string", "Account name (from M1 CoreAccounts/WorkloadAccounts)"),
@@ -379,14 +378,12 @@ M2_IDENTITY = Sheet(
             name="AppPermissionSets",
             kind="object-table",
             description=(
-                "Application-scoped Identity Center permission sets. Each row's CustomPolicy (a "
-                "complete v5.0 custom identity policy with EP IDs baked in - see the EP_Scoping "
-                "sheet for how to build one) is attached verbatim to the permission set, emitted "
-                "as the env-level app-permission-sets.generated.tf. Account/EnterpriseProjects "
-                "document which member account and EP names the policy targets. One row per "
-                "permission set; the Terraform resource key is the Name lower-cased with "
-                "non-alphanumerics as underscores (App-Admin -> app_admin). Leave the whole table "
-                "empty if you have none."
+                "Application-scoped Identity Center permission sets. CustomPolicy contains a "
+                "complete v5.0 custom identity policy with enterprise project IDs. See "
+                "EP_Scoping for the supported pattern. Account and EnterpriseProjects document"
+                " the target member account and enterprise projects. Use one row per "
+                "permission set and leave the table empty if application-scoped permission "
+                "sets are not required."
             ),
             columns=[
                 ("Name",               "string",   "Permission set name (also the resource key), e.g. App-Admin"),
@@ -403,13 +400,13 @@ M2_IDENTITY = Sheet(
         Table(
             name="RegisteredRegions",
             kind="list-single",
-            description="Regions where IC can issue session credentials. Blank = same as home_region.",
+            description="Regions where Identity Center can issue session credentials. Leave blank to use the home region only.",
             sample_rows=["ap-southeast-3"],
         ),
         Table(
             name="ServiceAgencies",
             kind="object-table",
-            description="Per-account service agencies (Huawei service → account trust). Policies is comma-separated.",
+            description="Per-account service agencies that allow Huawei Cloud services to act in the account. Policies is a comma-separated list.",
             mandatory=True,
             columns=[
                 ("Name",             "string",   "Agency name"),
@@ -430,68 +427,68 @@ M2_IDENTITY = Sheet(
 
 M3_NETWORK = Sheet(
     name="05_Network",
-    description="Env 05-network (module 3): the hub (ER + VPCs + CFW + NAT + ELB + EIP + RAM share) AND the spokes, deployed together in ONE apply. Spokes attach to the hub ER (created in the same run) and self-wire their ER associations/propagations.",
+    description="Environment 05-network (module 3): hub and spoke networking, including ER, VPCs, CFW, NAT, ELB, EIPs, and RAM sharing. Hub and spoke resources deploy together in one apply, and spoke attachments connect to the ER created in the same run.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
-            description="Hub-wide toggles + the landing-zone enterprise project. ER/CFW are in their own scalar tables; NAT/ELB/EIP are multi-instance tables.",
+            description="Hub-wide settings and the landing zone enterprise project. ER and CFW have dedicated settings tables; NAT, ELB, and EIP support multiple instances.",
             rows=[
-                KV("enable_hub",                       "bool",   True,        True,        "Create the hub (ER + VPCs + CFW + NAT + ELB)."),
-                KV("enable_spoke",                     "bool",   True,        True,        "Create spoke VPCs in the workload accounts."),
-                KV("hub_account",                      "string", "lz-infra",  "lz-infra",  "Account name (must match M1) the hub network resources deploy into. The env assumes this account's OrganizationAccountAccessAgency."),
-                KV("spoke_private_supernet",           "string", None,        "10.0.0.0/8","Supernet covering ALL spoke + hub private CIDRs. The SNAT VPC auto-gets a <supernet> -> ER route (return path to spokes, more specific than its 0.0.0.0/0 -> NAT default). Must not overlap the SNAT VPC's own subnets."),
-                KV("enterprise_project_name",          "string", None,        "landing-zone","Landing-zone enterprise project for the hub account. Every EPS-capable hub resource (ER, CFW, NAT, ELB, EIP, LTS) is assigned to it. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."),
-                KV("snat_vpc_attachment",              "string", "vpc-dmz-att","vpc-dmz-att","Hub ER VPC attachment (from HubERAttachments.Name) that hosts the egress NAT gateway. The FIXED er-outbound route table's auto static route 0.0.0.0/0 points here for post-inspection internet egress. Blank = no outbound default route."),
-                KV("subnet_dns_servers",               "csv-list", None,      "10.0.32.2,10.0.32.3", "DNS server IPs (max 2, comma-separated) set on EVERY hub + spoke subnet via DHCP. Point these at the 08_DNS INBOUND resolver endpoint IPs so all accounts resolve the central private zones + on-prem forwarding rules (private zones can't associate cross-account). Blank = Huawei default DNS. Safe to set before 08-network-dns is applied (resolution starts once the endpoint exists); updates subnets in place."),
-                KV("enable_vpc_flow_logs",             "bool",   False,       True,        "Create a VPC flow log (ALL traffic) for EVERY hub + spoke VPC, each with its own LTS group + stream named '<vpc>-flowlog'. Aggregate them to the archive bucket by adding 06_Observability LogConverge rows (SourceGroup/SourceStream = <vpc>-flowlog); apply 05-network BEFORE re-applying 06-observability so the streams exist for the converge lookups."),
-                KV("flow_log_retention_days",          "int",    90,          90,          "Hot LTS retention (days) of the per-VPC '<vpc>-flowlog' groups/streams."),
+                KV("enable_hub",                       "bool",   True,        True,        "Create the hub network, including ER, VPCs, CFW, NAT, and ELB."),
+                KV("enable_spoke",                     "bool",   True,        True,        "Create spoke VPCs in workload accounts."),
+                KV("hub_account",                      "string", "lz-infra",  "lz-infra",  "Account name from module 1 where hub network resources are deployed. The environment assumes this account's OrganizationAccountAccessAgency."),
+                KV("spoke_private_supernet",           "string", None,        "10.0.0.0/8","Supernet covering all hub and spoke private CIDRs. The SNAT VPC receives a route for this supernet through the ER to provide a return path to spoke networks. The supernet must not overlap the SNAT VPC subnets."),
+                KV("enterprise_project_name",          "string", None,        "landing-zone","Landing zone enterprise project for the hub account. Supported hub resources are assigned to it. The value must match a CostCenters.Name in Sheet 02. Leave blank to use the default enterprise project."),
+                KV("snat_vpc_attachment",              "string", "vpc-dmz-att","vpc-dmz-att","Hub ER VPC attachment that hosts the egress NAT gateway. The er-outbound route table sends 0.0.0.0/0 to this attachment after firewall inspection. Leave blank when no outbound default route is required."),
+                KV("subnet_dns_servers",               "csv-list", None,      "10.0.32.2,10.0.32.3", "DNS server IPs, maximum two, applied to every hub and spoke subnet through DHCP. Point these to the 08_DNS inbound resolver endpoint IPs when centralized hybrid DNS is used. Leave blank to use Huawei Cloud default DNS."),
+                KV("enable_vpc_flow_logs",             "bool",   False,       True,        "Create a VPC flow log for every hub and spoke VPC, with a dedicated LTS group and stream named '<vpc>-flowlog'. Add corresponding LogConverge rows in 06_Observability to archive these logs. Apply 05-network before re-applying 06-observability so the source streams exist."),
+                KV("flow_log_retention_days",          "int",    90,          90,          "Hot LTS retention, in days, for each VPC flow-log group and stream."),
             ],
         ),
         Table(
             name="EnterpriseRouter",
             kind="scalar",
-            description="The single hub Enterprise Router (one per hub). AZs are in the ERAvailabilityZones table.",
+            description="The single hub Enterprise Router. Availability zones are defined in the ERAvailabilityZones table.",
             rows=[
                 KV("er_name",                          "string", "lz-hub-er",         "lz-hub-er",         "Name of the hub Enterprise Router."),
-                KV("er_asn",                           "int",    64512,        64512,       "Enterprise Router ASN."),
-                KV("er_flow_log_name",                 "string", "lz-hub-er-flow-log","lz-hub-er-flow-log","Name of the hub ER flow log."),
-                KV("er_auto_accept_shared_attachments","bool",   True,        True,        "Auto-accept ER attachments from RAM-shared principals (spoke accounts)."),
-                KV("er_share_name",                    "string", "lz-hub-er-share",  "lz-hub-er-share",  "Name of the RAM resource share for the ER attachment."),
+                KV("er_asn",                           "int",    64512,        64512,       "Autonomous system number for the Enterprise Router."),
+                KV("er_flow_log_name",                 "string", "lz-hub-er-flow-log","lz-hub-er-flow-log","Name of the Enterprise Router flow log."),
+                KV("er_auto_accept_shared_attachments","bool",   True,        True,        "Automatically accept ER attachments from principals that receive the shared ER through RAM."),
+                KV("er_share_name",                    "string", "lz-hub-er-share",  "lz-hub-er-share",  "Name of the RAM resource share for ER attachments."),
             ],
         ),
         Table(
             name="CloudFirewall",
             kind="scalar",
-            description="The single hub Cloud Firewall (one per hub).",
+            description="The single hub Cloud Firewall.",
             rows=[
                 KV("cfw_name",                         "string", "lz-hub-cfw",       "lz-hub-cfw",       "Name of the hub Cloud Firewall."),
                 KV("cfw_flavor",                       "string", "standard",  "standard",  "standard | professional."),
-                KV("cfw_ips_protection_mode",          "int",    "",          2,           "IPS protection mode on the hub firewall: 0 observe | 1 strict (intercept) | 2 medium (intercept) | 3 loose. Blank = console-managed (Terraform leaves it untouched). Updates in place."),
-                KV("cfw_ips_patch_enabled",            "bool",   "",          True,        "IPS virtual patching (basic-defense patch switch) on the hub firewall. Blank = console-managed. Updates in place."),
-                KV("inspection_cidr_reservation",      "string", "10.0.99.0/24","10.0.99.0/24","CIDR CFW consumes for its ER-mode inspection attachment. Must NOT overlap any VPC CIDR."),
-                KV("cfw_charging_mode",                "string", "pay-per-use", "pay-per-use", "CFW billing: pay-per-use | subscription. CFW is the only hub resource with a billing choice; everything else is pay-per-use."),
-                KV("cfw_period_unit",                  "string", "month",     "month",     "Subscription period unit: month | year. Only used when cfw_charging_mode=subscription."),
-                KV("cfw_period",                       "int",    1,           1,           "Subscription period count (e.g. 1). Only used when cfw_charging_mode=subscription."),
-                KV("cfw_auto_renew",                   "bool",   False,       False,       "Auto-renew the subscription CFW at period end. Only used when cfw_charging_mode=subscription."),
-                KV("cfw_lts_log_enable",               "bool",   True,        True,        "Stream CFW logs to LTS. The hub module creates the log group + stream below."),
-                KV("cfw_lts_log_group_name",           "string", "lz-hub-cfw",       "lz-hub-cfw",       "Name of the LTS log group the hub creates for CFW logs (used when cfw_lts_log_enable=true)."),
-                KV("cfw_lts_traffic_stream_name",      "string", "cfw-traffic",      "cfw-traffic",      "LTS stream name for CFW traffic/flow logs (also used for the ER attachment flow log)."),
-                KV("cfw_lts_access_stream_name",       "string", "cfw-access",       "cfw-access",       "LTS stream name for CFW access logs."),
-                KV("cfw_lts_attack_stream_name",       "string", "cfw-attack",       "cfw-attack",       "LTS stream name for CFW attack logs."),
+                KV("cfw_ips_protection_mode",          "int",    "",          2,           "IPS protection mode for the hub firewall: 0 observe, 1 strict, 2 medium, or 3 loose. Leave blank to manage this setting in the console."),
+                KV("cfw_ips_patch_enabled",            "bool",   "",          True,        "IPS virtual patching for the hub firewall. Leave blank to manage this setting in the console."),
+                KV("inspection_cidr_reservation",      "string", "10.0.99.0/24","10.0.99.0/24","CIDR used by Cloud Firewall for its ER-mode inspection attachment. It must not overlap any VPC CIDR."),
+                KV("cfw_charging_mode",                "string", "pay-per-use", "pay-per-use", "Cloud Firewall billing mode: pay-per-use or subscription."),
+                KV("cfw_period_unit",                  "string", "month",     "month",     "Subscription period unit: month or year. Used only when cfw_charging_mode is subscription."),
+                KV("cfw_period",                       "int",    1,           1,           "Subscription period count, for example 1. Used only when cfw_charging_mode is subscription."),
+                KV("cfw_auto_renew",                   "bool",   False,       False,       "Automatically renew the Cloud Firewall subscription at the end of the billing period."),
+                KV("cfw_lts_log_enable",               "bool",   True,        True,        "Send Cloud Firewall logs to LTS. The hub module creates the log group and streams below."),
+                KV("cfw_lts_log_group_name",           "string", "lz-hub-cfw",       "lz-hub-cfw",       "Name of the LTS log group created for Cloud Firewall logs."),
+                KV("cfw_lts_traffic_stream_name",      "string", "cfw-traffic",      "cfw-traffic",      "LTS stream for Cloud Firewall traffic and flow logs. This stream is also used for the ER attachment flow log."),
+                KV("cfw_lts_access_stream_name",       "string", "cfw-access",       "cfw-access",       "LTS stream for Cloud Firewall access logs."),
+                KV("cfw_lts_attack_stream_name",       "string", "cfw-attack",       "cfw-attack",       "LTS stream for Cloud Firewall attack logs."),
             ],
         ),
         Table(
             name="ERAvailabilityZones",
             kind="list-single",
-            description="AZs where the ER deploys. One per row. Use the region's full AZ identifiers as the ER API returns them (e.g. ap-southeast-3a, ap-southeast-3e) — NOT short aliases like az1/az5, or Terraform will try to change AZs (immutable) on subsequent applies.",
+            description="Availability zones used by the Enterprise Router, one per row. Use the full Huawei Cloud AZ identifiers returned by the API, such as ap-southeast-3a and ap-southeast-3e.",
             sample_rows=["ap-southeast-3a", "ap-southeast-3e"],
         ),
         Table(
             name="HubVPCs",
             kind="object-table",
             mandatory=True,
-            description="Hub VPCs. Subnets live in HubSubnets keyed by VPCName. vpc-dmz is required when enable_hub=true.",
+            description="Hub VPCs. Subnets are defined in HubSubnets and linked by VPCName. vpc-dmz is required when enable_hub is TRUE.",
             columns=[
                 ("VPCName", "string", "VPC name (vpc-dmz, vpc-access, vpc-shared)"),
                 ("CIDR",    "string", "VPC CIDR"),
@@ -506,7 +503,7 @@ M3_NETWORK = Sheet(
             name="HubSubnets",
             kind="object-table",
             mandatory=True,
-            description="Subnets joined to HubVPCs by VPCName. (AZ is not pinned — Huawei places the subnet automatically.)",
+            description="Subnets linked to HubVPCs by VPCName. Availability zones are not pinned because Huawei Cloud places subnets automatically.",
             columns=[
                 ("VPCName", "string", "FK -> HubVPCs.VPCName"),
                 ("Name",    "string", "Subnet name"),
@@ -556,9 +553,8 @@ M3_NETWORK = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "Elastic IPs — one row per EIP. Each gets its own dedicated bandwidth. NAT (via SNAT/DNAT) and "
-                "ELBs reference an EIP by Name. All EIPs are pay-per-use; BilledBy selects how the bandwidth is "
-                "metered."
+                "Elastic IPs, one per row. Each EIP has dedicated bandwidth. NAT and ELB "
+                "resources reference EIPs by Name. BilledBy controls bandwidth metering."
             ),
             columns=[
                 ("Name",          "string", "EIP name (referenced by SNATRules/DNATRules/ELBs)"),
@@ -577,8 +573,9 @@ M3_NETWORK = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "Hub public NAT gateways — one row per gateway. SNATRules/DNATRules reference a gateway by Name "
-                "and supply the EIP. Typical hub = a single NAT in vpc-dmz."
+                "Public NAT gateways in the hub, one per row. SNATRules and DNATRules "
+                "reference the gateway by Name. A typical hub uses one NAT gateway in the DMZ "
+                "VPC."
             ),
             columns=[
                 ("Specification", "string", "Small | Medium | Large | Extra-large"),
@@ -595,9 +592,10 @@ M3_NETWORK = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "Hub dedicated load balancers (IPv4), elastic (pay-per-use) spec — one row per ELB. "
-                "AZ is a comma-separated list. EIP names an entry in EIPs for public access (blank = internal). "
-                "IPAsBackend enables cross-VPC IP backends. Listeners/pools are wired at the env level."
+                "Dedicated IPv4 load balancers in the hub, billed pay-per-use. AZ is a "
+                "comma-separated list. EIP references an entry in EIPs for public access; "
+                "leave it blank for an internal load balancer. IPAsBackend enables cross-VPC "
+                "IP backends."
             ),
             columns=[
                 ("Name",            "string", "ELB name"),
@@ -616,7 +614,7 @@ M3_NETWORK = Sheet(
             name="SNATRules",
             kind="object-table",
             mandatory=True,
-            description="NAT SNAT rules. CIDR is the source subnet, NAT'd to the named EIP via the named NAT gateway. NATName blank = sole NAT.",
+            description="SNAT rules. CIDR is the source subnet translated to the named EIP through the named NAT gateway. Leave NATName blank when only one NAT gateway exists.",
             columns=[
                 ("NATName",     "string", "FK -> NATGateways.Name (blank = sole NAT)"),
                 ("CIDR",        "string", "Source CIDR"),
@@ -631,7 +629,7 @@ M3_NETWORK = Sheet(
             name="DNATRules",
             kind="object-table",
             mandatory=True,
-            description="NAT DNAT rules (named EIP -> internal target). NATName blank = sole NAT.",
+            description="DNAT rules that map a named EIP to an internal target. Leave NATName blank when only one NAT gateway exists.",
             columns=[
                 ("NATName",      "string", "FK -> NATGateways.Name (blank = sole NAT)"),
                 ("EIP",          "string", "FK -> EIPs.Name"),
@@ -649,9 +647,9 @@ M3_NETWORK = Sheet(
             name="RAMSharePrincipals",
             kind="list-single",
             description=(
-                "Principals to share the hub ER with. One per row: an account NAME (must match M1 — "
-                "resolved to its ID via the 01-foundation outputs), a raw 32-hex account ID, or an OU ID (ou-*). "
-                "Empty = auto-derive (workloads OU + every workload account from M1)."
+                "Principals that receive access to the shared hub ER. Use one account name "
+                "from module 1, a raw 32-character account ID, or an OU ID per row. Leave the "
+                "table empty to derive principals from the workload OU and workload accounts."
             ),
             sample_rows=[],
         ),
@@ -666,11 +664,12 @@ M3_NETWORK = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "Spoke VPCs — one row per VPC (typically one per account). Subnets live in SpokeSubnets keyed by "
-                "VPCName; the ER attachment is defined in SpokeERAttachments. The baseline security group and flow "
-                "log are derived from VPCName. Tagging: the spoke provider carries the Global default tags (REQUIRED "
-                "— the enforced require_mandatory_tags SCP denies untagged creates), and the Tags column overrides "
-                "per key — define the full mandatory set (project,owner,env,bu) here so row tags win outright."
+                "Spoke VPCs, typically one per workload account. Subnets are defined in "
+                "SpokeSubnets and linked by VPCName, while ER attachments are defined in "
+                "SpokeERAttachments. The baseline security group and flow log are derived from"
+                " VPCName. The spoke provider applies Global default tags, and the Tags column"
+                " can override individual keys. Include the full mandatory tag set when "
+                "row-specific values are required."
             ),
             columns=[
                 ("AccountName", "string", "Spoke account name (must match M1)"),
@@ -688,7 +687,7 @@ M3_NETWORK = Sheet(
             name="SpokeSubnets",
             kind="object-table",
             mandatory=True,
-            description="Subnets joined to SpokeVPCs by VPCName. (AZ is not pinned — Huawei places the subnet automatically.) The first subnet of each VPC carries the spoke ER attachment. Tags are per-subnet (no Global default tags).",
+            description="Subnets linked to SpokeVPCs by VPCName. Availability zones are not pinned. The first subnet in each VPC carries the spoke ER attachment. Subnet tags are set explicitly rather than inherited from Global default tags.",
             columns=[
                 ("VPCName", "string", "FK -> SpokeVPCs.VPCName"),
                 ("Name",    "string", "Subnet name"),
@@ -776,20 +775,20 @@ M_DNS = Sheet(
         Table(
             name="Settings",
             kind="scalar",
-            description="Which account the DNS resources deploy into + the enterprise project. The env assumes this account's OrganizationAccountAccessAgency.",
+            description="Account and enterprise project used for DNS resources. The environment assumes the selected account's OrganizationAccountAccessAgency.",
             rows=[
-                KV("dns_account",             "string", "lz-infra", "lz-infra",      "Account name (must match M1) the DNS resources deploy into — typically the shared-services / hub account that owns the resolver VPC. The env assumes this account's OrganizationAccountAccessAgency."),
-                KV("enterprise_project_name", "string", "",         "landing-zone",  "Enterprise project for the private zones / endpoints / resolver rules. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."),
+                KV("dns_account",             "string", "lz-infra", "lz-infra",      "Account name from module 1 where DNS resources are deployed, usually the shared-services or hub account that owns the resolver VPC."),
+                KV("enterprise_project_name", "string", "",         "landing-zone",  "Enterprise project for private zones, resolver endpoints, and forwarding rules. Must match a CostCenters.Name in Sheet 02. Leave blank to use the default enterprise project."),
             ],
         ),
         Table(
             name="PublicZones",
             kind="object-table",
             description=(
-                "Public DNS zones (internet-resolvable). One row per zone; toggle Enabled. Records "
-                "live in RecordSets keyed by Zone. Name MUST end with a trailing dot (e.g. "
-                "'example.com.'). Huawei assigns the authoritative nameservers — delegate to them at "
-                "your registrar."
+                "Public DNS zones. Use one row per zone and toggle Enabled. Record sets are "
+                "defined in RecordSets. Zone names must end with a trailing dot, for example "
+                "'example.com.'. Huawei Cloud provides the authoritative name servers, which "
+                "must be delegated at your registrar."
             ),
             columns=[
                 ("Name",        "string", "Zone apex FQDN with trailing dot (e.g. example.com.)"),
@@ -830,11 +829,10 @@ M_DNS = Sheet(
             name="RecordSets",
             kind="object-table",
             description=(
-                "DNS record sets inside the zones above. One row per record set; toggle Enabled. Zone "
-                "is the FK -> a PublicZones.Name or PrivateZones.Name. Name is the record FQDN (trailing "
-                "dot) and must sit within the zone (e.g. 'app.internal.example.'). Records is a "
-                "comma-separated value list (IPs for A/AAAA; target FQDN for CNAME; 'priority host' for "
-                "MX; quoted text for TXT)."
+                "DNS record sets for the public and private zones above. Use one row per "
+                "record and toggle Enabled. Zone must match a PublicZones or PrivateZones "
+                "name. Name is the record FQDN with a trailing dot. Records is a "
+                "comma-separated list of values appropriate to the record type."
             ),
             columns=[
                 ("Zone",        "string",   "FK -> PublicZones.Name or PrivateZones.Name"),
@@ -876,12 +874,10 @@ M_DNS = Sheet(
             name="ResolverRules",
             kind="object-table",
             description=(
-                "Outbound forwarding rules / endpoint rules (huaweicloud_dns_resolver_rule + "
-                "_rule_associate). One row per rule; toggle Enabled. For queries under DomainName the "
-                "cloud resolver forwards to TargetIPs (on-premises / external DNS servers) via the named "
-                "OUTBOUND endpoint. VPCs is a comma-separated list of VPC names the rule applies to "
-                "(each associated via huaweicloud_dns_resolver_rule_associate). DomainName ends with a "
-                "trailing dot."
+                "Outbound resolver forwarding rules. Use one row per rule and toggle Enabled. "
+                "Queries under DomainName are forwarded through the named outbound endpoint to"
+                " TargetIPs. VPCs is a comma-separated list of VPC names associated with the "
+                "rule. DomainName must end with a trailing dot."
             ),
             columns=[
                 ("Name",       "string",   "Resolver rule name"),
@@ -898,10 +894,9 @@ M_DNS = Sheet(
             name="AccessLogs",
             kind="object-table",
             description=(
-                "DNS query access logging to LTS (huaweicloud_dns_resolver_access_log). One row per log "
-                "config; toggle Enabled. LTSGroup / LTSStream are the LTS log group / stream names the "
-                "module CREATES for the query logs (one group per distinct name). VPCs is a comma-separated list of "
-                "VPC names whose resolver queries are logged."
+                "DNS resolver query logging to LTS. Use one row per configuration and toggle "
+                "Enabled. LTSGroup and LTSStream are created for query logs. VPCs is a "
+                "comma-separated list of VPCs whose resolver queries are logged."
             ),
             columns=[
                 ("Name",      "string",   "Label for this access-log config (informational)"),
@@ -919,18 +914,16 @@ M_DNS = Sheet(
 
 M4_PERIMETER = Sheet(
     name="04_Perimeter",
-    description="Module 4: Data perimeter SCPs (the 8 identity guardrails) + per-account predefined tags. Feeds 04-perimeter.",
+    description="Module 4: data-perimeter service control policies, identity guardrails, predefined tags, and Config setup. Feeds the 04-perimeter environment.",
     tables=[
         Table(
             name="SCPs",
             kind="object-table",
             description=(
-                "The 8 Landing Zone identity guardrails (Service Control Policies). One row "
-                "per policy. Enabled = create the SCP; Enforce = promote from dry-run to "
-                "enforced; Name = explicit policy name. The remaining columns are each "
-                "policy's own settings — fill only the cells relevant to that policy, leave "
-                "the rest blank. Do NOT rename the Policy keys. Validated against Huawei "
-                "org_03_0081 and a customer identity-guardrails review."
+                "Landing Zone service control policies. Each row represents one policy. "
+                "Enabled creates the policy, and Enforce promotes it from dry-run to enforced."
+                " Fill only the settings that apply to that policy and leave the remaining "
+                "cells blank. Do not rename the Policy keys."
             ),
             columns=[
                 ("Policy",            "string",   "Policy key (fixed — do not rename)"),
@@ -958,10 +951,10 @@ M4_PERIMETER = Sheet(
             name="PredefinedTags",
             kind="object-table",
             description=(
-                "TMS predefined tag dictionary, applied to EVERY account (master + each M1 "
-                "account). build_envs generates a provider alias + per-account module call "
-                "from the M1 account list, so adding an account in M1 auto-applies these tags. "
-                "Values comma-separated; blank Values = free-form."
+                "TMS predefined tag dictionary applied to the management account and every "
+                "module 1 account. Values is a comma-separated list; leave it blank for "
+                "free-form values. New accounts added in module 1 receive the same predefined "
+                "tags when the environment is rebuilt."
             ),
             columns=[
                 ("Key",    "string",   "Tag key"),
@@ -988,31 +981,28 @@ M4_PERIMETER = Sheet(
                 "admin account for a single-pane view."
             ),
             rows=[
-                KV("config_admin_account",      "string", "", "lz-security",       "Account (Name from Sheet 01) to run org-wide Config on. BLANK = skip all Config setup. Should be the RMSMultiAccountSetup delegated admin."),
-                KV("enable_config_recorder",    "bool",   True, True,              "Create the resource recorder (Config tracker) in the admin account. Required before any rule/pack can evaluate."),
-                KV("recorder_agency_name",      "string", "lz-config-recorder-trust-agency", "lz-config-recorder-trust-agency", "Name of the recorder trust agency Terraform creates (mirrors Huawei's rms_tracker_trust_agency: service.Config trust + ConfigTrackAgencyPolicy/OBSFullAccessPolicy). Use a name distinct from the system rms_tracker_trust_agency to avoid a clash."),
-                KV("create_recorder_agency",    "bool",   True, True,              "TRUE = Terraform creates the v5 trust agency (huaweicloud_identity_trust_agency). Works because the Config env uses an assume_role provider (temporary member AK/SK) — the agency-token alias fails v5 IAM with PAP5.0046. FALSE = reference an existing agency by recorder_agency_name."),
-                KV("recorder_bucket_name",      "string", "", "example-config-snapshots", "OBS bucket for recorder snapshots. Required when enable_config_recorder = TRUE."),
-                KV("create_recorder_bucket",    "bool",   True, True,              "TRUE = create the bucket (private, versioned, KMS-encrypted, public-access blocked). FALSE = reference recorder_bucket_name as already-existing (e.g. reuse the Sheet 05 audit bucket)."),
-                KV("recorder_bucket_region",    "string", "", "ap-southeast-3",    "Region of the recorder OBS bucket. BLANK = home_region."),
-                KV("recorder_all_supported",    "bool",   True, True,              "TRUE = record all supported resource types. FALSE = restrict (advanced; not exposed as a cell)."),
-                KV("recorder_smn_topic_urn",    "string", "", "",                  "Optional SMN topic URN for change notifications. BLANK = no SMN channel (OBS only)."),
-                KV("enable_config_aggregator",  "bool",   True, True,              "Create an ORGANIZATION-type resource aggregator in the admin account (aggregated multi-account compliance view)."),
-                KV("aggregator_name",           "string", "lz-org-aggregator", "example-org-aggregator", "Name of the org resource aggregator."),
+                KV("config_admin_account",      "string", "", "lz-security",       "Account name from Sheet 01 that hosts organization-wide Config. Leave blank to skip Config setup. This should match the delegated administrator for RMS multi-account setup."),
+                KV("enable_config_recorder",    "bool",   True, True,              "Create the Config resource recorder in the administrator account. A recorder is required before rules or conformance packages can evaluate resources."),
+                KV("recorder_agency_name",      "string", "lz-config-recorder-trust-agency", "lz-config-recorder-trust-agency", "Name of the recorder trust agency created by Terraform. Use a name different from the system rms_tracker_trust_agency to avoid a naming conflict."),
+                KV("create_recorder_agency",    "bool",   True, True,              "TRUE creates the v5 trust agency. FALSE references an existing agency using recorder_agency_name."),
+                KV("recorder_bucket_name",      "string", "", "example-config-snapshots", "OBS bucket used for Config recorder snapshots. Required when enable_config_recorder is TRUE."),
+                KV("create_recorder_bucket",    "bool",   True, True,              "TRUE creates a private, versioned, KMS-encrypted bucket with public access blocked. FALSE uses the existing bucket named in recorder_bucket_name."),
+                KV("recorder_bucket_region",    "string", "", "ap-southeast-3",    "Region of the Config recorder OBS bucket. Leave blank to use home_region."),
+                KV("recorder_all_supported",    "bool",   True, True,              "TRUE records all supported resource types. FALSE restricts recording to a custom set that is not exposed in this workbook."),
+                KV("recorder_smn_topic_urn",    "string", "", "",                  "Optional SMN topic URN for Config change notifications. Leave blank to use OBS delivery only."),
+                KV("enable_config_aggregator",  "bool",   True, True,              "Create an organization-type resource aggregator in the administrator account for multi-account compliance visibility."),
+                KV("aggregator_name",           "string", "lz-org-aggregator", "example-org-aggregator", "Name of the organization resource aggregator."),
             ],
         ),
         Table(
             name="ConfigConformancePacks",
             kind="object-table",
             description=(
-                "Config service (RMS) setup — conformance packages to enforce. These are "
-                "DETECTIVE/audit controls: Config continuously evaluates resources against the "
-                "package's rules and reports violations (complementary to the preventive SCPs "
-                "above — they report, they do not block). Set Enabled = TRUE on each package to "
-                "deploy; it is created org-wide as huaweicloud_rms_organizational_assignment_package "
-                "at the org root. TemplateKey is the predefined template id — leave blank to resolve "
-                "it by name from the Config conformance-package templates data source. Catalog "
-                "validated against Huawei Config 'Conformance Package Templates' (usermanual-rms)."
+                "Config (RMS) conformance packages provide detective controls. They "
+                "continuously evaluate resources and report violations, complementing the "
+                "preventive SCPs above. Set Enabled=TRUE for each package you want to deploy "
+                "organization-wide. TemplateKey identifies the predefined package template; "
+                "leave it blank to resolve the template by name from the Config catalog."
             ),
             columns=[
                 ("Package",     "string",   "Conformance package (fixed name — do not rename)"),
@@ -1067,26 +1057,25 @@ M_CFW = Sheet(
         Table(
             name="Settings",
             kind="scalar",
-            description="Account hosting the hub CFW (= 05_Network Settings.hub_account). The env assumes its OrganizationAccountAccessAgency and resolves the firewall by ID from the 05-network state.",
+            description="Account that hosts the hub Cloud Firewall. This must match 05_Network Settings.hub_account. The environment assumes the account's OrganizationAccountAccessAgency and reads the firewall ID from 05-network state.",
             rows=[
-                KV("cfw_account", "string", "lz-infra", "lz-infra", "Account name (must match M1) that owns the hub CFW (= 05_Network Settings.hub_account). The env assumes this account's OrganizationAccountAccessAgency."),
-                KV("enable_anti_virus", "bool", False, True, "Antivirus on the internet protected object: all protocols (HTTP/SMTP/POP3/IMAP4/FTP/SMB/Malicious Access Control), action block."),
-                KV("enable_reverse_shell_defense", "bool", False, True, "Set every reverse-shell advanced IPS rule on the internet protected object to block+enabled. Action-style API: re-apply reasserts; console changes are not detected as drift."),
-                KV("alarm_topic_name", "string", "", "lz-infra-sg-prd-cs-smntopic-01", "SMN topic NAME in the CFW account that receives firewall alarm notifications (06-observability creates the ops topics). Required when any enable_*_alarm toggle is on."),
-                KV("enable_attack_alarm", "bool", False, True, "Notify the alarm topic on CRITICAL/HIGH attack detections, all day, every occurrence (cfw_alarm_config type 0)."),
-                KV("enable_traffic_alarm", "bool", False, True, "Notify the alarm topic when firewall bandwidth utilisation crosses 80% (cfw_alarm_config type 1)."),
-                KV("enable_eip_unprotected_alarm", "bool", False, True, "Notify the alarm topic when an EIP exists that the firewall does not protect (cfw_alarm_config type 2)."),
-                KV("enable_threat_intel_alarm", "bool", False, True, "Notify the alarm topic on CRITICAL/HIGH threat-intelligence hits (cfw_alarm_config type 3)."),
+                KV("cfw_account", "string", "lz-infra", "lz-infra", "Account name from module 1 that owns the hub Cloud Firewall. This must match 05_Network Settings.hub_account."),
+                KV("enable_anti_virus", "bool", False, True, "Enable antivirus protection for the internet protected object across supported protocols, with blocking action."),
+                KV("enable_reverse_shell_defense", "bool", False, True, "Set reverse-shell advanced IPS rules on the internet protected object to enabled and blocking. Re-applying Terraform reasserts this setting."),
+                KV("alarm_topic_name", "string", "", "lz-infra-sg-prd-cs-smntopic-01", "SMN topic name in the Cloud Firewall account for firewall alarm notifications. Required when any alarm toggle below is enabled."),
+                KV("enable_attack_alarm", "bool", False, True, "Notify the alarm topic for CRITICAL and HIGH attack detections, at all times and for every occurrence."),
+                KV("enable_traffic_alarm", "bool", False, True, "Notify the alarm topic when firewall bandwidth utilization exceeds 80%."),
+                KV("enable_eip_unprotected_alarm", "bool", False, True, "Notify the alarm topic when an EIP is not protected by the firewall."),
+                KV("enable_threat_intel_alarm", "bool", False, True, "Notify the alarm topic for CRITICAL and HIGH threat-intelligence detections."),
             ],
         ),
         Table(
             name="AddressGroups",
             kind="object-table",
             description=(
-                "User-defined IP address groups (huaweicloud_cfw_address_group + _member). One row "
-                "per group; toggle Enabled. Border selects the protected object the group attaches to "
-                "(internet = north-south, vpc = east-west). Members is a comma-separated list of IPs / "
-                "CIDRs / ranges; each becomes a group member. AddressType applies to the whole group."
+                "User-defined IP address groups. Use one row per group and toggle Enabled. "
+                "Border selects the internet or VPC protected object. Members is a "
+                "comma-separated list of IP addresses, CIDRs, or ranges."
             ),
             columns=[
                 ("Name",        "string",   "Address group name"),
@@ -1103,10 +1092,10 @@ M_CFW = Sheet(
             name="DomainGroups",
             kind="object-table",
             description=(
-                "Domain name groups (huaweicloud_cfw_domain_name_group). One row per group; toggle "
-                "Enabled. Type = application (matched by ACL rules on HTTP/HTTPS/TLS-SNI) or network "
-                "(resolved to IPs; used as a rule destination). Border selects the protected object. "
-                "Domains is a comma-separated domain list."
+                "Domain name groups. Use one row per group and toggle Enabled. Type can be "
+                "application for HTTP/HTTPS/TLS-SNI matching or network for domain-to-IP "
+                "resolution. Border selects the protected object. Domains is a comma-separated"
+                " list."
             ),
             columns=[
                 ("Name",        "string",   "Domain group name"),
@@ -1124,10 +1113,10 @@ M_CFW = Sheet(
             name="ServiceGroups",
             kind="object-table",
             description=(
-                "User-defined service groups (huaweicloud_cfw_service_group + _member). One row per "
-                "group; toggle Enabled. Members is a comma-separated list of 'protocol/srcport/dstport' "
-                "(protocol = tcp|udp|icmp|icmpv6; ports may be a single port, a range a-b, or 'any'), "
-                "e.g. 'tcp/any/443,tcp/any/8080'."
+                "User-defined service groups. Use one row per group and toggle Enabled. "
+                "Members is a comma-separated list in 'protocol/srcport/dstport' format. "
+                "Protocol may be tcp, udp, icmp, or icmpv6; ports may be a single value, a "
+                "range, or 'any'."
             ),
             columns=[
                 ("Name",        "string",   "Service group name"),
@@ -1172,11 +1161,9 @@ M_CFW = Sheet(
             name="BlackWhiteLists",
             kind="object-table",
             description=(
-                "CFW black / white lists (huaweicloud_cfw_black_white_list). One row per entry; toggle "
-                "Enabled. ListType = blacklist | whitelist. Border selects the protected object. "
-                "Direction = source | destination (which address the entry matches). Protocol = tcp | "
-                "udp | icmp | icmpv6 | any. AddressType = ipv4 | ipv6 | domain. Address is a single IP / "
-                "CIDR / domain. Port applies only to tcp/udp."
+                "Cloud Firewall allowlists and blocklists. Use one row per entry and toggle "
+                "Enabled. Direction determines whether the source or destination address is "
+                "matched. Port applies only to TCP and UDP entries."
             ),
             columns=[
                 ("Name",        "string", "Label (informational — the resource has no name)"),
@@ -1215,10 +1202,10 @@ M_SGACL = Sheet(
             name="SecurityGroups",
             kind="object-table",
             description=(
-                "Security groups (huaweicloud_networking_secgroup, delete_default_rules=true). "
-                "One row per group; toggle Enabled. Account is the owning member account (must "
-                "match a 01_Foundation account name). Tags as k=v comma list - include the "
-                "mandatory tag set (project/bu/owner/env), the tag SCP denies untagged creates."
+                "Security groups created with default rules removed. Use one row per group and"
+                " toggle Enabled. Account must match a 01_Foundation account name. Tags uses a"
+                " comma-separated k=v list and should include the mandatory project, bu, "
+                "owner, and env tags."
             ),
             columns=[
                 ("Account",     "string",  "Owning member account name (01_Foundation)"),
@@ -1302,20 +1289,18 @@ M_SGACL = Sheet(
 M_VPN = Sheet(
     name="10_VPN",
     description=(
-        "Env 10-network-vpn (VPN module): Enterprise Site-to-Cloud (S2C) VPN — VPN gateways, "
-        "customer gateways (on-prem devices), and IPsec connections. Applied AFTER 05-network: a gateway "
-        "attaches to either a 05_Network VPC (vpc_id + connect subnet) or the hub ER (er_id), resolved "
-        "from the 05-network remote state. Runs in Settings.vpn_account (the hub account). Required "
-        "Terraform resources: vpn_gateway, vpn_customer_gateway, vpn_connection."
+        "Environment 10-network-vpn: enterprise site-to-cloud VPN gateways, customer gateways,"
+        " and IPsec connections. Apply after 05-network because gateway attachments are "
+        "resolved from the 05-network state. The environment runs in Settings.vpn_account."
     ),
     tables=[
         Table(
             name="Settings",
             kind="scalar",
-            description="Account hosting the VPN (typically the 05-network hub account). The env assumes its OrganizationAccountAccessAgency.",
+            description="Account hosting the VPN, usually the 05-network hub account. The environment assumes this account's OrganizationAccountAccessAgency.",
             rows=[
-                KV("vpn_account",             "string", "lz-infra", "lz-infra",     "Account name (must match M1) the VPN resources deploy into (usually the hub account). The env assumes this account's OrganizationAccountAccessAgency."),
-                KV("enterprise_project_name", "string", "",         "landing-zone", "Enterprise project for the VPN resources. Must match a CostCenters.Name in sheet 02 (02_Finance); blank = the default project."),
+                KV("vpn_account",             "string", "lz-infra", "lz-infra",     "Account name from module 1 where VPN resources are deployed, usually the hub account."),
+                KV("enterprise_project_name", "string", "",         "landing-zone", "Enterprise project for VPN resources. Must match a CostCenters.Name in Sheet 02. Leave blank to use the default enterprise project."),
             ],
         ),
         Table(
@@ -1362,9 +1347,9 @@ M_VPN = Sheet(
             name="CustomerGateways",
             kind="object-table",
             description=(
-                "Customer gateways (huaweicloud_vpn_customer_gateway) — the on-premises VPN devices. "
-                "One row per device; toggle Enabled. IP is the on-prem public IP. ASN is the device's "
-                "BGP ASN (used when RouteMode=bgp). RouteMode = static | bgp."
+                "Customer gateways representing on-premises VPN devices. Use one row per "
+                "device and toggle Enabled. IP is the device's public IP. ASN is used when "
+                "RouteMode is bgp. RouteMode can be static or bgp."
             ),
             columns=[
                 ("Name",      "string", "Customer gateway name"),
@@ -1406,18 +1391,18 @@ M_VPN = Sheet(
 
 M5_SECURITY = Sheet(
     name="07_Security",
-    description="Env 07-security: SecMaster (module 5, security account) + edge protection (module 13: Basic Anti-DDoS on hub EIPs + dedicated WAF in the hub DMZ VPC, deployed via a hub provider alias).",
+    description="Environment 07-security: SecMaster in the security account, plus Basic Anti-DDoS for hub EIPs and a dedicated WAF in the hub DMZ.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
             rows=[
-                KV("security_account",         "string", "lz-security",  "lz-security",  "Account name (must match M1) the SecMaster workspace deploys into (the security-ops account)."),
+                KV("security_account",         "string", "lz-security",  "lz-security",  "Account name from module 1 where the SecMaster workspace is deployed."),
                 KV("secmaster_workspace_name", "string", "lz-secmaster", "lz-secmaster", "Name of the SecMaster workspace."),
-                KV("enable_hss",               "bool",   False,           False,           "DEFERRED. Host Security Service."),
+                KV("enable_hss",               "bool",   False,           False,           "Deferred. Host Security Service."),
                 KV("hss_quota_count",          "int",    0,               0,               "Number of HSS quotas to purchase."),
-                KV("enable_dbss",              "bool",   False,           False,           "DEFERRED. Database Security Service."),
-                KV("enable_member_workspaces", "bool",   False,           False,           "Future Pattern B upgrade."),
+                KV("enable_dbss",              "bool",   False,           False,           "Deferred. Database Security Service."),
+                KV("enable_member_workspaces", "bool",   False,           False,           "Reserved for a future Pattern B upgrade."),
             ],
         ),
         Table(
@@ -1465,27 +1450,27 @@ M5_SECURITY = Sheet(
             name="WAF",
             kind="scalar",
             description=(
-                "Dedicated WAF instance (module 13, postPaid — fully Terraform-provisioned, no pre-purchase). "
-                "Deploys into the hub DMZ VPC next to the ingress ELB; domains below route through it. VPC/"
-                "Subnet/SecurityGroup are 05_Network names resolved from 05-network state."
+                "Dedicated WAF instance deployed in the hub DMZ VPC. Domains in the table "
+                "below route through this WAF. VPC, subnet, and security-group names are "
+                "resolved from the 05_Network state."
             ),
             rows=[
-                KV("enable_waf",             "bool",   False, False, "Create the dedicated WAF instance + policy + domains."),
-                KV("waf_instance_name",      "string", "lz-waf", "lz-waf", "Dedicated WAF instance name."),
+                KV("enable_waf",             "bool",   False, False, "Create the dedicated WAF instance, policy, and protected domains."),
+                KV("waf_instance_name",      "string", "lz-waf", "lz-waf", "Name of the dedicated WAF instance."),
                 KV("waf_specification_code", "string", "waf.instance.professional", "waf.instance.professional", "waf.instance.professional (WI-500) | waf.instance.enterprise (WI-100)."),
-                KV("waf_availability_zone",  "string", "",    "ap-southeast-3a", "REQUIRED when enabled. AZ for the WAF engine ECS."),
-                KV("waf_vpc",                "string", "",    "vpc-dmz",  "REQUIRED when enabled. 05_Network HubVPCs name the instance lives in (the DMZ VPC)."),
-                KV("waf_subnet",             "string", "",    "dmz-elb",  "REQUIRED when enabled. 05_Network HubSubnets name (within waf_vpc)."),
-                KV("waf_policy_name",        "string", "lz-waf-policy", "lz-waf-policy", "Shared WAF protection policy all domains attach to."),
+                KV("waf_availability_zone",  "string", "",    "ap-southeast-3a", "Required when WAF is enabled. Availability zone for the WAF engine ECS."),
+                KV("waf_vpc",                "string", "",    "vpc-dmz",  "Required when WAF is enabled. HubVPCs name from 05_Network for the DMZ VPC."),
+                KV("waf_subnet",             "string", "",    "dmz-elb",  "Required when WAF is enabled. HubSubnets name from 05_Network within the selected VPC."),
+                KV("waf_policy_name",        "string", "lz-waf-policy", "lz-waf-policy", "Shared WAF protection policy attached to all configured domains."),
             ],
         ),
         Table(
             name="WAFDomains",
             kind="object-table",
             description=(
-                "Domains protected by the dedicated WAF. Origin is typically the hub ingress ELB private VIP "
-                "(05-network ingress_elb_private_ips) or a backend IP reachable from the WAF VPC. "
-                "CertificateId (a WAF certificate ID) is required when ClientProtocol=HTTPS."
+                "Domains protected by the dedicated WAF. Origin is usually the private VIP of "
+                "the hub ingress ELB or another backend reachable from the WAF VPC. "
+                "CertificateId is required when ClientProtocol is HTTPS."
             ),
             columns=[
                 ("Domain",         "string", "Protected domain, e.g. app.example.com (or *.example.com)"),
@@ -1505,45 +1490,44 @@ M5_SECURITY = Sheet(
 
 M6_AUDIT = Sheet(
     name="06_Observability",
-    description="Env 06-observability (modules 6 + 7): CTS + buckets + KMS + LTS (audit) and SMN + CES (ops).",
+    description="Environment 06-observability (modules 6 and 7): CTS, OBS, KMS, and LTS for audit, plus SMN and Cloud Eye for operations.",
     tables=[
         Table(
             name="AuditSettings",
             kind="scalar",
             rows=[
-                KV("cts_admin_account",       "string", "", "lz-security", "REQUIRED. Delegated-admin account (name from 01_Foundation) where the CENTRAL audit module deploys: org CTS tracker + audit bucket + KMS + CTS log group/stream. {account-name} in the names below resolves to this account."),
-                KV("audit_retention_days",       "int", 365,  365,   "CTS event bucket retention."),
-                KV("audit_cold_after_days",      "int", 0,    90,    "Days before CTS audit bucket objects move to the COLD storage class (0 = never)."),
-                KV("lts_hot_retention_days",     "int", 90,   90,    "LTS hot retention (CTS log stream)."),
-                KV("audit_bucket_name",       "string", "", "{account-name}-sg-prd-ldz-audit-01", "REQUIRED. CTS audit OBS bucket (globally unique). Supports the {account-name} token."),
-                KV("kms_audit_alias",         "string", "", "{account-name}-sg-prd-ldz-audit-key", "REQUIRED. KMS alias for the audit-bucket key. Supports {account-name}."),
+                KV("cts_admin_account",       "string", "", "lz-security", "Required. Delegated administrator account from 01_Foundation where the central audit resources are deployed, including the organization CTS tracker, audit bucket, KMS key, and CTS log group and stream."),
+                KV("audit_retention_days",       "int", 365,  365,   "Retention period for objects in the CTS audit bucket."),
+                KV("audit_cold_after_days",      "int", 0,    90,    "Number of days before CTS audit objects move to the COLD storage class. Use 0 to disable transition."),
+                KV("lts_hot_retention_days",     "int", 90,   90,    "Hot retention period for the CTS LTS log stream."),
+                KV("audit_bucket_name",       "string", "", "{account-name}-sg-prd-ldz-audit-01", "Required. Globally unique CTS audit OBS bucket name. Supports the {account-name} token."),
+                KV("kms_audit_alias",         "string", "", "{account-name}-sg-prd-ldz-audit-key", "Required. KMS alias for the audit bucket key. Supports {account-name}."),
                 KV("cts_log_group_name",      "string", "", "{account-name}-sg-prd-ldz-cts-lg",   "CTS LTS log group name. Supports {account-name}."),
                 KV("cts_log_stream_name",     "string", "", "{account-name}-sg-prd-ldz-cts-ls",   "CTS LTS log stream name. Supports {account-name}."),
-                KV("kms_pending_days",           "int", 7,    30,    "KMS pending-delete window (production should be 30)."),
-                KV("audit_bucket_force_destroy","bool", False, False, "DANGER: allow Terraform to delete the audit OBS bucket even when non-empty. Needed only to RECREATE the bucket on an audit_bucket_name change (a rename = destroy + create) — this DELETES stored audit logs. Leave FALSE unless you intend that."),
-                KV("cts_no_transfer_accounts","string", "", "lz-app,lz-infra", "Account names (from 01_Foundation), comma-separated, that get a CTS tracker with NO OBS/LTS transfer (audit on, console-only ~7-day retention, no storage charges). The central org tracker already aggregates everything; use this only to turn CTS on in extra accounts cheaply. Excludes cts_admin_account."),
+                KV("kms_pending_days",           "int", 7,    30,    "KMS pending-deletion window. Production environments should use 30 days."),
+                KV("audit_bucket_force_destroy","bool", False, False, "Use with caution. TRUE allows Terraform to delete a non-empty audit bucket when the bucket name changes. This deletes stored audit logs and should remain FALSE unless a deliberate recreation is required."),
+                KV("cts_no_transfer_accounts","string", "", "lz-app,lz-infra", "Comma-separated account names from 01_Foundation that receive a CTS tracker without OBS or LTS transfer. Use this only when local CTS visibility is required in addition to the central organization tracker. Exclude cts_admin_account."),
             ],
         ),
         Table(
             name="LogAggregation",
             kind="scalar",
             description=(
-                "Org-wide LTS log aggregation (module 12): member-account log streams CONVERGE into the "
-                "lts_admin_account (the 01_Foundation TrustedServices service.LTS DelegatedAdmin), then each "
-                "converged group transfers to an archive OBS bucket on a cycle. Hot LTS retention = "
-                "converged_retention_days; bucket retention = archive_retention_days. The streams to converge "
-                "are the LogConverge rows below."
+                "Organization-wide LTS log aggregation. Member-account log streams converge "
+                "into the delegated LTS administrator account, then transfer to an archive OBS"
+                " bucket on a schedule. Hot retention is controlled by "
+                "converged_retention_days and archive retention by archive_retention_days."
             ),
             rows=[
-                KV("enable_log_aggregation",   "bool",   True,  True,  "Enable the whole aggregation stack (converge switch + target groups + converge + archive bucket + transfers). Default TRUE. The admin account is NOT input: it is derived from 01_Foundation TrustedServices service.LTS DelegatedAdmin."),
-                KV("archive_bucket_name",      "string", "",    "{account-name}-sg-prd-ldz-obs-logarchive-01", "Archive OBS bucket (globally unique) receiving the LTS transfers. Supports {account-name} (= the LTS delegated-admin account). Blank = auto '{account-name}-lz-obs-logarchive-01'."),
-                KV("kms_archive_alias",        "string", "",    "{account-name}-sg-prd-ldz-logarchive-key", "KMS alias for the archive-bucket key. Supports {account-name}. Blank = auto '{account-name}-lz-logarchive-key'."),
-                KV("archive_retention_days",   "int",    365,   365,   "Archive bucket object expiration (days)."),
-                KV("archive_cold_after_days",  "int",    0,     90,    "Days before archive objects move to the COLD storage class (0 = never)."),
-                KV("converged_retention_days", "int",    90,    90,    "Hot LTS retention of the converged target groups/streams (days)."),
-                KV("transfer_period",          "int",    30,    30,    "OBS transfer interval length. Valid with transfer_period_unit: 2|5|30 min, 1|3|6|12 hour."),
-                KV("transfer_period_unit",     "string", "min", "min", "OBS transfer interval unit: min | hour."),
-                KV("archive_bucket_force_destroy", "bool", False, False, "DANGER: allow Terraform to delete the archive bucket even when non-empty (deletes archived logs). Only for an archive_bucket_name rename."),
+                KV("enable_log_aggregation",   "bool",   True,  True,  "Enable the log aggregation stack, including convergence, target log groups, archive bucket, and scheduled transfers. The administrator account is derived from the delegated LTS administrator configured in 01_Foundation."),
+                KV("archive_bucket_name",      "string", "",    "{account-name}-sg-prd-ldz-obs-logarchive-01", "Globally unique archive OBS bucket name for LTS transfers. Supports {account-name}. Leave blank to use the generated default."),
+                KV("kms_archive_alias",        "string", "",    "{account-name}-sg-prd-ldz-logarchive-key", "KMS alias for the archive bucket key. Supports {account-name}. Leave blank to use the generated default."),
+                KV("archive_retention_days",   "int",    365,   365,   "Archive bucket object retention period, in days."),
+                KV("archive_cold_after_days",  "int",    0,     90,    "Number of days before archive objects move to the COLD storage class. Use 0 to disable transition."),
+                KV("converged_retention_days", "int",    90,    90,    "Hot retention period, in days, for converged LTS groups and streams."),
+                KV("transfer_period",          "int",    30,    30,    "OBS transfer interval. Valid values depend on transfer_period_unit."),
+                KV("transfer_period_unit",     "string", "min", "min", "OBS transfer interval unit: min or hour."),
+                KV("archive_bucket_force_destroy", "bool", False, False, "Use with caution. TRUE allows Terraform to delete a non-empty archive bucket when its name changes. This deletes archived logs."),
             ],
         ),
         Table(
@@ -1585,14 +1569,14 @@ M7_OPS = Sheet(
             name="OpsSettings",
             kind="scalar",
             rows=[
-                KV("accounts",                "string", "", "all", "REQUIRED. Accounts to deploy ops to (SMN topic + subscribers + one-click alarms), comma-separated names from 01_Foundation, or 'all'. Each account gets its own topic/subscriptions/alarms; {account-name} in topic_name resolves per account."),
-                KV("topic_name",              "string", "{account-name}-lz-alerts", "{account-name}-lz-alerts", "SMN central topic name. Supports {account-name}."),
+                KV("accounts",                "string", "", "all", "Required. Comma-separated accounts from 01_Foundation that receive operational monitoring resources, or 'all'. Each account receives its own SMN topic, subscriptions, and one-click alarms."),
+                KV("topic_name",              "string", "{account-name}-lz-alerts", "{account-name}-lz-alerts", "SMN topic name. Supports {account-name}."),
             ],
         ),
         Table(
             name="Subscribers",
             kind="object-table",
-            description="SMN subscribers. Email subscribers require out-of-band confirmation.",
+            description="SMN subscribers. Email subscribers must confirm the subscription outside Terraform.",
             columns=[
                 ("Protocol", "string", "email | sms | http | https | functionstage | callnotify | dms"),
                 ("Endpoint", "string", "Address (email / phone / URL)"),
@@ -1604,7 +1588,7 @@ M7_OPS = Sheet(
         Table(
             name="OneClickNamespaces",
             kind="object-table",
-            description="Cloud Eye one-click monitoring bundles. Toggle Enabled per service - enabled bundles are deployed (huaweicloud_ces_one_click_alarm) and notify the SMN topic. The bundle ID is resolved automatically from Namespace via the ces_one_click_alarms data source. A bundle applies to all existing and to-be-created resources of that service; EventEnabled toggles its event alarm rules.",
+            description="Cloud Eye one-click monitoring bundles. Toggle Enabled for each service. Enabled bundles notify the configured SMN topic and apply to existing and future resources for that service. EventEnabled controls event alarm rules.",
             columns=[
                 ("Namespace",    "string", "Cloud Eye namespace (SYS.*)."),
                 ("EventEnabled", "bool",   "Include event alarms for this bundle."),
@@ -1677,25 +1661,24 @@ M7_OPS = Sheet(
 
 M8_FINANCIAL = Sheet(
     name="02_Finance",
-    description="Env 02-finance (module 8): Multi-EP (cost-center enterprise projects).",
+    description="Environment 02-finance (module 8): cost-center enterprise projects.",
     tables=[
         Table(
             name="Settings",
             kind="scalar",
             rows=[
-                KV("enable_multi_ep",            "bool", True,  True,  "Create cost-center EPs (02-finance)."),
+                KV("enable_multi_ep",            "bool", True,  True,  "Create cost-center enterprise projects for 02-finance."),
             ],
         ),
         Table(
             name="CostCenters",
             kind="object-table",
             description=(
-                "Cost-center enterprise projects (additive to M1's bootstrap EP). "
-                "Accounts = where to create each EP (Huawei EPs are account-scoped, "
-                "not org-wide): comma-separated account names from 01_Foundation, the "
-                "literal 'master' for the management account, or 'all' (master + every "
-                "01_Foundation account). Blank = master only. build_envs generates a "
-                "provider alias + module call per target account."
+                "Cost-center enterprise projects in addition to the bootstrap enterprise "
+                "project from module 1. Accounts lists where each project is created. Use "
+                "comma-separated account names from 01_Foundation, 'master' for the management"
+                " account, or 'all' for the management account and every 01_Foundation "
+                "account. Leave blank for the management account only."
             ),
             columns=[
                 ("Name",                  "string",   "EP name (map key within each account)"),
@@ -1722,18 +1705,18 @@ SCHEMA_VERSION = "2.2"
 
 META = Sheet(
     name="_meta",
-    description="Workbook metadata - do not edit schema_version; it identifies the template "
-                "format for the parser and migration tooling.",
+    description="Workbook metadata. Do not edit schema_version because the parser and "
+                "migration tooling use it to identify the template format.",
     tables=[
         Table(
             name="Meta",
             kind="scalar",
-            description="Filled by the template generator; customer may set customer_name.",
+            description="Generated by the template tooling. The customer_name field may be updated.",
             rows=[
                 KV("schema_version", "string", SCHEMA_VERSION, SCHEMA_VERSION,
-                   "Template format version (set by the generator; do not edit)"),
+                   "Template format version set by the generator. Do not edit."),
                 KV("customer_name", "string", "", "example-corp",
-                   "Short customer identifier used in generated docs and release metadata"),
+                   "Short customer identifier used in generated documentation and release metadata."),
             ],
         ),
     ],
@@ -1742,9 +1725,9 @@ META = Sheet(
 EP_SCOPING = Sheet(
     name="EP_Scoping",
     description=(
-        "Reference only — how to scope an Identity Center permission set to enterprise "
-        "projects (EPs), and the glossary of IAM 5 actions that can carry the "
-        "g:EnterpriseProjectId condition. Nothing to fill in."
+        "Reference only. This sheet explains how to scope an Identity Center permission set to"
+        " enterprise projects and lists IAM v5 actions that support the g:EnterpriseProjectId "
+        "condition. No input is required."
     ),
     tables=[
         Table(
@@ -1752,8 +1735,8 @@ EP_SCOPING = Sheet(
             kind="object-table",
             mandatory=True,
             description=(
-                "The working pattern for an EP-scoped permission set custom policy. "
-                "Verified against Huawei IAM 5 condition semantics and a live tenant."
+                "Recommended pattern for an enterprise-project-scoped permission-set custom "
+                "policy, based on Huawei IAM v5 condition behavior and tenant validation."
             ),
             columns=[
                 ("Topic",    "string", "What the rule covers"),
@@ -1761,41 +1744,41 @@ EP_SCOPING = Sheet(
             ],
             sample_rows=[
                 {"Topic": "Pattern",
-                 "Guidance": "Two statements. (1) Allow the service wildcards the workload needs "
-                             "(ecs:*:*, rds:*:*, ...). (2) Deny the EP-bindable actions with Condition "
-                             "{\"ForAnyValue:StringNotEqualsIfExists\": {\"g:EnterpriseProjectId\": [\"<ep-id>\", ...]}}. "
-                             "A request on a resource in a listed EP passes; a request carrying any other EP id is "
-                             "denied; a request with no EP id in its context falls through to the Allow."},
-                {"Topic": "Why Deny + NotEquals",
-                 "Guidance": "Do NOT scope with Allow + StringEquals: any call that carries no "
-                             "enterprise_project_id (most list and console-bootstrap calls) then matches nothing "
-                             "and the whole permission set breaks. The Deny form only bites when the key is "
-                             "present AND mismatched."},
+                 "Guidance": "Use two statements. First, allow the service actions the "
+                             "workload requires. Second, deny enterprise-project-aware actions"
+                             " when g:EnterpriseProjectId does not match an approved project "
+                             "ID. Requests for approved projects remain allowed, requests for "
+                             "other projects are denied, and requests without an enterprise "
+                             "project ID continue to the Allow statement."},
+                {"Topic": "Why use Deny with NotEquals",
+                 "Guidance": "Do not use Allow with StringEquals for this pattern. Many list "
+                             "and console bootstrap calls do not include "
+                             "enterprise_project_id, so a restrictive Allow condition can "
+                             "block normal console use."},
                 {"Topic": "Keep IfExists",
-                 "Guidance": "Without the IfExists suffix the Deny also fires when the key is absent, denying "
-                             "every EP-less call in the listed actions."},
+                 "Guidance": "Without IfExists, the Deny also matches requests where the "
+                             "condition key is absent, which blocks "
+                             "enterprise-project-independent actions."},
                 {"Topic": "EP IDs, not names",
-                 "Guidance": "Condition values are EP UUIDs (Enterprise Project Management console, or the "
-                             "eps:*:list* APIs) — never EP names."},
-                {"Topic": "Only glossary actions can be scoped",
-                 "Guidance": "The Deny fires only for actions in EPActionGlossary below. An action not listed "
-                             "never receives g:EnterpriseProjectId, so an EP-conditioned Deny can never block it "
-                             "— it stays allowed by the wildcard. Notable gaps: AOM (no EP actions at all), LTS "
-                             "(one), ECS (only 9 — start/stop/delete cannot be EP-scoped), ims:images:get, RDS "
-                             "instance listing (rds:instance:listAll)."},
-                {"Topic": "Leave top-level list actions allowed",
-                 "Guidance": "Console browsing under 'All enterprise projects' sends "
-                             "enterprise_project_id=all_granted_eps. A Deny that covers list actions therefore "
-                             "blocks every list page. Keep list/getAll verbs out of the Deny, or add "
-                             "all_granted_eps to the allowed condition values."},
+                 "Guidance": "Condition values must be enterprise project UUIDs, not names."},
+                {"Topic": "Only supported actions can be scoped",
+                 "Guidance": "The Deny statement only affects actions that receive "
+                             "g:EnterpriseProjectId. Actions outside the glossary remain "
+                             "governed by the broader Allow statement, so review "
+                             "service-specific gaps before relying on project scoping."},
+                {"Topic": "Keep top-level list actions available",
+                 "Guidance": "The console may send enterprise_project_id=all_granted_eps when "
+                             "browsing all enterprise projects. Avoid applying the Deny "
+                             "condition to list actions unless that behavior has been tested."},
                 {"Topic": "Policy mechanics",
-                 "Guidance": "Version \"5.0\"; no Sid element; canonical action names only (the docs' Alias "
-                             "forms may not validate); one custom identity policy per permission set; mind the "
-                             "policy size limit — cover only the services the workload actually uses."},
-                {"Topic": "Validator behaviour",
-                 "Guidance": "The console reports INVALID_ACTION with a row/column per pass and stops at the "
-                             "first few errors. Service codes differ from product names (sfsturbo, not sfs; "
-                             "eps has list actions but no get actions)."},
+                 "Guidance": "Use policy version 5.0 and canonical action names. Keep the "
+                             "policy focused on services the workload actually needs so it "
+                             "stays within policy size limits."},
+                {"Topic": "Validator behavior",
+                 "Guidance": "The console reports INVALID_ACTION errors with row and column "
+                             "details and may stop after the first few issues. Service codes "
+                             "can differ from product names, so validate action names against "
+                             "the IAM documentation."},
                 {"Topic": "Alias expansion",
                  "Guidance": "Legacy alias names map onto canonical actions in OTHER services, and wildcards "
                              "match alias names too: rds:*:* silently grants the GaussDB actions aliased to "
@@ -1807,15 +1790,14 @@ EP_SCOPING = Sheet(
                              "warnings, but check direction: denying kps:SSHKeyPair:unbind would break ECS "
                              "keypair unbinding (same action, canonical name)."},
                 {"Topic": "No partial-verb wildcards",
-                 "Guidance": "Patterns like eps:*:list* pass validation but do NOT match at runtime — the call "
-                             "is silently denied ('insufficient permissions'). Use full segments only: either "
-                             "service:*:* or the exact action (eps:enterpriseProjects:list, eps:resources:list "
-                             "are what the console EP selector needs)."},
+                 "Guidance": "Partial-verb wildcards such as eps:*:list* may pass validation "
+                             "but not match at runtime. Use complete service wildcards or "
+                             "exact action names."},
                 {"Topic": "Test checklist",
-                 "Guidance": "(a) Full lifecycle inside the scoped EP works. (b) Opening or acting on a resource "
-                             "in another EP is denied. (c) List pages under 'All enterprise projects' still load. "
-                             "(d) After editing the policy, confirm the member account actually picked up the "
-                             "change — custom policy attachments are not documented to auto-re-provision."},
+                 "Guidance": "Test the full lifecycle inside the scoped project, confirm "
+                             "access to another project is denied, verify list pages still "
+                             "load, and confirm the member account receives policy updates "
+                             "after changes."},
             ],
         ),
         Table(

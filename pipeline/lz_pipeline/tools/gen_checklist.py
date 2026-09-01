@@ -27,24 +27,24 @@ from envtree import (BOX, HDR_FILL, HDR_FONT, WRAP,
 
 # Generic, platform-level descriptions (no customer specifics).
 DESC = {
-    "huaweicloud_organizations_organization": "The organization itself; the root under which all member accounts and OUs live.",
-    "huaweicloud_organizations_organizational_unit": "Organizational units grouping member accounts for policy attachment.",
-    "huaweicloud_organizations_account": "Member accounts created in the organization, each with its cross-account access agency.",
-    "huaweicloud_organizations_trusted_service": "Org-integrated services (CTS, Config, LTS, RAM and so on) enabled organization-wide.",
-    "huaweicloud_organizations_delegated_administrator": "Hands a service's org-wide administration to a member account.",
-    "huaweicloud_organizations_policy": "Service control policy documents (identity guardrails, tag enforcement).",
-    "huaweicloud_organizations_policy_attach": "Attaches the SCP documents to the organization root or OUs, making them effective.",
-    "huaweicloud_identitycenter_instance": "IAM Identity Center instance providing workforce SSO.",
-    "huaweicloud_identitycenter_registered_region": "Registers the home region with Identity Center before the service starts.",
+    "huaweicloud_organizations_organization": "The organization root under which all member accounts and organizational units reside.",
+    "huaweicloud_organizations_organizational_unit": "Organizational units used to group member accounts for policy attachment.",
+    "huaweicloud_organizations_account": "Member accounts created in the organization, each with a cross-account access agency.",
+    "huaweicloud_organizations_trusted_service": "Organization-integrated services such as CTS, Config, LTS, and RAM enabled across the organization.",
+    "huaweicloud_organizations_delegated_administrator": "Delegates organization-wide administration of a service to a member account.",
+    "huaweicloud_organizations_policy": "Service control policy documents used for identity guardrails and tag enforcement.",
+    "huaweicloud_organizations_policy_attach": "Attaches SCP documents to the organization root or organizational units.",
+    "huaweicloud_identitycenter_instance": "IAM Identity Center instance used for workforce single sign-on.",
+    "huaweicloud_identitycenter_registered_region": "Registers the home region with Identity Center before the service is enabled.",
     "huaweicloud_identitycenter_permission_set": "Permission sets that users assume in member accounts.",
-    "huaweicloud_identitycenter_system_policy_attachment": "Binds Huawei system policies to the permission sets.",
-    "huaweicloud_identitycenter_mfa_management_setting": "Identity Center MFA behaviour setting.",
-    "huaweicloud_identitycenter_password_policy": "Password policy for Identity Center local users.",
-    "huaweicloud_identity_password_policy": "Per-account IAM password policy baseline (length, complexity, expiry).",
-    "huaweicloud_identity_login_policy": "Per-account IAM login protection baseline (lockout, session limits).",
+    "huaweicloud_identitycenter_system_policy_attachment": "Attaches Huawei Cloud system policies to permission sets.",
+    "huaweicloud_identitycenter_mfa_management_setting": "Identity Center MFA settings.",
+    "huaweicloud_identitycenter_password_policy": "Password policy for local Identity Center users.",
+    "huaweicloud_identity_password_policy": "Per-account IAM password policy baseline for length, complexity, and expiry.",
+    "huaweicloud_identity_login_policy": "Per-account IAM login protection baseline for lockout and session controls.",
     "huaweicloud_identity_protection_policy": "Per-account operation-protection baseline for sensitive console actions.",
     "huaweicloud_identity_trust_agency": "Service agencies allowing platform services to act within the account.",
-    "huaweicloud_enterprise_project": "Cost-center enterprise projects used to group and bill resources.",
+    "huaweicloud_enterprise_project": "Cost-center enterprise projects used to group resources and allocate costs.",
     "huaweicloud_enterprise_project_authority": "Enables the enterprise project capability in an account.",
     "huaweicloud_tms_tags": "Predefined tag dictionary fanned out to every account.",
     "huaweicloud_vpc": "Hub and spoke VPCs.",
@@ -101,7 +101,7 @@ DESC = {
     "huaweicloud_waf_policy": "WAF protection policy.",
     "huaweicloud_waf_dedicated_domain": "Domains protected by the dedicated WAF.",
     "huaweicloud_antiddos_basic": "Anti-DDoS traffic-cleaning thresholds on public EIPs.",
-    "time_sleep": "Terraform-internal wait timers for propagation. No cloud resource.",
+    "time_sleep": "Terraform wait timers used for propagation. These do not create cloud resources.",
 }
 
 ENV_FILL = PatternFill("solid", fgColor="DDEBF7")
@@ -112,7 +112,7 @@ def main():
     ap.add_argument("--envs-dir", required=True)
     ap.add_argument("--states-dir", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--title", default="Landing Zone - deployed resource checklist")
+    ap.add_argument("--title", default="Landing Zone - Deployed Resource Checklist")
     ap.add_argument("--master-label", default="Master (management account)")
     args = ap.parse_args()
 
@@ -127,7 +127,7 @@ def main():
         aliases = alias_accounts(envs_dir, env)
         managed = [r for r in st.get("resources", []) if r.get("mode") == "managed" and r.get("instances")]
         if not managed:
-            reason = "no pulled state" if not st else "state is empty (never applied)"
+            reason = "Deployment state not yet collected" if not st else "state is empty (never applied)"
             pending.append((env, reason))
             continue
         for r in managed:
@@ -140,8 +140,9 @@ def main():
     ws.title = "Deployed Resources"
     ws["A1"] = args.title
     ws["A1"].font = Font(bold=True, size=14)
-    ws["A2"] = ("Source: terraform state of every environment. One row per resource type per "
-                "account per environment. Count = deployed instances.")
+    ws["A2"] = ("Source: Terraform state from each environment. One row represents one "
+                "resource type, account, and environment combination. Count shows the number "
+                "of deployed instances.")
     ws["A2"].font = Font(size=9, italic=True, color="595959")
 
     r = 4
@@ -170,7 +171,7 @@ def main():
         ws.column_dimensions[get_column_letter(i)].width = w
 
     p = wb.create_sheet("Pending (not yet applied)")
-    p["A1"] = "Environments without deployed state"
+    p["A1"] = "Environments Without Deployed State"
     p["A1"].font = Font(bold=True, size=12)
     for c, v in enumerate(["Environment", "Status"], 1):
         cell = p.cell(row=3, column=c, value=v)

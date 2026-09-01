@@ -3,7 +3,7 @@ the 05-network tfvars of any envs tree. Customer-agnostic.
 
 Usage:
     py tools/gen_ipam.py --envs-dir envs --out ipam.xlsx \
-        [--title "Example Landing Zone - IP management"] [--block-prefix 22] \
+        [--title "Example Landing Zone - IP Management"] [--block-prefix 22] \
         [--reserve "10.42.8.0/22=CFW inspection block; never assign"] \
         [--hosts hosts.csv]
 
@@ -69,7 +69,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--envs-dir", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--title", default="Landing Zone - IP management")
+    ap.add_argument("--title", default="Landing Zone - IP Management")
     ap.add_argument("--block-prefix", type=int, default=22)
     ap.add_argument("--supernet", help="override; default = 05-network spoke_private_supernet")
     ap.add_argument("--reserve", action="append", default=[], metavar="CIDR=note")
@@ -104,8 +104,8 @@ def main():
     s["A1"] = args.title
     s["A1"].font = Font(bold=True, size=14)
     n_blocks = 2 ** (args.block_prefix - supernet.prefixlen)
-    s["A2"] = (f"Supernet {supernet}, carved into {n_blocks} blocks of /{args.block_prefix}. "
-               "Keep the Blocks sheet up to date; every number below recalculates from it.")
+    s["A2"] = (f"The {supernet} supernet is divided into {n_blocks} /{args.block_prefix} blocks. "
+               "Keep the Blocks sheet updated; the summary below recalculates automatically.")
     s["A2"].font = NOTE_FONT
     last = n_blocks + 1
     rows = [
@@ -114,7 +114,7 @@ def main():
         ("Allocated", f'=COUNTIF(Blocks!D2:D{last},"Allocated")'),
         ("Reserved", f'=COUNTIF(Blocks!D2:D{last},"Reserved")'),
         ("Free blocks", f'=COUNTIF(Blocks!D2:D{last},"Free")'),
-        ("Next free block", f'=INDEX(Blocks!A2:A{last},MATCH("Free",Blocks!D2:D{last},0))'),
+        ("Next available block", f'=INDEX(Blocks!A2:A{last},MATCH("Free",Blocks!D2:D{last},0))'),
         ("Registered host IPs", "=COUNTA(Hosts!A2:A500)"),
     ]
     for i, (k, v) in enumerate(rows, 4):
@@ -144,7 +144,7 @@ def main():
     fit(b, [18, 15, 15, 12, 34, 55])
 
     sn = wb.create_sheet("Subnets")
-    header(sn, 1, ["VPC", "Subnet", "CIDR", "Purpose", "Usable IPs", "Host IPs used"])
+    header(sn, 1, ["VPC", "Subnet", "CIDR", "Purpose", "Usable IPs", "Host IPs in use"])
     for i, (vpc, name, cidr) in enumerate(subnets, 2):
         size = (ipaddress.ip_network(cidr).num_addresses - 5) if cidr else ""
         vals = [vpc, name, cidr, subnet_purpose(name), size, f'=COUNTIF(Hosts!B2:B500,B{i})']
@@ -154,7 +154,7 @@ def main():
     fit(sn, [30, 38, 18, 22, 11, 14])
 
     h = wb.create_sheet("Hosts")
-    header(h, 1, ["IP", "Subnet", "Resource", "Env", "Notes"])
+    header(h, 1, ["IP", "Subnet", "Resource", "Environment", "Notes"])
     if args.hosts:
         with open(args.hosts, newline="", encoding="utf-8") as fh:
             for i, row in enumerate(csv.reader(fh), 2):

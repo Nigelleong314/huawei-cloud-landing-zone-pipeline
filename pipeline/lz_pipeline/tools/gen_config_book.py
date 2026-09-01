@@ -97,18 +97,18 @@ def main():
     org = instances(st01, "huaweicloud_organizations_organization")
     s.kv(([("Document version", args.version)] if args.version else []) + [
         ("Generated", date.today().isoformat()),
-        ("Source of record", "Terraform configuration and state of each environment"),
+        ("Source of truth", "Terraform configuration and state for each environment"),
         ("Region", f.get("home_region", "")),
         ("Organization ID", org[0][2].get("id") if org else "-"),
         ("Identity Center alias", f.get("identity_center_alias", "-")),
         ("Cross-account agency", f.get("cross_account_agency_name", "-")),
         ("Default tags", _j(f.get("default_tags"))),
-        ("Apply order", ", ".join(envs)),
+        ("Deployment order", ", ".join(envs)),
     ])
 
     # ---- 01 Organization ----
     s = book.sheet("01 Organization", [26, 40, 14, 36, 34])
-    s.title("Organization structure (envs/01-foundation)")
+    s.title("Organization Structure (envs/01-foundation)")
     core = set((f.get("core_accounts") or {}))
     accts = instances(st01, "huaweicloud_organizations_account")
     if accts:
@@ -118,7 +118,7 @@ def main():
                   a.get("id", ""), a.get("description", ""))
                  for _, _, a in sorted(accts, key=lambda x: str(x[2].get("name")))])
     else:
-        s.section("Member accounts (from configuration; no state provided)")
+        s.section("Member accounts (from configuration; deployment state not included)")
         rows = [(n, v.get("email", ""), "core", "-", v.get("description", ""))
                 for n, v in (f.get("core_accounts") or {}).items()]
         rows += [(n, v.get("email", ""), "workload", "-", v.get("description", ""))
@@ -137,7 +137,7 @@ def main():
 
     # ---- 02 Finance ----
     s = book.sheet("02 Finance", [26, 80])
-    s.title("Cost centers / enterprise projects (envs/02-finance)")
+    s.title("Cost Centers / Enterprise Projects (envs/02-finance)")
     cc = tv("02-finance").get("cost_centers_by_account") or {}
     rows = []
     for acct, val in cc.items():
@@ -150,11 +150,11 @@ def main():
     # ---- 03 Identity ----
     s = book.sheet("03 Identity", [30, 90])
     i3 = tv("03-identity")
-    s.title("Identity and access (envs/03-identity)")
+    s.title("Identity and Access (envs/03-identity)")
     s.section("Identity Center")
     s.kv([("Session duration", i3.get("session_duration")),
-          ("MFA management", _j(i3.get("ic_mfa_management"))),
-          ("IC password policy", _j(i3.get("ic_password_policy"), 400)),
+          ("MFA settings", _j(i3.get("ic_mfa_management"))),
+          ("Identity Center password policy", _j(i3.get("ic_password_policy"), 400)),
           ("Registered regions", ", ".join(i3.get("registered_regions") or []))])
     s.section("Permission sets")
     s.table(["Permission set", "Definition"],
@@ -166,20 +166,20 @@ def main():
     # ---- 04 Governance ----
     s = book.sheet("04 Governance", [34, 12, 90])
     p4 = tv("04-perimeter")
-    s.title("Guardrails, tags and Config (envs/04-perimeter)")
-    s.section("SCP guardrails")
+    s.title("Guardrails, Tags, and Config (envs/04-perimeter)")
+    s.section("Service control policy guardrails")
     s.table(["Guardrail", "Enforced", "Settings"],
             [(k, str(v.get("enforce", False)),
               _j({x: y for x, y in v.items() if x != "enforce"}, 400))
              for k, v in (p4.get("scps") or {}).items()])
     s.section("Predefined tags (all accounts)")
     s.table(["Tag key", "Allowed values"],
-            [(t.get("key"), ", ".join(t.get("values") or []) or "(free text)")
+            [(t.get("key"), ", ".join(t.get("values") or []) or "Free text")
              for t in (p4.get("predefined_tags") or [])])
     s.section("Config (RMS)")
     s.kv([("Config admin account", p4.get("config_admin_account"))]
          + sorted((p4.get("config") or {}).items()))
-    s.section("Conformance packages (organization-wide)")
+    s.section("Organization-wide conformance packages")
     s.table(["Package", "Enabled", "Template / parameters / exclusions"],
             [(c.get("name"), str(c.get("enabled")),
               _j({k: v for k, v in c.items() if k not in ("name", "enabled")}, 400))
@@ -189,7 +189,7 @@ def main():
     n5 = tv("05-network")
     s = book.sheet("05 Network - Hub", [38, 24, 22, 60])
     hub_acct = n5.get("hub_account", "")
-    s.title(f"Hub network (envs/05-network, account {hub_acct})")
+    s.title(f"Hub Network (envs/05-network, account {hub_acct})")
     s.section("Core settings")
     keys = ("hub_account", "spoke_private_supernet", "enterprise_project_name",
             "inbound_route_table", "outbound_route_table", "snat_vpc_attachment",
@@ -207,11 +207,11 @@ def main():
         s.section("Enterprise Router")
         s.kv([("Name", n5.get("er_name")), ("ASN", n5.get("er_asn")),
               ("Availability zones", ", ".join(n5.get("er_availability_zones") or [])),
-              ("Auto-accept shared attachments", n5.get("er_auto_accept_shared_attachments")),
+              ("Automatically accept shared attachments", n5.get("er_auto_accept_shared_attachments")),
               ("RAM share", n5.get("er_share_name")),
               ("RAM share principals", ", ".join(n5.get("ram_share_principals") or []))])
         s.section("ER route tables")
-        s.table(["Route table", "Default route to firewall", "Purpose"],
+        s.table(["Route table", "Default route through firewall", "Purpose"],
                 [(rt.get("name"),
                   str(rt.get("default_to_cfw", rt.get("name") in (n5.get("cfw_default_route_tables") or []))),
                   rt.get("description", "")) for rt in (n5.get("er_route_tables") or [])])
@@ -220,7 +220,7 @@ def main():
                 [(a.get("name"), a.get("vpc"), a.get("subnet", ""))
                  for a in (n5.get("er_attachments") or [])])
     if n5.get("cfw_name"):
-        s.section("Cloud Firewall instance")
+        s.section("Cloud Firewall")
         s.kv([(k, n5.get(k)) for k in ("cfw_name", "cfw_flavor", "east_west_firewall_mode",
                                        "inspection_cidr_reservation", "cfw_charging_mode",
                                        "cfw_lts_log_group_name") if k in n5])
@@ -233,7 +233,8 @@ def main():
         s.section("Elastic IPs")
         s.table(["Name", "Type", "Billing", "Bandwidth"],
                 [(e.get("name"), e.get("type", ""),
-                  f"{e.get('billed_by', '')} (pay-per-use)".strip(),
+                  (f"{e['billed_by'].capitalize()}-based (pay-per-use)"
+                   if e.get('billed_by') else '(pay-per-use)'),
                   f"{e['bandwidth_size']} Mbit/s" if e.get("bandwidth_size") else "")
                  for e in n5.get("eips") or []])
     if n5.get("snat_rules"):
@@ -243,35 +244,38 @@ def main():
                  for r in n5.get("snat_rules") or []])
 
     s = book.sheet("05 Network - Spokes", [30, 20, 26, 26, 12, 44])
-    s.title("Spoke networks (envs/05-network)")
+    s.title("Spoke Networks (envs/05-network)")
     rows = []
     for vname, sp in (n5.get("spokes") or {}).items():
         rows.append((vname, sp.get("account", ""), sp.get("vpc_cidr"), "",
                      str(sp.get("er_attach", True)), _j(sp.get("vpc_tags"), 120)))
         for sub in sp.get("subnets", []):
             rows.append(("", "", sub.get("cidr"), sub.get("name"), "", ""))
-    s.table(["Spoke VPC", "Account", "CIDR", "Subnet", "ER attached", "Tags"], rows)
+    s.table(["Spoke VPC", "Account", "CIDR", "Subnet", "Attached to ER", "Tags"], rows)
 
     # ---- 06 Observability ----
     s = book.sheet("06 Observability", [42, 70])
     o6 = tv("06-observability")
     st06 = st("06-observability")
-    s.title("Audit, monitoring and log aggregation (envs/06-observability)")
+    s.title("Audit, Monitoring, and Log Aggregation (envs/06-observability)")
     s.section("Central audit (CTS)")
     s.kv([("Audit bucket", o6.get("audit_bucket_name")),
-          ("Audit retention / cold tier",
-           f'{o6.get("audit_retention_days")} days delete / COLD at {o6.get("audit_cold_after_days", 0)} days'),
+          ("Audit retention / cold storage",
+           f'Delete after {o6.get("audit_retention_days")} days / move to COLD after {o6.get("audit_cold_after_days", 0)} days'),
           ("Audit KMS alias", o6.get("kms_audit_alias")),
           ("CTS log group / stream", f'{o6.get("cts_log_group_name")} / {o6.get("cts_log_stream_name")}'),
-          ("Minimal trackers (no transfer)", ", ".join(o6.get("cts_no_transfer_accounts") or []) or "-")])
+          ("Minimal trackers (no log transfer)", ", ".join(o6.get("cts_no_transfer_accounts") or []) or "-")])
     if o6.get("enable_log_aggregation"):
         s.section("Log aggregation and archive")
         s.kv([("Archive bucket", o6.get("archive_bucket_name")),
-              ("Archive retention / cold tier",
-               f'{o6.get("archive_retention_days")} days delete / COLD at {o6.get("archive_cold_after_days", 0)} days'),
+              ("Archive retention / cold storage",
+               f'Delete after {o6.get("archive_retention_days")} days / move to COLD after {o6.get("archive_cold_after_days", 0)} days'),
               ("Archive KMS alias", o6.get("kms_archive_alias")),
               ("Converged hot retention (LTS)", f'{o6.get("converged_retention_days")} days'),
-              ("Transfer cadence", f'{o6.get("transfer_period")} {o6.get("transfer_period_unit")}')])
+              ("Transfer cadence",
+               f'{o6.get("transfer_period")} '
+               + {'min': 'minutes', 'hour': 'hours', 'day': 'days'}.get(
+                   o6.get('transfer_period_unit'), o6.get('transfer_period_unit') or ''))])
     if st06:
         s.section("Archive transfers (from state)")
         s.table(["Transfer key", "Type"],
@@ -300,7 +304,7 @@ def main():
                   ", ".join(r.get("vpcs") or [])) for r in d7.get("resolver_rules") or []])
     if d7.get("access_logs"):
         s.section("Query logging")
-        s.table(["Access log", "LTS group", "LTS stream", "VPCs"],
+        s.table(["Access logs", "LTS group", "LTS stream", "VPCs"],
                 [(a.get("name"), a.get("lts_group"), a.get("lts_stream"), ", ".join(a.get("vpcs") or []))
                  for a in d7.get("access_logs") or []])
     s.section("Hosted zones")
@@ -311,7 +315,7 @@ def main():
     # ---- 08 Firewall ----
     s = book.sheet("08 Firewall", [30, 10, 10, 46, 46, 34, 10])
     c8 = tv("09-network-cfw")
-    s.title("Cloud Firewall rule plane (envs/09-network-cfw)")
+    s.title("Cloud Firewall Rules (envs/09-network-cfw)")
     if c8.get("address_groups"):
         s.section("Address groups")
         s.table(["Group", "Members"],
@@ -325,7 +329,7 @@ def main():
         s.table(["Group", "Members"],
                 [(g.get("name"), ", ".join(g.get("members") or [])) for g in c8["service_groups"]])
     if c8.get("acl_rules"):
-        s.section("ACL rules (in order; catch-all denies pinned last)")
+        s.section("ACL rules (in order; catch-all deny rules remain last)")
         s.table(["Rule", "Kind", "Action", "Source", "Destination", "Service", "Status"],
                 [(r.get("name"), r.get("kind"), r.get("action"), ", ".join(r.get("source") or [])[:250],
                   ", ".join(r.get("destination") or [])[:250], ", ".join(r.get("service") or [])[:150],
@@ -335,7 +339,7 @@ def main():
     s = book.sheet("09 VPN", [36, 70])
     v9 = tv("05-network")
     st09 = st("05-network")
-    s.title("Site-to-cloud VPN (merged into envs/05-network)")
+    s.title("Site-to-Cloud VPN (merged into envs/05-network)")
     gws = v9.get("gateways") or []
     if gws:
         live = {a.get("name"): a for _, _, a in instances(st09, "huaweicloud_vpn_gateway")}
@@ -358,19 +362,19 @@ def main():
               ("Note", "Connections not present in Terraform are managed in the console"
                if (n_conn == 0 and n_live == 0) else "")])
     else:
-        s.kv([("Status", "No VPN gateways defined")])
+        s.kv([("Status", "No VPN gateways are defined")])
 
     # ---- 10 Security ----
     s = book.sheet("10 Security", [36, 70])
     s10 = tv("07-security")
     st10 = st("07-security")
-    s.title("Security services (envs/07-security)")
+    s.title("Security Services (envs/07-security)")
     applied = bool(st10.get("resources"))
-    pairs = [("Applied", "yes" if applied else "no (defined, not yet applied)")]
+    pairs = [("Applied", "yes" if applied else "No (defined but not yet applied)")]
     if "enable_secmaster" in s10 or any("secmaster" in k for k in s10):
         pairs.append(("SecMaster", "enabled" if s10.get("enable_secmaster") else "configured/disabled"))
     pairs.append(("WAF", "enabled" if s10.get("enable_waf") else "disabled"))
-    pairs.append(("Anti-DDoS rows", len(s10.get("antiddos") or [])))
+    pairs.append(("Anti-DDoS entries", len(s10.get("antiddos") or [])))
     if s10.get("waf_domains"):
         pairs.append(("WAF protected domains", ", ".join(d.get("domain", "") for d in s10["waf_domains"])))
     s.kv(pairs)
