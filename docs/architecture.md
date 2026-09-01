@@ -12,7 +12,7 @@ The boundary rule (the **codegen-not-clever-HCL handover rule**): logic lives in
 
 | Package | Path | Role |
 |---|---|---|
-| `lz_spec` | `pipeline/lz_spec/` | **Schema authority.** `schema.py` is the authoritative definition of the spec and questionnaire STRUCTURE (sheets, tables, columns, types, descriptions); semantic behavior is additionally defined by the platform rules (LZR-### IDs), builders, and validators. Also: `gen_template.py` (blank workbook), `verify_pipeline.py` (regression harness), `build_envs.py` (legacy shim), `export_handover.py`, the example spec `lz.spec.example.json`. |
+| `lz_spec` | `pipeline/lz_spec/` | **Schema authority.** `schema.py` is the authoritative definition of the spec and questionnaire STRUCTURE (sheets, tables, columns, types, descriptions); semantic behavior is additionally defined by the platform rules (LZR-### IDs), builders, and validators. Also: `gen_template.py` (blank workbook), `verify_pipeline.py` (regression harness), `build_envs.py` (legacy shim), the example spec `lz.spec.example.json`. |
 | `lz_pipeline` | `pipeline/lz_pipeline/` | **Engine + runner + tools.** `core/` (parsing, validation, builders, emitters, templates, ownership registry), `rules.py` (LZR platform-rule registry), `depsgraph.py` (env dependency graph → `deps.json`), `lzctl.py` (the standalone runner), `export_v2.py` (profile-driven artifact export), `tools/` (plan triage, doc generators, questionnaire gen/dump, JSON Schema gen, pricing cards), `fixtures/` (synthetic example customer), `profiles/`, `tests/`. |
 | `lz_app` | `app/lz_app/` | **Spec editor.** A local web app (binds 127.0.0.1) that renders every sheet from `schema.py`, validates, builds, and runs pipeline jobs. See `app/USER-GUIDE.md`. |
 
@@ -78,7 +78,7 @@ Physical layout aside, each concern has exactly one owner:
 | Terraform generation | `lz_pipeline.core` builders + emitters |
 | Dependency ordering | `lz_pipeline/depsgraph.py` (`deps.json`) |
 | Cloud operations | `lz_pipeline/lzctl.py` (stdlib-only, ships standalone) |
-| Handover export | `lz_pipeline/export_v2.py` (uses `lz_spec/export_handover.py` as its copier; the `--compat` flag applies the handover path/name rewrites so the artifact stands alone) |
+| Handover export | `lz_pipeline/export_v2.py` (self-contained copier; the `--compat` flag applies the handover path/name rewrites so the artifact stands alone) |
 | Regression harness | `lz_spec/verify_pipeline.py` |
 
 `terraform/modules/` contains the versioned module snapshot required to build the reference deployment — the upstream source is not required for normal use. `terraform/modules/PROVENANCE.md` records the sync date and a content hash. Refresh with:

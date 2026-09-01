@@ -80,8 +80,9 @@ Executed results live in `tests/evaluation/results/`. Read them as an
 validation: the first matrix was 60 runs (3 capability tiers x 10 fixtures
 x 2 trials). Of its 4 original failures, 3 were scorer proxy defects and 1
 was a format slip recovered by tolerant extraction; after the scorer fix all
-4 cells were re-executed live and passed. Both the original and rescored
-score files are committed. A larger matrix (more fixtures, ~10 trials,
+4 cells were re-executed live and passed. The transcripts are the committed
+evidence; the score files are derived from them and regenerated on demand with
+`--rescore <dir>`. A larger matrix (more fixtures, ~10 trials,
 variance reporting) is the documented next step. Read the committed
 results with the n in mind: cells are 2 trials each, so a 1/2 or 0/2 is
 indistinguishable from noise - conclusions need the larger matrix. One

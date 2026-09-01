@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Added
+
+- **Decisions gate reaches the UI**: the app's **Decisions & gaps** view resolves OPEN decisions and fills gap values (resolution + who decided + why), writing only the `resolution` block so the provenance hash over the immutable decision set survives. `lzctl gap add` registers an agent-discovered gap as an OPEN item and refuses to re-stamp an already-edited set.
+- **`lzctl status --json`**: the phase report as a machine contract, every phase derived from artifacts on disk rather than a stored pointer — edit the spec and the tree reports `recheck` on its own. `lzctl back <phase>` records a journaled re-entry (who, why, what it invalidates) and deletes nothing. Exit 0 on track / 2 recheck / 3 blocked.
+- **Rendering design system** for agent replies (`skills/huawei-cloud-landing-zone/SKILL.md` + `rendering.md`): verdict first, exceptions only, one Next block with its runner/cloud/undo provenance, words only. Phases render zero-padded (`03-build`). The CLI emits data; the agent renders it.
+- **LZR-032** fails validation on unresolved `REPLACE_WITH_` placeholders (VPN PSK exempt by design); **LZR-033** blocks `enable_hss` / `enable_dbss`, now documented as RESERVED.
+
+### Changed
+
+- **`export_handover.py` folded into `export_v2.py`**. It existed only to be imported and have its exclusion globals reassigned at runtime; the exporter is now self-contained and the doctrine guard that anticipated the fold targets it directly. The secmaster feature strip was a six-operation mini-DSL driving one registry entry against one env — now straight-line code. Handover output verified byte-identical across 131 files.
+- **`deps.json` has one owner**: `lzctl deps` (and `lzctl build`). `depsgraph.py` keeps its library API but no longer ships a second CLI; its topological sort is now `graphlib.TopologicalSorter`. LZR-008's remediation text names the current command.
+- Removed flags nothing passed (`plan_triage --rules`, `export_v2 --no-docs`, `depsgraph --quiet`, the eval `--adapter`) and one-caller wrappers, duplicated emitter write loops, and an always-empty error-scoping layer. Generated env tree verified byte-identical across 144 files.
+
+### Removed
+
+- Derived artifacts no longer committed: eval `scores.json` / `scores-rescored.json` (nothing reads them back; `run_eval.py --rescore <dir>` regenerates them from the committed transcripts), superseded scratch runs, and archived copies of the bench scripts that had drifted from their `e2e_bench/` originals. `tests/evaluation/results/` and `releases/` are now gitignored; the runs of record predate the rule and remain.
+- `fixtures/make_example.py` — a 368-line generator kept beside its committed output with zero callers, synchronized by hand.
+
 - **Breaking (state layout)**: four env state keys carried a stale numbering (`07-security` wrote to `envs/10-security/`, `08-network-dns` to `envs/07-dns/`, `09-network-cfw` to `envs/08-cfw/`, `11-network-sgacl` to `envs/09-network-sgacl/`). Keys now match the env directory names, guarded by a regression test. Deployments created from 0.1.0 need a one-time `terraform init -migrate-state` per affected env.
 
 ## 0.1.0 — 2026-08-31

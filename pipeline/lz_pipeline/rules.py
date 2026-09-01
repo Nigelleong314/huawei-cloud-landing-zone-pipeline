@@ -662,7 +662,7 @@ _doc("LZR-006", "error", "runtime", "OBS / v5-IAM / org-RMS cross-account work n
 _doc("LZR-007", "error", "runtime", "No native state locking: single apply + state-pull backup first",
      "runner (lzctl apply) + CI concurrency groups")
 _doc("LZR-008", "error", "runtime", "Remote-state producer env must be applied before its consumers",
-     "depsgraph.py --check (build + verify)")
+     "lzctl deps (build) + lzctl check deps (verify)")
 _doc("LZR-010", "error", "runtime", "Mandatory-tags SCP lists only tag-in-request create APIs",
      "terraform/modules/perimeter curated action list")
 _doc("LZR-012", "error", "runtime", "VPN gateway eip1/eip2 are create-time-only (change = replacement, new IPs)",

@@ -1,8 +1,8 @@
 # lz_pipeline — the landing-zone pipeline engine
 
 All pipeline code lives here. `../lz_spec/` keeps the schema layer and entry
-points (`schema.py`, `gen_template.py`, `verify_pipeline.py`, `build_envs.py`
-— a shim over this package — and `export_handover.py`) plus the example spec.
+points (`schema.py`, `gen_template.py`, `verify_pipeline.py`, and
+`build_envs.py` — a shim over this package) plus the example spec.
 
 ```text
 lz_pipeline\

@@ -15,7 +15,6 @@ customers), never an input.
 | `landing_zone_spec.xlsx` | The blank template (generated — regenerate after schema changes) |
 | `verify_pipeline.py` | The regression harness: regen-diff, validate, template-check, rules, deps, fmt, unit suites |
 | `build_envs.py` | Legacy workbook-path entry point (kept for the byte-identity test) |
-| `export_handover.py` | Copy/rewrite helpers used by `lz_pipeline.export_v2` |
 
 ## Workflow
 
