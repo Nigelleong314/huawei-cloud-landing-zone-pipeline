@@ -149,11 +149,12 @@ bullets, footers, table rows, the strip. The number shows graph order (and
 the shape of a re-entry: `done: 01-intake, 02-design, 05-deploy, 06-verify_post`
 says phases 3 and 4 are being redone) without the reader knowing the graph.
 
-### The strip — closes every working reply
+### The strip — closes a reply that moved the engagement
 
-Every reply in which this skill ran a command, edited the spec or the tree,
-or discussed the engagement ends with a one-line strip — the last lines of
-the reply, below everything else, even below a full report:
+A reply gets the strip when **this skill did landing-zone work in it**: ran an
+`lzctl` command, edited a spec, decisions file, or env tree, reported a phase
+or gate result, or answered a question about where the engagement stands. It
+goes last, below everything else, even below a full report:
 
 ---
 **frasers** · 03-build · 4/7 · recheck: 03-build, 04-verify_pre · next: `lzctl check regen-diff`
@@ -162,6 +163,14 @@ Slots, all from `status --json`: customer · current phase · complete/total ·
 worst state (`blocked: <phases>` outranks `recheck: <phases>`; when neither
 exists, `on track`) · `next:` the first command of the current phase's
 `next`, name and subcommand only. One line, nothing else.
+
+**Everything else gets no strip.** Working in this repository is not the same
+as progressing an engagement: refactors, test runs, git and release work,
+dependency or tooling changes, code review, documentation edits, and questions
+about the pipeline's own source all end with no strip. Nor does a reply that
+merely mentions a customer in passing. The test is whether a phase moved or a
+gate spoke in **this** reply — if repeating the strip would print the same
+line as last time because nothing happened, it is noise; drop it.
 
 ### The phase report — default form (exception-first)
 

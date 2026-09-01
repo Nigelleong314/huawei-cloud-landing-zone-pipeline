@@ -67,6 +67,9 @@ def test_skill_render_doctrine():
         assert rule in skill, f"SKILL.md lost the {rule!r} rule"
     assert "**frasers** · 03-build · 4/7" in skill, "the strip example is the strip spec"
     assert "Needs attention" in skill, "the default report leads with exceptions"
+    assert "Everything else gets no strip" in skill, (
+        "the strip's scope must stay bounded: repo/tooling work is not an "
+        "engagement update, and an unchanged strip repeated is noise")
     assert "Phases are numbered" in skill, "the numbering rule is doctrine"
 
     rendering = (skill_dir / "rendering.md").read_text(encoding="utf-8")
