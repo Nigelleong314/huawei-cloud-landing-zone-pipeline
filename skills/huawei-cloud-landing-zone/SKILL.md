@@ -278,6 +278,17 @@ a spec diff.
 
 The `huawei-cloud-terraform-generator` skill (separate distribution, not included in this repository) generates single-service resources with per-service references and region-availability verification. It is optional — this skill and the pipeline are fully usable without it; without it, author single-resource HCL from the provider docs per the evidence hierarchy below.
 
+It matters only for work OUTSIDE the module catalogue: hand-maintained
+workload modules, day-2 single-service additions, debugging one resource's
+HCL. The landing-zone workflow itself never needs it — generated envs come
+from deterministic codegen, and agents never author `resource` blocks (the
+pre-apply guard enforces this). To install it, obtain the skill folder from
+the delivery team and copy it into the agent's skills directory (e.g.
+`.claude/skills/huawei-cloud-terraform-generator/`); there is no public
+package URL. Do not install it for validation runs of THIS skill — its broad
+trigger description can capture routine infrastructure requests that belong
+here.
+
 ## Non-negotiable constraints — check these before proposing or executing any change
 
 1. Provider `huaweicloud/huaweicloud ~> 1.87`, Terraform `>= 1.6.3`.
