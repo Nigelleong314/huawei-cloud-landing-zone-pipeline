@@ -285,8 +285,13 @@ from deterministic codegen, and agents never author `resource` blocks (the
 pre-apply guard enforces this). It is distributed through the Huawei Cloud
 Skills portal:
 <https://skills.huaweicloud.com/detail/huawei-cloud-terraform-generator> —
-install per the portal's instructions (the skill folder lands in the agent's
-skills directory, e.g. `.claude/skills/huawei-cloud-terraform-generator/`).
+install with either
+
+    npx clawhub install @huaweiclouddev/huawei-cloud-terraform-generator
+    npx skills add huaweicloud/huaweicloud-skills --skill huawei-cloud-terraform-generator
+
+(the skill folder lands in the agent's skills directory, e.g.
+`.claude/skills/huawei-cloud-terraform-generator/`).
 Do not install it for validation runs of THIS skill — its broad trigger
 description can capture routine infrastructure requests that belong here.
 
