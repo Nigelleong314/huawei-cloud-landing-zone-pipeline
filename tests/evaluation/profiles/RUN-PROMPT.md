@@ -1,12 +1,37 @@
-# Validation round 2 — run prompts
+# Validation round 3 — run prompts
 
 Ten independent agents, one customer each, profiles 11–20 from
 `HuaweiCloud-LZ-Assessment-10-Customer-Profiles-2.zip`.
 
-**Pin a commit that contains the round-2 fixes** (null-as-declared-unknown,
-LZR-032 substring matching, LZR-034/035/036, `lzctl set`, gap-add path
-validation). Round 1 pinned `d08b1f8`; that commit does **not** have them, and
-a run against it reproduces the old contradiction rather than testing the fix.
+**Pin a commit that contains the round-3 fixes** (everything from round 2 —
+null-as-declared-unknown, LZR-032 substring matching, LZR-034/035/036,
+`lzctl set`, gap-add path validation — plus: LZR-035 honors covering OPEN
+gaps, its remediation says `gap add` instead of the un-executable "re-open",
+and `lzctl set --field 'Sheet.Table[+]' --json '{...}'` appends rows).
+Round 1 pinned `d08b1f8`; round 2 pinned `ac607f8`; neither has the round-3
+fixes.
+
+## Why round 2 was voided, and the rules that come from it
+
+Round 2's transcripts were produced by ONE sequential scripted pass (ten
+"runs" in 4m05s, sub-second gaps between actions) against a vendored partial
+re-implementation of the pipeline (7 of 24 subcommands; validate summaries
+tagged "focused reconstruction"). The data happened to match the pinned
+commit, but nothing about agent behavior or tooling discovery was measured.
+Hence, non-negotiable for round 3:
+
+- **Install the pinned repository itself** (`pip install .` from the
+  worktree). Never vendor, re-implement, or "reconstruct" any part of the
+  pipeline. If the sandbox cannot install or execute the real repo, stop and
+  report that — a substitute runtime voids the round.
+- **Runs are genuinely independent, concurrently executing agents.** A
+  transcript whose inter-command gaps show no inference latency, or whose
+  structure is identical to another customer's, is a replay, not a run.
+- **Every transcript opens with a runtime fingerprint**: `lzctl --version`
+  and the full `lzctl --help` (the pinned CLI has ~24 subcommands). Every
+  `lzctl validate` summary must end with
+  `(rule registry: N machine-enforced, M documented)` — any other suffix
+  means the runtime is not the pinned pipeline.
 
 ## What changed from round 1, and why
 
@@ -16,6 +41,13 @@ a run against it reproduces the old contradiction rather than testing the fix.
 | Prompt said *"Use the main skills over stale conflicting asset text."* | **Removed** | Same reason: it papers over doc conflicts the run is supposed to expose. |
 | — | *"Record every pipeline command you ran, and every file you wrote by hand"* | Round 1 hand-wrote ~1,500 lines of JSON mutators because no command existed. `lzctl set` now does. Whether agents FIND it is the thing being measured. |
 | — | *"If a rule's message tells you to do something and doing it does not clear the error, record that verbatim"* | Round 1's LZR-032 promised `gap add` would resolve a placeholder; it did not. This surfaces any remaining false promise. |
+
+## What changed from round 2 (in the pipeline, not the prompt)
+
+| Round 2 behavior | Round 3 behavior | Reason |
+|---|---|---|
+| LZR-035 fired on an ANSWERED decision's empty target even when a registered OPEN gap covered it; its message said "re-open the decision", which no command can do (decision `state` is inside the provenance hash). | A covering OPEN gap (on the target, its table, or one of its columns) silences LZR-035; the message now names `lzctl gap add --field <target>`. | Round 2's unsatisfiable loop: prose answers settle intent without table rows, so a fully honest run could never clear validation. Silencing still costs a visible, build-blocking OPEN decision, so hollowing a spec silently remains an error. |
+| `lzctl set` could not create a row ("`set` never invents one"), so every run hand-wrote a `populate_rows.py`. | `lzctl set --field 'Sheet.Table[+]' --json '{"Col": ...}'` appends one row, validating every key against the schema's columns; list-single tables take `--value`. | Rows were the last spec write with no mechanical command. Hand-written mutator count should now be zero. |
 
 **Do not add anything to the prompt that explains the null/placeholder
 contract, the gap workflow, or which command writes values.** The skill has to
@@ -38,8 +70,12 @@ Per run directory: workspace/<customer>-filled.xlsx (the questionnaire, renamed)
 metadata.json (paths, commit, model), prompt.txt (the per-instance prompt below
 with placeholders filled), and an empty workspace/specs/.
 
-Install the pipeline once with `pip install .` into a shared venv; give every
-agent the absolute path to lzctl and lz-app. No cloud credentials.
+Install the pinned repository itself with `pip install .` into a shared venv;
+give every agent the absolute path to lzctl and lz-app. Do not vendor,
+re-implement, or reconstruct any part of the pipeline — if the environment
+cannot run the real repo, stop and report that instead of substituting.
+Agents must be genuinely independent, concurrently executing instances, not
+one process iterating customers. No cloud credentials.
 
 Agents must not read each other's run directories, must not delegate, and must
 not modify pipeline, schema, skill source, or gates. Collect each run's
@@ -96,6 +132,12 @@ customer approval without evidence in the questionnaire. A populated draft
 with documented gaps is a legitimate result; a claimed clean build is not,
 unless every prerequisite genuinely passed.
 
+Before anything else, record a runtime fingerprint: run `lzctl --version` and
+the full `lzctl --help`. The pinned CLI has roughly 24 subcommands, and every
+`lzctl validate` summary line ends with "(rule registry: N machine-enforced,
+M documented)". If what you see differs, you are not running the pinned
+pipeline — stop and report that as the run's result.
+
 Run `lzctl status --json` before you start and after you finish. Run
 `lzctl validate` on the interpreted spec and save the complete findings. Run a
 local build only if its prerequisites truly pass. "advance" is the skill
@@ -147,13 +189,23 @@ outcome, and any tooling defect you hit.
 
 ## What to look at in the results
 
+Before scoring anything, check validity: real repo installed (fingerprint
+present, ~24 subcommands, "(rule registry: ...)" suffix), real inter-command
+latency, per-customer divergence in structure and gap lists. A run that fails
+these is a replay or a reconstruction — score nothing from it.
+
 Round 1 numbers are the baseline. Watch these, not the raw error count:
 
-- **Does anyone still hand-write a JSON mutator?** 10/10 did in round 1. If
-  `lzctl set` is discoverable, that should collapse.
+- **Does anyone still hand-write a JSON mutator?** 10/10 did in round 1;
+  round 2's scripted pass still needed a row helper. With `set [+]` there is
+  no spec write left that lacks a command — hand-written files should be 0.
 - **Can a run reach 0 validation errors with real gaps outstanding?** Round 1:
   impossible by construction — the skill required a placeholder and the
-  validator made every placeholder an error. That is the fix to confirm.
+  validator made every placeholder an error. Round 2 (data-level): still
+  impossible — LZR-035 ignored covering gaps and its "re-open" remediation
+  was un-executable. Both are now fixed; this is the flagship metric to
+  confirm, and it requires agents to register gaps on the concrete targets
+  their prose answers cannot fill.
 - **Does `## OPEN (n)` in the decisions markdown match the real open count?**
   Round 1 understated it in 10/10, by 2–4×.
 - **Do the four sparse profiles (14, 17, 20) produce declared gaps rather than

@@ -756,10 +756,24 @@ def r_dropped_answers(spec):
     """The customer answered; the spec says nothing. Emptying a table is the
     cheapest way to make a validator go quiet, so the one thing that must
     never validate clean is an ANSWERED decision whose target holds nothing.
+
+    Exception: a target some OPEN decision also declares. A prose answer can
+    settle intent ("centralized egress via the hub") without containing the
+    rows the table needs; the sanctioned move is `lzctl gap add` on the
+    concrete target, which is visible in review and blocks build until
+    resolved. Silencing this rule therefore still costs an auditable, build-
+    blocking artifact - silent emptying stays an error.
     """
     ctx = decisions_context()
     if not ctx["loaded"]:
         return []
+    declared = ctx["declared"]
+
+    def _covered(path) -> bool:
+        """An OPEN declaration on the path, its enclosing table, or one of
+        the table's columns - each means somebody is on record as owing it."""
+        return any(d == path or d.startswith(path + ".") or
+                   path.startswith(d + ".") for d in declared)
 
     def _touched(sheet_name) -> bool:
         """Has anything on this sheet been interpreted yet?
@@ -782,7 +796,7 @@ def r_dropped_answers(spec):
         if len(parts) < 2:
             continue
         sheet, table = parts[0], parts[1]
-        if not _touched(sheet):
+        if not _touched(sheet) or _covered(path):
             continue
         node = (spec.get(sheet) or {}).get(table)
         if node is None:
@@ -790,12 +804,16 @@ def r_dropped_answers(spec):
         if len(parts) == 2:
             if isinstance(node, list) and not node:
                 out.append(f"{sheet}: {table} is empty, but decision {ref} is "
-                           f"ANSWERED - the answer was dropped. Fill it, or "
-                           f"re-open the decision if the answer does not apply")
+                           f"ANSWERED - the answer was dropped. Fill the rows, "
+                           f"or, if the answer settles intent but not the "
+                           f"values, declare them owed: `lzctl gap add --field "
+                           f"{path} --question \"...\"`")
         elif isinstance(node, dict) and _unset(node.get(parts[2])):
             out.append(f"{sheet}: {table}.{parts[2]} is unset, but decision "
                        f"{ref} is ANSWERED - the answer was dropped. Fill it, "
-                       f"or re-open the decision if the answer does not apply")
+                       f"or, if the answer settles intent but not the value, "
+                       f"declare it owed: `lzctl gap add --field {path} "
+                       f"--question \"...\"`")
     return out
 
 

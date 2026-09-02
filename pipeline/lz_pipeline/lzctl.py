@@ -1587,6 +1587,65 @@ def _coerce(raw: str, typ: str):
     return raw
 
 
+def _set_append_row(sp, args, p, spec_path):
+    """`set --field Sheet.Table[+] --json '{...}'`: append one whole row.
+
+    The last mechanical write `set` could not do: rows are addressed by name,
+    so a row that does not exist yet was unreachable and every run hand-wrote
+    a JSON mutator for its appendix rows. Append validates every key against
+    the schema's columns - the misspelled-key hazard is the same one `set`
+    exists to close. `[+]` appends only; existing rows are edited by name.
+    """
+    if p["column"]:
+        print(f"--field {args.field!r}: [+] appends a whole row - give the "
+              f"columns as --json, not a path to one column", file=sys.stderr)
+        return 2
+    if p["kind"] == "scalar":
+        print(f"--field {args.field!r}: {p['sheet']}.{p['table']} is a scalar "
+              f"table and has no rows - set its fields directly", file=sys.stderr)
+        return 2
+
+    if p["kind"] == "list-single":
+        if args.null:
+            print("a list-single row cannot be null - give the value", file=sys.stderr)
+            return 2
+        value = json.loads(args.json) if args.json is not None else args.value
+    else:
+        if args.json is None:
+            print(f"row append takes the row as JSON: --field "
+                  f"'{p['sheet']}.{p['table']}[+]' --json "
+                  f"'{{\"Column\": value, ...}}'", file=sys.stderr)
+            return 2
+        try:
+            value = json.loads(args.json)
+        except ValueError as e:
+            print(f"--json is not valid JSON: {e}", file=sys.stderr)
+            return 2
+        if not isinstance(value, dict) or not value:
+            print("--json must be a non-empty object of column values",
+                  file=sys.stderr)
+            return 2
+        for k in value:
+            try:
+                sp.parse(f"{p['sheet']}.{p['table']}[x].{k}")
+            except sp.PathError as e:
+                print(f"--json {e}", file=sys.stderr)
+                return 2
+
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    sheet = spec.setdefault("sheets", {}).setdefault(p["sheet"], {})
+    rows = sheet.get(p["table"])
+    if not isinstance(rows, list):
+        rows = []
+    rows.append(value)
+    sheet[p["table"]] = rows
+    spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n",
+                         encoding="utf-8", newline="\n")
+    print(f"appended {p['sheet']}.{p['table']}[{len(rows) - 1}] = "
+          f"{json.dumps(value, ensure_ascii=False)}")
+    return 0
+
+
 def cmd_set(args):
     """Put one value into the spec at a schema path.
 
@@ -1610,9 +1669,12 @@ def cmd_set(args):
     except sp.PathError as e:
         print(f"--field {e}", file=sys.stderr)
         return 2
+    if p["row"] == "+":
+        return _set_append_row(sp, args, p, spec_path)
     if not p["field"] and not p["column"]:
         print(f"--field {args.field!r} names a table, not a value - give "
-              "Sheet.Table.field or Sheet.Table[row].Column", file=sys.stderr)
+              "Sheet.Table.field, Sheet.Table[row].Column, or Sheet.Table[+] "
+              "with --json to append a row", file=sys.stderr)
         return 2
     if p["column"] and not p["row"]:
         print(f"--field {args.field!r} names a column but no row - give "
@@ -1646,8 +1708,9 @@ def cmd_set(args):
         if row is None:
             names = [str(next((r[k] for k in _ROW_KEYS if r.get(k)), "?")) for r in rows]
             print(f"{p['sheet']}.{p['table']} has no row {p['row']!r} "
-                  f"(rows: {', '.join(names) or 'none'}) - add the row first; "
-                  "`set` never invents one", file=sys.stderr)
+                  f"(rows: {', '.join(names) or 'none'}) - add it first with "
+                  f"--field '{p['sheet']}.{p['table']}[+]' --json '{{...}}'; "
+                  "addressing never invents a row", file=sys.stderr)
             return 2
         row[p["column"]] = value
     spec_path.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n",
@@ -1806,7 +1869,8 @@ def main(argv=None):
     p = sub.add_parser("set", help="write one value into the spec at a schema path")
     p.add_argument("--spec", "--ir", dest="spec", required=True)
     p.add_argument("--field", required=True,
-                   help="Sheet.Table.field or Sheet.Table[row].Column")
+                   help="Sheet.Table.field, Sheet.Table[row].Column, or "
+                        "Sheet.Table[+] with --json to append a row")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--value", help="the value, coerced to the field's declared type")
     g.add_argument("--json", help="a JSON literal, for lists and exact types")

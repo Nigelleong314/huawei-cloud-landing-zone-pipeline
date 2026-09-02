@@ -70,8 +70,12 @@ answers; treat both as signal.
 
 ## Conversion rules
 
-- Start from the **example spec** and replace values; do not build a spec from
-  an empty document. Defaults you inherit are reviewed, not invented.
+- Start from the **neutral draft `lzctl assess` writes** — every table empty,
+  every scalar null — and interpret answers into it with `lzctl set`. Consult
+  the example spec for STRUCTURE (field shapes, row layouts) only; its values
+  are one fictional customer's and must never leak into a draft. Defaults you
+  apply are the documented `default_if_silent` ones, recorded as DEFAULTED
+  decisions so they are reviewed, not invented.
 - **Sweep cross-references** after replacing accounts, VPCs, or groups —
   example rows that referenced the old names (log-convergence targets, audit
   exclusions, security groups, account assignments, SNAT/DNAT) are now

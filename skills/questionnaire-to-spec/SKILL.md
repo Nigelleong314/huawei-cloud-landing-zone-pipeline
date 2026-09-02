@@ -46,6 +46,14 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
    deployable value exists that nobody decided.
 
 3. **Interpret answers into the draft** (your job — the only step with judgment):
+   - **Every spec write is mechanical — `lzctl set`, never a hand-rolled JSON
+     mutator.** Scalars: `lzctl set --spec <spec> --field
+     "05_Network.Settings.spoke_private_supernet" --value 10.20.0.0/14`
+     (typed coercion; `--json` for lists and exact types; `--null` to declare
+     a value not known yet). One cell: `--field "Sheet.Table[<row-name>].Column"`.
+     A new row: `--field "Sheet.Table[+]" --json '{"Column": ...}'`. Every
+     path and column is validated against the schema, so a misspelled key
+     refuses instead of landing where no builder reads and no validator looks.
    - **Appendix rows are facts — copy VERBATIM from the dump JSON.** Never
      retype or "normalize" CIDRs, IPs, emails, account or team names. Rows
      map near-1:1: Appendix A → `01_Foundation` accounts/OUs, B → `05_Network`
@@ -89,8 +97,9 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
      values no question covers — an on-prem resolver IP, a peer gateway's
      public IP, a WAF origin address, a certificate ID. A fully answered
      questionnaire (0 OPEN) is therefore NOT proof the spec is complete.
-     Write `REPLACE_WITH_<WHAT>` in the field — never a plausible-looking
-     value — and register each one:
+     Leave the field null (`lzctl set --field <path> --null`) — never a
+     placeholder or a plausible-looking value; null is how this spec spells
+     "not known yet" — and register each one:
 
          lzctl gap add --spec <spec> --field "08_DNS.ResolverRules[fwd-onprem].TargetIPs" \
                        --question "On-prem AD DNS server IPs (D9) - network team"
@@ -99,7 +108,12 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
      spec's provenance, so the gap blocks `build` until somebody resolves it
      and records who decided. It is the ONLY sanctioned way to grow a
      decision set — hand-editing still fails the hash, and `gap add` refuses
-     to re-stamp a set that was already altered.
+     to re-stamp a set that was already altered. This covers ANSWERED
+     questions too: an answer that settles intent ("centralized egress via
+     the hub") without the concrete rows its target table needs would
+     otherwise validate as a dropped answer (LZR-035) — register the gap on
+     the concrete target and the intent stays honored while the missing
+     values stay owed.
    - **Sweep cross-references.** Accounts/VPCs/groups you add invalidate any
      row referencing names that don't exist — `lzctl validate` enforces
      referential integrity and lists what you missed.
@@ -117,6 +131,10 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
 
 5. **Validate** (must pass with 0 errors; warnings go into the decisions file):
    `lzctl validate <workspace>/specs/lz.spec.<customer>.json`
+   0 errors is reachable WITH gaps outstanding: a null field whose OPEN
+   decision names it (LZR-034), and an answered-but-valueless target covered
+   by a registered gap (LZR-035), are declared unknowns, not errors — the
+   OPEN items still block `build`. An error that survives is real work left.
 
 6. **Hand the draft to a human in the app — the review and gap-entry gate.**
    The customer reviews the draft and fills its gaps in the UI, never by
@@ -130,7 +148,7 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
    - pick `lz.spec.<customer>.json` in the top-right dropdown → **Load**;
    - open **Decisions & gaps** (top of the left rail): every OPEN decision
      gets a resolution (ANSWERED / ACCEPTED_DEFAULT + who decided + why), and
-     every gap links to the sheet holding its `REPLACE_WITH_*` placeholder;
+     every gap links to the sheet holding its null field;
    - work the rest sheet by sheet — the rail is in build order, reference
      columns are dropdowns fed by the tables they point at, and each table
      carries its MANDATORY / OPTIONAL-billable / AUTO / RESERVED badge;

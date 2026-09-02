@@ -265,7 +265,7 @@ def test_set_null_is_the_declared_unknown(draft):
     (("--field", "Nope.Settings.x", "--value", "x"), "no table 'Nope.Settings'"),
     (("--field", "05_Network.Settings.enable_hub", "--value", "maybe"), "not a valid bool"),
     (("--field", "08_DNS.ResolverRules[ghost].TargetIPs", "--value", "1.1.1.1"),
-     "never invents one"),
+     "addressing never invents a row"),
     (("--field", "08_DNS.ResolverRules.TargetIPs", "--value", "1.1.1.1"),
      "names a column but no row"),
 ])
@@ -275,3 +275,100 @@ def test_set_refuses_rather_than_guessing(draft, args, msg):
     assert r.returncode == 2, r.stdout + r.stderr
     assert msg in r.stderr
     assert draft.read_bytes() == before, "a refused set must not touch the spec"
+
+
+# ── lzctl set [+]: row append, the last hand-written mutator ───────────────
+
+def test_set_appends_a_row_then_addresses_it_by_name(draft):
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft),
+            "--field", "05_Network.NATGateways[+]",
+            "--json", '{"Name": "nat-hub", "Specification": "small"}')
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "appended 05_Network.NATGateways[0]" in r.stdout
+
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft),
+            "--field", "05_Network.NATGateways[nat-hub].Subnet",
+            "--value", "snet-egress")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert sheets_of(draft)["05_Network"]["NATGateways"] == [
+        {"Name": "nat-hub", "Specification": "small", "Subnet": "snet-egress"}]
+
+
+def test_set_appends_to_a_list_single_table(draft):
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft),
+            "--field", "05_Network.ERAvailabilityZones[+]",
+            "--value", "ap-southeast-1c")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert sheets_of(draft)["05_Network"]["ERAvailabilityZones"][-1] == "ap-southeast-1c"
+
+
+@pytest.mark.parametrize("args,msg", [
+    (("--field", "05_Network.NATGateways[+]", "--json", '{"Nope": 1}'),
+     "no column 'Nope'"),
+    (("--field", "05_Network.NATGateways[+]", "--value", "x"),
+     "row append takes the row as JSON"),
+    (("--field", "05_Network.NATGateways[+]", "--json", "{}"),
+     "non-empty object"),
+    (("--field", "05_Network.Settings[+]", "--json", "{}"),
+     "scalar table"),
+    (("--field", "05_Network.NATGateways[+].Name", "--json", '"x"'),
+     "appends a whole row"),
+])
+def test_row_append_refuses_rather_than_guessing(draft, args, msg):
+    before = draft.read_bytes()
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft), *args)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert msg in r.stderr
+    assert draft.read_bytes() == before, "a refused append must not touch the spec"
+
+
+# ── LZR-035: an answered target covered by an OPEN gap is owed, not dropped ─
+
+def _lzr035(spec, declared, answered):
+    from lz_pipeline import rules
+    rules.set_decisions_context(declared=declared, answered=answered, loaded=True)
+    try:
+        return [f.message for f in rules.run_spec_rules(spec)
+                if f.rule_id == "LZR-035"]
+    finally:
+        rules.set_decisions_context()
+
+
+def test_answered_empty_table_is_a_dropped_answer_with_a_real_way_out():
+    spec = sheets()
+    spec["05_Network"]["NATGateways"] = []
+    msgs = _lzr035(spec, (), {"05_Network.NATGateways": "C15"})
+    assert any("NATGateways is empty" in m and "C15" in m for m in msgs)
+    # the remediation must be executable: `gap add`, not "re-open" (state is
+    # inside the provenance hash, so re-opening is not a thing anyone can do)
+    assert all("re-open" not in m for m in msgs)
+    assert any("lzctl gap add --field 05_Network.NATGateways" in m for m in msgs)
+
+
+@pytest.mark.parametrize("declared", [
+    "05_Network.NATGateways",          # a gap on the table itself
+    "05_Network.NATGateways.Subnet",   # a gap on one of its columns
+])
+def test_covering_open_gap_silences_the_dropped_answer(declared):
+    """The round-2 loop: prose answers intent (C15 'centralized egress'),
+    the concrete rows are owed - registering the gap must clear the error,
+    exactly as LZR-034 already honors declared scalars."""
+    spec = sheets()
+    spec["05_Network"]["NATGateways"] = []
+    assert _lzr035(spec, {declared}, {"05_Network.NATGateways": "C15"}) == []
+
+
+def test_table_level_gap_covers_an_answered_scalar():
+    spec = sheets()
+    spec["05_Network"]["EnterpriseRouter"]["er_asn"] = None
+    path = "05_Network.EnterpriseRouter.er_asn"
+    assert _lzr035(spec, set(), {path: "D5"}) != []
+    assert _lzr035(spec, {"05_Network.EnterpriseRouter"}, {path: "D5"}) == []
+
+
+def test_unrelated_gap_does_not_silence_a_dropped_answer():
+    spec = sheets()
+    spec["05_Network"]["NATGateways"] = []
+    msgs = _lzr035(spec, {"08_DNS.ResolverRules"},
+                   {"05_Network.NATGateways": "C15"})
+    assert any("NATGateways is empty" in m for m in msgs)
