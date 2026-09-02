@@ -19,7 +19,6 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 | `test_phase1.py` | Workbook round-trip (spec ↔ generated workbook) |
 | `test_converge.py` | Log auto-derivation |
 | `test_cost.py` | Cost estimation |
-| `test_goldens.py` | Artifact consistency against locked golden outputs |
 | `test_phase4.py` | Runner workflow (`lzctl`) |
 | `test_phase5.py` | Artifact export — including the leak guard |
 | `app/tests/test_app.py` | The spec-editor app |

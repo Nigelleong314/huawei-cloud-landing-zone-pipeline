@@ -5,7 +5,8 @@ full LZ stream set (CTS, DNS access logs, CFW streams, one flow-log row per
 VPC); a curated table is authoritative and left untouched; derivation is off
 when aggregation is off; flow-log rows are gated on enable_vpc_flow_logs.
 
-Byte-exactness of a built tree belongs to test_goldens.py (frozen fixture).
+Byte-exactness of a built tree belongs to verify_pipeline's regen-diff
+(against the committed terraform/envs-example baseline).
 
 Run: py tests/test_converge.py
 """

@@ -237,7 +237,6 @@ def check_deps() -> bool:
 UNIT_DESCRIPTIONS = {
     "test_converge.py": "Validate log auto-derivation",
     "test_cost.py":     "Validate cost estimation",
-    "test_goldens.py":  "Validate artifact consistency",
     "test_phase0.py":   "Validate platform rules",
     "test_phase1.py":   "Validate workbook round-trip",
     "test_phase4.py":   "Validate runner workflow",

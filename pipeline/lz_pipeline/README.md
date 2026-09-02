@@ -18,7 +18,7 @@ lz_pipeline\
 ├── tools\              plan_triage, gen_ipam, gen_checklist, gen_config_book, gen_workbook,
 │                       gen_questionnaire + dump_questionnaire (pre-engagement assessment)
 ├── fixtures\           example synthetic customer (example.spec.json)
-├── tests\              test_phase0..5, test_converge + goldens (locked output files)
+├── tests\              test_phase0..5, test_converge, test_cost (regen baseline: terraform/envs-example)
 └── docs\               CI/CD plan
 ```
 

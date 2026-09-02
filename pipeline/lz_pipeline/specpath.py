@@ -98,14 +98,6 @@ def normalize(path: str) -> str:
     return f"{p['sheet']}.{p['table']}" + (f".{tail}" if tail else "")
 
 
-def is_valid(path: str) -> bool:
-    try:
-        parse(path)
-        return True
-    except PathError:
-        return False
-
-
 def field_type(path: str) -> str:
     """Declared type of a scalar field or an object-table column ('string'
     when unknown, 'json' when the path names a whole table)."""

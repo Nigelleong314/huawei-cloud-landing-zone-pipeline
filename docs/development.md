@@ -48,11 +48,11 @@ Keep the design rules in the asset; keep the SKILL.md row to one line.
 ## Where changes land
 
 - **Schema change** (`pipeline/lz_spec/schema.py`) → wire through
-  `core/builders.py`, regenerate the template and the questionnaire, recapture
-  goldens, `lzctl check`.
+  `core/builders.py`, regenerate the template and the questionnaire, rebuild
+  the `terraform/envs-example` baseline, `lzctl check`.
 - **New/changed module** (`terraform/modules/`) → update `terraform/scaffold/`
-  if env composition changes, rebuild `terraform/envs-example`, recapture
-  goldens.
+  if env composition changes, rebuild `terraform/envs-example` (it is the
+  regen-diff baseline).
 - **Workflow change** (phases, gates) → `schemas/phases.json` first, then
   `docs/workflow.md` and the skill's Phase contract table (they render it).
 
@@ -73,7 +73,6 @@ commit, never silently:
 - Second eval adapter (non-Claude provider) via `tests/evaluation/adapter.py`.
 - E2E bench: accept the gate-stop profile (unresolved item + zero envs +
   explicit escalation) as an alternative Phase B pass.
-- Dedupe the two identical example-spec copies.
 - **OBS-native remote apply lock** (conditional-PUT lock object in the state
   bucket) - the advisory lock is machine-local and CI concurrency only
   serializes runs that go through CI; this is the top operational gap.

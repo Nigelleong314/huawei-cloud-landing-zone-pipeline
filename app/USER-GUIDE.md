@@ -51,8 +51,12 @@ The app binds to 127.0.0.1 only — it is a local tool, not a shared web server.
 
 ### 1.3 First five minutes
 
-1. In the top-right dropdown, pick **`lz.spec.example.json`** and press **Load**.
-   This is a complete example: every fillable table is populated.
+1. Copy the packaged example into your spec folder (one time):
+
+       copy pipeline\lz_pipeline\fixtures\example.spec.json specs\lz.spec.example.json
+
+   Then pick **`lz.spec.example.json`** in the top-right dropdown and press
+   **Load**. This is a complete example: every fillable table is populated.
 2. Click through the sheets in the left rail to see how a landing zone is
    described: accounts, networks, firewall rules, logging, and so on.
 3. Press **Validate** — you should see "Validation passed — 0 errors, 0 warnings".
@@ -70,13 +74,13 @@ The app binds to 127.0.0.1 only — it is a local tool, not a shared web server.
     │   └── lz.spec.<customer>.json      specs you create with "New" are saved here
     │
     ├── pipeline\lz_spec\                CORE — do not edit
-    │   ├── lz.spec.example.json         filled example spec (safe to explore)
     │   ├── schema.py                    defines every sheet/column
     │   └── landing_zone_spec.xlsx       generated blank Excel template
+    ├── pipeline\lz_pipeline\fixtures\  example.spec.json — filled example
+    │                                    spec (copy into specs\ to explore)
     │
     ├── app\lz_app\                      CORE — the web app itself, do not edit
     ├── pipeline\lz_pipeline\            CORE — engine, runner, tools, tests, do not edit
-    │   └── tests\goldens\               locked expected outputs (the regression oracle)
     │
     └── terraform\
         ├── scaffold\                    blank scaffold — do not edit (template for new trees)
@@ -206,7 +210,7 @@ Job behaviour:
 
 ### 5.1 Explore the example (no cloud, no credentials)
 
-Load `lz.spec.example.json` → browse sheets → Validate → Build specs →
+Copy the packaged example into `specs\` (section 1.3), load it → browse sheets → Validate → Build specs →
 inspect `terraform\envs-example\` → Schema check to see the whole test
 suite pass.
 

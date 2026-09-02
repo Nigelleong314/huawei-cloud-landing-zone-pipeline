@@ -10,7 +10,6 @@ customers), never an input.
 |---|---|
 | `schema.py` | Single source of truth: every sheet, table, column, type, sample, and description |
 | `lz.spec.<customer>.json` | Customer- or environment-specific specification |
-| `lz.spec.example.json` | Filled example spec — every fillable table populated |
 | `gen_template.py` | Generates the blank `landing_zone_spec.xlsx` template from `schema.py` |
 | `landing_zone_spec.xlsx` | The blank template (generated — regenerate after schema changes) |
 | `verify_pipeline.py` | The regression harness: regen-diff, validate, template-check, rules, deps, fmt, unit suites |
@@ -48,4 +47,5 @@ sheet→env→module map is the Index sheet of the generated template.
 1. Add the `KV(...)` row (or table column) in `schema.py`.
 2. Wire it through the builder in `lz_pipeline/core/builders.py`.
 3. Regenerate the template: `python -m lz_spec.gen_template landing_zone_spec.xlsx`.
-4. Recapture goldens if generated output changes, then `lzctl check`.
+4. If generated output changes, rebuild the `terraform/envs-example`
+   baseline and review the diff, then `lzctl check`.

@@ -33,11 +33,12 @@ Seven checks, all must pass:
 | platform rules | zero rule errors on spec + tree |
 | dependency check | deps.json fresh, ordering valid, ownership registry clean |
 | formatting | `terraform fmt -check` on hand-written trees |
-| unit suites | goldens byte-identical, workbook round-trip exact, runner logic, artifact export, cost math, log-derivation |
+| unit suites | workbook round-trip exact, runner logic, artifact export, cost math, log-derivation |
 
-Golden files are the refactor oracle: capture generated outputs for at least
-TWO customers (the real one and a synthetic example) so customer-specific
-assumptions can't hide.
+regen-diff is the refactor oracle: the committed `terraform/envs-example`
+tree is the captured output of the synthetic example spec, and a customer
+workspace's own tree plays the same role there (`lzctl check regen-diff`),
+so customer-specific assumptions can't hide.
 
 ## 3. Post-apply verification
 
