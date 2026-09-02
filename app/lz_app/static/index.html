@@ -226,7 +226,9 @@
     <div id="jobTabs"></div>
     <div id="jobSection">
       <p class="jobdesc" id="jobDesc"></p>
-      <details class="envpick" id="envPick" style="display:none">
+      <!-- open by default: a collapsed picker reads as a fixed "all" scope
+           and hides that per-env selection exists at all -->
+      <details class="envpick" id="envPick" style="display:none" open>
         <summary id="envPickSummary">Environments: all</summary>
         <div id="envPickList"></div>
       </details>
