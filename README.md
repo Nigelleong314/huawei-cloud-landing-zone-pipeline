@@ -70,6 +70,8 @@ The model reasons and interprets; the skill provides workflow and design rules; 
 | Validators (JSON Schema, platform rules, plan triage) | Enforcement | no — deterministic | no |
 | Human | Approval at gates | yes | destructive applies require a second typed confirmation, which `--yes` never bypasses |
 
+An optional companion skill, [`huawei-cloud-terraform-generator`](https://skills.huaweicloud.com/detail/huawei-cloud-terraform-generator) (separate distribution: `npx clawhub install @huaweiclouddev/huawei-cloud-terraform-generator`), generates single-service HCL with per-service references — useful for day-2 workload modules outside the module catalogue. The landing-zone workflow never needs it: generated envs come from deterministic codegen, and agents never author `resource` blocks.
+
 ## How the skill and pipeline work together
 
 The skill decides and asks; the pipeline executes. Example: an agent runs `lzctl assess` (which deterministically classifies every questionnaire answer as ANSWERED / DEFAULTED / OPEN — it never guesses, and its draft spec starts *neutral*: every value unset, failing validation until interpreted), then the agent interprets the *prose* answers into the draft using the skill's design rules, then `lzctl validate` gates the result mechanically — and `lzctl build` refuses to run while `lz.spec.<customer>.decisions.json` still holds OPEN items without a recorded resolution. Every step the agent takes is a command a human could have typed; every judgment call is written into an artifact (the decisions files, the spec diff) a human reviews and signs off.
