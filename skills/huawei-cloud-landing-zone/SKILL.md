@@ -282,12 +282,13 @@ It matters only for work OUTSIDE the module catalogue: hand-maintained
 workload modules, day-2 single-service additions, debugging one resource's
 HCL. The landing-zone workflow itself never needs it — generated envs come
 from deterministic codegen, and agents never author `resource` blocks (the
-pre-apply guard enforces this). To install it, obtain the skill folder from
-the delivery team and copy it into the agent's skills directory (e.g.
-`.claude/skills/huawei-cloud-terraform-generator/`); there is no public
-package URL. Do not install it for validation runs of THIS skill — its broad
-trigger description can capture routine infrastructure requests that belong
-here.
+pre-apply guard enforces this). It is distributed through the Huawei Cloud
+Skills portal:
+<https://skills.huaweicloud.com/detail/huawei-cloud-terraform-generator> —
+install per the portal's instructions (the skill folder lands in the agent's
+skills directory, e.g. `.claude/skills/huawei-cloud-terraform-generator/`).
+Do not install it for validation runs of THIS skill — its broad trigger
+description can capture routine infrastructure requests that belong here.
 
 ## Non-negotiable constraints — check these before proposing or executing any change
 
