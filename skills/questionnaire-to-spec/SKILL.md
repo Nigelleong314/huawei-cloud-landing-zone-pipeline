@@ -127,7 +127,12 @@ entered by them in `lz-app` (step 6), not typed by you into JSON.
    fields get a reference (`secret://...`) or a `REPLACE_WITH_...` placeholder
    — platform rule LZR-027 is an **error** on any literal-looking PSK. If the customer
    pasted a secret into an answer, leave it out of the spec, flag it in the
-   decisions file, and never re-emit the pasted value anywhere.
+   decisions file, and never re-emit the pasted value anywhere. Know that the
+   intake dump still holds it: `lzctl intake` copies answers VERBATIM, so a
+   pasted secret lives on in `<jobtmp>/dump.json`. Treat the dump as
+   sensitive working material — keep it under jobtmp, never in a deliverable
+   (exports refuse to package `*dump.json`), and delete it once the spec is
+   accepted.
 
 5. **Validate** (must pass with 0 errors; warnings go into the decisions file):
    `lzctl validate <workspace>/specs/lz.spec.<customer>.json`

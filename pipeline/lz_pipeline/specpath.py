@@ -31,6 +31,24 @@ def _tables():
     return out
 
 
+def _columns(t):
+    """[(name, type)] as the JSON IR actually carries them.
+
+    The schema auto-prepends an `Enabled` bool to every non-mandatory
+    object table (gen_template does the same for the workbook), so rows
+    copied from the example spec legitimately carry it - rejecting it here
+    made the documented shape reference unusable for `set` (found by the
+    round-3 benchmark runs)."""
+    cols = [(c[0], (c[1] if len(c) > 1 else "string") or "string")
+            if isinstance(c, (tuple, list))
+            else (getattr(c, "name", c), getattr(c, "type", "string") or "string")
+            for c in (t.columns or [])]
+    if (t.kind == "object-table" and not getattr(t, "mandatory", False)
+            and not any(n == "Enabled" for n, _ in cols)):
+        cols.insert(0, ("Enabled", "bool"))
+    return cols
+
+
 def parse(path: str) -> dict:
     """{sheet, table, field, row, column, kind} - or raise PathError.
 
@@ -77,11 +95,10 @@ def parse(path: str) -> dict:
         return {"sheet": sheet, "table": table, "field": rest, "row": None,
                 "column": None, "kind": "scalar"}
 
-    cols = [c[0] if isinstance(c, (tuple, list)) else getattr(c, "name", c)
-            for c in (t.columns or [])]
+    cols = [n for n, _ in _columns(t)]
     if rest not in cols:
         raise PathError(f"{raw!r}: {key} has no column {rest!r} "
-                        f"(columns: {', '.join(map(str, cols))})")
+                        f"(columns: {', '.join(cols)})")
     return {"sheet": sheet, "table": table, "field": None, "row": row,
             "column": rest, "kind": t.kind}
 
@@ -104,12 +121,9 @@ def field_type(path: str) -> str:
     p = parse(path)
     t = _tables()[f"{p['sheet']}.{p['table']}"]
     if p["column"]:
-        for c in (t.columns or []):
-            if isinstance(c, (tuple, list)):
-                if c[0] == p["column"]:
-                    return (c[1] if len(c) > 1 else "string") or "string"
-            elif getattr(c, "name", c) == p["column"]:
-                return getattr(c, "type", "string") or "string"
+        for n, typ in _columns(t):
+            if n == p["column"]:
+                return typ
         return "string"
     if p["kind"] != "scalar" or not p["field"]:
         return "json"

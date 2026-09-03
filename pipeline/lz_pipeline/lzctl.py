@@ -1860,10 +1860,13 @@ def main(argv=None):
                                    "an OPEN decision and re-stamps provenance)")
     p.add_argument("action", choices=["add", "list"])
     p.add_argument("--spec", "--ir", dest="spec", required=True)
-    p.add_argument("--field", action="append",
-                   help="where the value belongs: Sheet.Table[row].Column "
-                        "(repeat for a gap that spans several fields)")
-    p.add_argument("--question", help="what is missing, and who can answer it")
+    p.add_argument("--field", action="append", metavar="FIELD",
+                   help="REQUIRED for add: where the value belongs, as "
+                        "Sheet.Table[row].Column (repeat for a gap that "
+                        "spans several fields); unused by list")
+    p.add_argument("--question",
+                   help="REQUIRED for add: what is missing, and who can "
+                        "answer it; unused by list")
     p.add_argument("--ref", help="explicit ref (default: next free G<n>)")
     p.set_defaults(fn=cmd_gap)
     p = sub.add_parser("set", help="write one value into the spec at a schema path")

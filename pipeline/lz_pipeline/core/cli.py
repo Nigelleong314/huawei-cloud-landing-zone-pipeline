@@ -94,13 +94,18 @@ def check_spec(spec: dict, selected=None, decisions=None, warn_sink=None) -> lis
     Returns the list of blocking error strings.
     """
     selected = selected or ENV_NAMES
+    from .. import rules as _rules
+    declared = _rules.declared_targets(decisions) if decisions else frozenset()
+
     errs = [e for e in validate(spec) if _err_in_scope(e, selected)]
+    # A required field covered by a declared OPEN gap is a KNOWN unknown -
+    # the gap blocks build until resolved, so validate need not repeat it.
+    errs = _rules.drop_declared_unknowns(errs, declared)
 
     # Platform rule registry (LZR-*): additive checks codified from the
     # platform constraints. Warnings print; in-scope errors block.
-    from .. import rules as _rules
     _rules.set_decisions_context(
-        declared=_rules.declared_targets(decisions) if decisions else None,
+        declared=declared if decisions else None,
         answered=_rules.answered_targets(decisions) if decisions else None,
         loaded=decisions is not None)
     for f in _rules.run_spec_rules(spec):

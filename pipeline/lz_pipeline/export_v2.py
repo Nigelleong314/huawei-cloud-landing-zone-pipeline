@@ -96,6 +96,12 @@ def excluded(p: Path, exclude_names: set) -> bool:
         return True
     if p.name.startswith("state-") and p.name.endswith(".json"):
         return True
+    # Questionnaire dumps are raw customer answers VERBATIM - including any
+    # secret a customer pasted into one (lzctl intake copies, never filters;
+    # the round-3 benchmark's planted PSK survived only in the dump). They
+    # are working material, never a deliverable.
+    if p.name.endswith("dump.json"):
+        return True
     if p.name.endswith(".pre-rename.backup"):
         return True
     return False

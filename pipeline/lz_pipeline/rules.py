@@ -822,7 +822,14 @@ def r_dropped_answers(spec):
 def r_enabled_plane_is_empty(spec):
     """enable_hub/enable_spoke are the switches the builders read. Leaving a
     plane switched on with no VPCs generates an env that deploys nothing,
-    which looks identical to a clean run."""
+    which looks identical to a clean run.
+
+    Exception: an OPEN gap declaring the table (or one of its columns).
+    "We want a hub, the CIDRs are owed by the network team" is the honest
+    state for a customer who withheld addressing - the switch asserts
+    intent, the gap owns the rows, and build stays blocked either way."""
+    ctx = decisions_context()
+    declared = ctx["declared"]
     n = spec.get("05_Network") or {}
     st = n.get("Settings") or {}
     out = []
@@ -830,9 +837,13 @@ def r_enabled_plane_is_empty(spec):
         v = st.get(flag)
         on = v is True or (isinstance(v, str) and v.strip().lower() in ("true", "1", "yes", "y"))
         if on and not (n.get(table) or []):
+            path = f"05_Network.{table}"
+            if any(d == path or d.startswith(path + ".") for d in declared):
+                continue
             out.append(f"05_Network: {flag} is on but {table} is empty - "
-                       f"the env would deploy nothing. Add the VPCs, or turn "
-                       f"{flag} off deliberately")
+                       f"the env would deploy nothing. Add the VPCs, turn "
+                       f"{flag} off deliberately, or declare the rows owed: "
+                       f"`lzctl gap add --field {path} --question \"...\"`")
     return out
 
 # Decisions context for the rules that need to know what has been DECLARED.
@@ -894,6 +905,52 @@ def answered_targets(decisions_doc: dict) -> dict:
                     out.setdefault(specpath.normalize(one), item.get("ref", "?"))
                 except Exception:
                     continue
+    return out
+
+
+_REQUIRED_MSG = None  # compiled lazily; see drop_declared_unknowns
+
+
+def drop_declared_unknowns(errors, declared) -> list:
+    """Filter required-field errors whose target a declared OPEN gap covers.
+
+    The third instance of the same defect class (after LZR-032's placeholder
+    remediation and LZR-035's covering-gap blindness): `validate()`'s
+    required/conditional-required checks kept erroring on fields whose gap
+    was properly registered, so the promised "0 errors with declared
+    unknowns" state was unreachable whenever one of those fields was owed
+    (found by the round-3 benchmark: 3 WAF errors on a run that had declared
+    exactly those three targets).
+
+    Matches only the `<path> is required...` shape; structural errors
+    (min-row counts, referential integrity) are not waivable. Messages that
+    omit a scalar table name ("Global.home_region") are matched against
+    their Settings-qualified form too. `build` never passes decisions here:
+    at build time every unknown must be resolved AND filled, so it stays
+    strict by design.
+    """
+    global _REQUIRED_MSG
+    if _REQUIRED_MSG is None:
+        import re
+        _REQUIRED_MSG = re.compile(r"^(\S+) is required\b")
+    declared = set(declared or ())
+    if not declared:
+        return list(errors)
+
+    def covered(tok):
+        cands = {tok}
+        parts = tok.split(".")
+        if len(parts) == 2:                       # "Global.home_region" form
+            cands.add(f"{parts[0]}.Settings.{parts[1]}")
+        return any(d == c or c.startswith(d + ".") or d.startswith(c + ".")
+                   for c in cands for d in declared)
+
+    out = []
+    for e in errors:
+        m = _REQUIRED_MSG.match(e)
+        if m and covered(m.group(1)):
+            continue
+        out.append(e)
     return out
 
 
