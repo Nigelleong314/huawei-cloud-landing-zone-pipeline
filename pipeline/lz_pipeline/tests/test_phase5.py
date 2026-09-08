@@ -65,6 +65,12 @@ with tempfile.TemporaryDirectory(prefix="lz-p5-") as td:
                if re.search(r'source\s*=\s*"\.\./\.\./\.\.', p.read_text(encoding="utf-8"))])
     check("no secrets shipped",
           not [p.relative_to(tgt).as_posix() for p in tgt.rglob("secrets.auto.tfvars.json")])
+    # `terraform show -json` renderings embed every variable value, master
+    # AK/SK included - the binary plan was excluded, the JSON form was not
+    check("no plan renderings shipped",
+          not [p.relative_to(tgt).as_posix() for p in tgt.rglob("*")
+               if p.name == "plan.json" or p.name.endswith((".plan.json", ".tfplan"))
+               or p.name == "tf.plan"])
 
     print("== 2. example export ==")
     tgt = tmp / "example"
