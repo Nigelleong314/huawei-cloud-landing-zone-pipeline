@@ -65,12 +65,13 @@ with tempfile.TemporaryDirectory(prefix="lz-p5-") as td:
                if re.search(r'source\s*=\s*"\.\./\.\./\.\.', p.read_text(encoding="utf-8"))])
     check("no secrets shipped",
           not [p.relative_to(tgt).as_posix() for p in tgt.rglob("secrets.auto.tfvars.json")])
-    # `terraform show -json` renderings embed every variable value, master
-    # AK/SK included - the binary plan was excluded, the JSON form was not
-    check("no plan renderings shipped",
+    # A plan file in ANY spelling embeds every variable value (master AK/SK
+    # included), and the binary form is a zip carrying tfplan PLUS tfstate.
+    # plan.json leaked on 2026-09-08, tfplan.bin on 2026-09-09.
+    from lz_pipeline.export_v2 import _PLAN_FILE
+    check("no plan artifact shipped, any spelling",
           not [p.relative_to(tgt).as_posix() for p in tgt.rglob("*")
-               if p.name == "plan.json" or p.name.endswith((".plan.json", ".tfplan"))
-               or p.name == "tf.plan"])
+               if p.is_file() and _PLAN_FILE.search(p.name)])
 
     print("== 2. example export ==")
     tgt = tmp / "example"
