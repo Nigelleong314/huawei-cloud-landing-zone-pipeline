@@ -1496,14 +1496,11 @@ M6_AUDIT = Sheet(
             name="AuditSettings",
             kind="scalar",
             rows=[
-                KV("cts_admin_account",       "string", "", "lz-security", "Required. Delegated administrator account from 01_Foundation where the central audit resources are deployed, including the organization CTS tracker, audit bucket, KMS key, and CTS log group and stream."),
+                KV("cts_admin_account",       "string", "", "lz-security", "Required. Delegated administrator account from 01_Foundation where the central audit resources are deployed, including the organization CTS tracker, audit bucket and KMS key. CTS writes the trail to an LTS group/stream it creates itself in this account (CTS / system-trace)."),
                 KV("audit_retention_days",       "int", 365,  365,   "Retention period for objects in the CTS audit bucket."),
                 KV("audit_cold_after_days",      "int", 0,    90,    "Number of days before CTS audit objects move to the COLD storage class. Use 0 to disable transition."),
-                KV("lts_hot_retention_days",     "int", 90,   90,    "Hot retention period for the CTS LTS log stream."),
                 KV("audit_bucket_name",       "string", "", "{account-name}-sg-prd-ldz-audit-01", "Required. Globally unique CTS audit OBS bucket name. Supports the {account-name} token."),
                 KV("kms_audit_alias",         "string", "", "{account-name}-sg-prd-ldz-audit-key", "Required. KMS alias for the audit bucket key. Supports {account-name}."),
-                KV("cts_log_group_name",      "string", "", "{account-name}-sg-prd-ldz-cts-lg",   "CTS LTS log group name. Supports {account-name}."),
-                KV("cts_log_stream_name",     "string", "", "{account-name}-sg-prd-ldz-cts-ls",   "CTS LTS log stream name. Supports {account-name}."),
                 KV("kms_pending_days",           "int", 7,    30,    "KMS pending-deletion window. Production environments should use 30 days."),
                 KV("audit_bucket_force_destroy","bool", False, False, "Use with caution. TRUE allows Terraform to delete a non-empty audit bucket when the bucket name changes. This deletes stored audit logs and should remain FALSE unless a deliberate recreation is required."),
                 KV("cts_no_transfer_accounts","string", "", "lz-app,lz-infra", "Comma-separated account names from 01_Foundation that receive a CTS tracker without OBS or LTS transfer. Use this only when local CTS visibility is required in addition to the central organization tracker. Exclude cts_admin_account. Leave blank when no account needs this."),
@@ -1535,7 +1532,7 @@ M6_AUDIT = Sheet(
             kind="object-table",
             description=(
                 "NO INPUT NEEDED: leave EMPTY and every LZ-created stream is derived on build — the CTS "
-                "stream (cts_admin_account), DNS query logs (08_DNS AccessLogs, dns_account), the CFW "
+                "trail CTS/system-trace (cts_admin_account), DNS query logs (08_DNS AccessLogs, dns_account), the CFW "
                 "traffic/access/attack streams (hub_account) and one <vpc>-flowlog per VPC. Add rows only "
                 "to CURATE (extra app-team streams, or to exclude a source) — a non-empty table is "
                 "authoritative and fully replaces the derivation. Account is the SOURCE account name "
@@ -1552,7 +1549,7 @@ M6_AUDIT = Sheet(
                 ("Description",  "string", "What the stream carries"),
             ],
             sample_rows=[
-                {"Enabled": False, "Account": "lz-security", "SourceGroup": "lz-cts",     "SourceStream": "lz-cts",      "TargetGroup": "", "Description": "Org CTS event stream"},
+                {"Enabled": False, "Account": "lz-security", "SourceGroup": "CTS",        "SourceStream": "system-trace", "TargetGroup": "", "Description": "Org CTS trail (LTS pair created by CTS)"},
                 {"Enabled": False, "Account": "lz-infra",    "SourceGroup": "lz-hub-cfw", "SourceStream": "cfw-traffic", "TargetGroup": "", "Description": "CFW traffic/flow logs"},
                 {"Enabled": False, "Account": "lz-infra",    "SourceGroup": "lz-hub-cfw", "SourceStream": "cfw-attack",  "TargetGroup": "", "Description": "CFW attack logs"},
             ],
@@ -1583,6 +1580,33 @@ M7_OPS = Sheet(
             ],
             sample_rows=[
                 {"Enabled": True, "Protocol": "email", "Endpoint": "lz-oncall@example.com"},
+            ],
+        ),
+        Table(
+            name="KeyEventNotifications",
+            kind="object-table",
+            description=(
+                "CTS key-event notifications on the organization tracker in cts_admin_account, "
+                "published to that account's SMN topic (cts_admin_account must therefore be in "
+                "OpsSettings.accounts). One row = one (Service, Resource, TraceNames) operations "
+                "block; rows sharing a Name merge into ONE notification. Service/Resource/TraceNames "
+                "must be the platform's own CTS operation names (data source "
+                "huaweicloud_cts_operations lists them) - a misspelled trace name never fires and "
+                "never errors. VPC exposes the same operation under several resource types "
+                "(routetable/routetables, security_group/security-groups, ...); list each you "
+                "want caught."
+            ),
+            columns=[
+                ("Name",        "string",   "Notification name: letters, digits, underscore only (CTS rejects hyphens), max 64. Rows sharing a Name form one notification."),
+                ("Service",     "string",   "CTS service type, e.g. KMS, VPC."),
+                ("Resource",    "string",   "CTS resource type within the service, e.g. cmk, routetable."),
+                ("TraceNames",  "csv-list", "Comma-separated CTS operation names for this Service/Resource."),
+                ("Description", "string",   "What this block alerts on."),
+            ],
+            sample_rows=[
+                {"Enabled": False, "Name": "kms_key_lifecycle",  "Service": "KMS", "Resource": "cmk",            "TraceNames": "disableKey,scheduleKeyDeletion,deleteImportedKeyMaterial", "Description": "KMS key disabled or scheduled for deletion"},
+                {"Enabled": False, "Name": "vpc_config_change",  "Service": "VPC", "Resource": "routetable",     "TraceNames": "createRouteTable,deleteRouteTable,modifyRouteTable",         "Description": "Route table changed (v1 API)"},
+                {"Enabled": False, "Name": "vpc_config_change",  "Service": "VPC", "Resource": "security_group", "TraceNames": "createSecurityGroup,deleteSecurityGroup,modifySecurityGroup", "Description": "Security group changed (v1 API)"},
             ],
         ),
         Table(
@@ -1701,7 +1725,7 @@ M6_AUDIT.tables = M6_AUDIT.tables + M7_OPS.tables
 
 # Workbook format version. Bump when the sheet/table/column contract changes;
 # the parser accepts a missing _meta sheet as "1.0" (pre-versioning workbooks).
-SCHEMA_VERSION = "2.2"
+SCHEMA_VERSION = "2.3"
 
 META = Sheet(
     name="_meta",

@@ -47,8 +47,7 @@ BASE = {
     },
     "06_Observability": {
         "LogAggregation": {"enable_log_aggregation": "TRUE"},
-        "AuditSettings": {"cts_admin_account": "SEC", "cts_log_group_name": "cts-lg",
-                          "cts_log_stream_name": "cts-ls"},
+        "AuditSettings": {"cts_admin_account": "SEC"},
     },
     "08_DNS": {
         "Settings": {"dns_account": "HUB"},
@@ -63,7 +62,7 @@ spec = copy.deepcopy(BASE)
 derive_log_converge(spec)
 rows = spec["06_Observability"]["LogConverge"]
 got = [(r["Account"], r["SourceGroup"], r["SourceStream"]) for r in rows]
-want = [("SEC", "cts-lg", "cts-ls"),
+want = [("SEC", "CTS", "system-trace"),
         ("HUB", "dns-lg", "dns-ls"),
         ("HUB", "hub-cfw", "cfw-traffic"),
         ("HUB", "hub-cfw", "cfw-access"),
@@ -99,7 +98,7 @@ noflow["05_Network"]["Settings"]["enable_vpc_flow_logs"] = "FALSE"
 derive_log_converge(noflow)
 groups = [r["SourceGroup"] for r in noflow["06_Observability"]["LogConverge"]]
 check("flow logs off: CTS/DNS/CFW rows only",
-      groups == ["cts-lg", "dns-lg", "hub-cfw", "hub-cfw", "hub-cfw"], groups)
+      groups == ["CTS", "dns-lg", "hub-cfw", "hub-cfw", "hub-cfw"], groups)
 
 nocfw = copy.deepcopy(BASE)
 nocfw["05_Network"]["CloudFirewall"]["cfw_lts_log_enable"] = "FALSE"

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/lz.spec.schema.json",
   "title": "Landing Zone spec",
-  "description": "Generated from lz_spec.schema v2.2. The python schema is authoritative; regenerate after any schema change (python -m lz_pipeline.tools.gen_jsonschema).",
+  "description": "Generated from lz_spec.schema v2.3. The python schema is authoritative; regenerate after any schema change (python -m lz_pipeline.tools.gen_jsonschema).",
   "type": "object",
   "required": [
     "format",
@@ -1187,7 +1187,7 @@
               "properties": {
                 "cts_admin_account": {
                   "type": "string",
-                  "description": "Required. Delegated administrator account from 01_Foundation where the central audit resources are deployed, including the organization CTS tracker, audit bucket, KMS key, and CTS log group and stream."
+                  "description": "Required. Delegated administrator account from 01_Foundation where the central audit resources are deployed, including the organization CTS tracker, audit bucket and KMS key. CTS writes the trail to an LTS group/stream it creates itself in this account (CTS / system-trace)."
                 },
                 "audit_retention_days": {
                   "type": [
@@ -1203,13 +1203,6 @@
                   ],
                   "description": "Number of days before CTS audit objects move to the COLD storage class. Use 0 to disable transition."
                 },
-                "lts_hot_retention_days": {
-                  "type": [
-                    "integer",
-                    "string"
-                  ],
-                  "description": "Hot retention period for the CTS LTS log stream."
-                },
                 "audit_bucket_name": {
                   "type": "string",
                   "description": "Required. Globally unique CTS audit OBS bucket name. Supports the {account-name} token."
@@ -1217,14 +1210,6 @@
                 "kms_audit_alias": {
                   "type": "string",
                   "description": "Required. KMS alias for the audit bucket key. Supports {account-name}."
-                },
-                "cts_log_group_name": {
-                  "type": "string",
-                  "description": "CTS LTS log group name. Supports {account-name}."
-                },
-                "cts_log_stream_name": {
-                  "type": "string",
-                  "description": "CTS LTS log stream name. Supports {account-name}."
                 },
                 "kms_pending_days": {
                   "type": [
@@ -1310,7 +1295,7 @@
             },
             "LogConverge": {
               "type": "array",
-              "description": "NO INPUT NEEDED: leave EMPTY and every LZ-created stream is derived on build — the CTS stream (cts_admin_account), DNS query logs (08_DNS AccessLogs, dns_account), the CFW traffic/access/attack streams (hub_account) and one <vpc>-flowlog per VPC. Add rows only to CURATE (extra app-team streams, or to exclude a source) — a non-empty table is authoritative and fully replaces the derivation. Account is the SOURCE account name (from 01_Foundation); SourceGroup/SourceStream are LTS group/stream NAMES in that account (resolved to IDs via generated per-account lookups). TargetGroup blank = agg-<account>-<sourcegroup>. Rows whose Account IS the LTS admin transfer straight to the archive bucket (no converge).",
+              "description": "NO INPUT NEEDED: leave EMPTY and every LZ-created stream is derived on build — the CTS trail CTS/system-trace (cts_admin_account), DNS query logs (08_DNS AccessLogs, dns_account), the CFW traffic/access/attack streams (hub_account) and one <vpc>-flowlog per VPC. Add rows only to CURATE (extra app-team streams, or to exclude a source) — a non-empty table is authoritative and fully replaces the derivation. Account is the SOURCE account name (from 01_Foundation); SourceGroup/SourceStream are LTS group/stream NAMES in that account (resolved to IDs via generated per-account lookups). TargetGroup blank = agg-<account>-<sourcegroup>. Rows whose Account IS the LTS admin transfer straight to the archive bucket (no converge).",
               "items": {
                 "type": "object",
                 "properties": {
@@ -1359,6 +1344,31 @@
                   },
                   "Endpoint": {
                     "description": "Address (email / phone / URL)"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "KeyEventNotifications": {
+              "type": "array",
+              "description": "CTS key-event notifications on the organization tracker in cts_admin_account, published to that account's SMN topic (cts_admin_account must therefore be in OpsSettings.accounts). One row = one (Service, Resource, TraceNames) operations block; rows sharing a Name merge into ONE notification. Service/Resource/TraceNames must be the platform's own CTS operation names (data source huaweicloud_cts_operations lists them) - a misspelled trace name never fires and never errors. VPC exposes the same operation under several resource types (routetable/routetables, security_group/security-groups, ...); list each you want caught.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "Name": {
+                    "description": "Notification name: letters, digits, underscore only (CTS rejects hyphens), max 64. Rows sharing a Name form one notification."
+                  },
+                  "Service": {
+                    "description": "CTS service type, e.g. KMS, VPC."
+                  },
+                  "Resource": {
+                    "description": "CTS resource type within the service, e.g. cmk, routetable."
+                  },
+                  "TraceNames": {
+                    "description": "Comma-separated CTS operation names for this Service/Resource."
+                  },
+                  "Description": {
+                    "description": "What this block alerts on."
                   }
                 },
                 "additionalProperties": true

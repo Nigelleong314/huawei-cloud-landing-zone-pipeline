@@ -32,21 +32,9 @@ variable "audit_bucket_force_destroy" {
   type    = bool
   default = false
 }
-variable "cts_log_group_name" {
-  type    = string
-  default = "lz-cts"
-}
-variable "cts_log_stream_name" {
-  type    = string
-  default = ""
-}
 variable "audit_retention_days" {
   type    = number
   default = 365
-}
-variable "lts_hot_retention_days" {
-  type    = number
-  default = 90
 }
 variable "kms_pending_days" {
   type    = number
@@ -109,6 +97,22 @@ variable "one_click_alarms" {
   type = list(object({
     namespace     = string
     event_enabled = optional(bool, true)
+  }))
+  default = []
+}
+
+# CTS key-event notifications on the org tracker (compliance-audit module).
+# Rows sharing a Name in 06_Observability.KeyEventNotifications merge into one
+# notification with several operations blocks.
+variable "cts_notifications" {
+  type = list(object({
+    name        = string
+    description = optional(string, "")
+    operations = list(object({
+      service     = string
+      resource    = string
+      trace_names = list(string)
+    }))
   }))
   default = []
 }

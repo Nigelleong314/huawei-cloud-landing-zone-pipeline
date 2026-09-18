@@ -414,12 +414,9 @@ def build_06_observability(spec):
     for k in (
         "audit_retention_days",
         "audit_cold_after_days",
-        "lts_hot_retention_days",
         "kms_pending_days",
         "audit_bucket_name",
         "kms_audit_alias",
-        "cts_log_group_name",
-        "cts_log_stream_name",
         "audit_bucket_force_destroy",
     ):
         v = s6.get(k)
@@ -471,6 +468,25 @@ def build_06_observability(spec):
             }
             for n in ns if n.get("Namespace")
         ]
+
+    # CTS key-event notifications (module 6, org tracker): rows sharing a Name
+    # merge into one notification with one operations block per row.
+    kev = obs.get("KeyEventNotifications") or []
+    notes: dict = {}
+    for r in kev:
+        name = str(r.get("Name") or "").strip()
+        if not name:
+            continue
+        n = notes.setdefault(name, {"name": name, "description": "", "operations": []})
+        if not n["description"] and r.get("Description"):
+            n["description"] = str(r["Description"]).strip()
+        n["operations"].append({
+            "service":     str(r.get("Service") or "").strip(),
+            "resource":    str(r.get("Resource") or "").strip(),
+            "trace_names": _split_csv(r.get("TraceNames")),
+        })
+    if notes:
+        out["cts_notifications"] = list(notes.values())
 
     return out
 

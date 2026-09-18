@@ -263,7 +263,7 @@ def main():
           ("Audit retention / cold storage",
            f'Delete after {o6.get("audit_retention_days")} days / move to COLD after {o6.get("audit_cold_after_days", 0)} days'),
           ("Audit KMS alias", o6.get("kms_audit_alias")),
-          ("CTS log group / stream", f'{o6.get("cts_log_group_name")} / {o6.get("cts_log_stream_name")}'),
+          ("CTS log group / stream", "CTS / system-trace (created by CTS in the audit account)"),
           ("Minimal trackers (no log transfer)", ", ".join(o6.get("cts_no_transfer_accounts") or []) or "-")])
     if o6.get("enable_log_aggregation"):
         s.section("Log aggregation and archive")

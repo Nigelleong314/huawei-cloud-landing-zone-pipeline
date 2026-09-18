@@ -11,5 +11,5 @@ output "cts_log_stream_id" { value = module.audit.cts_log_stream_id }
 # LTS group name -> ID map for downstream consumers (07-security wires these
 # into SecMaster cloud log resources). Published on the next apply.
 output "lts_group_ids" {
-  value = { (var.cts_log_group_name) = module.audit.cts_log_group_id }
+  value = { "CTS" = module.audit.cts_log_group_id }
 }

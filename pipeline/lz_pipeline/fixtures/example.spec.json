@@ -421,11 +421,8 @@
         "cts_admin_account": "EXAMPLE-Security",
         "audit_retention_days": 365,
         "audit_cold_after_days": 90,
-        "lts_hot_retention_days": 30,
         "audit_bucket_name": "example-lz-obs-audit-01",
         "kms_audit_alias": "example-audit",
-        "cts_log_group_name": "example-audit-loggroup",
-        "cts_log_stream_name": "example-audit-stream",
         "kms_pending_days": 7,
         "audit_bucket_force_destroy": false,
         "cts_no_transfer_accounts": "EXAMPLE-Sandbox1"

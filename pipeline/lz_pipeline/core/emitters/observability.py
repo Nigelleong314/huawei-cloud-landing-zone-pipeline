@@ -79,7 +79,7 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
     ]
     if admin:
         calls += [
-            f"# Central audit: org CTS tracker + audit/archive buckets + KMS + CTS LTS, in {admin}.",
+            f"# Central audit: org CTS tracker (trail in the CTS-created LTS pair CTS/system-trace) + audit/archive buckets + KMS, in {admin}.",
             'module "audit" {',
             f'  source    = "{_AUDIT_MODULE_SRC}"',
             "  providers = { huaweicloud = huaweicloud.audit_admin }",
@@ -89,14 +89,12 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
             f'  account_name               = "{admin}"',
             "  audit_bucket_name          = var.audit_bucket_name",
             "  kms_audit_alias            = var.kms_audit_alias",
-            "  cts_log_group_name         = var.cts_log_group_name",
-            "  cts_log_stream_name        = var.cts_log_stream_name",
             "  member_account_ids         = local.member_account_ids",
             "  audit_retention_days       = var.audit_retention_days",
             "  audit_cold_after_days      = var.audit_cold_after_days",
-            "  lts_hot_retention_days     = var.lts_hot_retention_days",
             "  kms_pending_days           = var.kms_pending_days",
             "  audit_bucket_force_destroy = var.audit_bucket_force_destroy",
+        ] + _cts_notification_lines(admin, ops) + [
             "}",
             "",
         ]
@@ -144,6 +142,22 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
         ("observability.generated.tf", calls),
         ("logconverge.generated.tf", lc_lines),
     ))
+
+
+def _cts_notification_lines(admin: str, ops: list) -> list:
+    """Wire key-event notifications into the audit module: the notifications
+    list plus the SMN topic URN of the CTS-admin account's ops module (the
+    topic lives there). No ops module for the admin account = no wiring; LZR-037
+    rejects a spec that lists notifications in that state."""
+    match = [a for a in ops if a.strip().lower() == admin.strip().lower()]
+    if not match:
+        return []
+    return [
+        "",
+        "  # Key-event notifications publish to this account's ops SMN topic.",
+        "  cts_notifications          = var.cts_notifications",
+        f"  cts_notification_topic_urn = module.ops_{_acct_alias(match[0])}.smn_topic_urn",
+    ]
 
 
 def _logconverge_codegen(enabled: bool, admin: str, rows: list, accounts: list,

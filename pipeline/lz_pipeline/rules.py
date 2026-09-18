@@ -86,6 +86,7 @@ ORIGINS = {
     "LZR-031": "IMPLEMENTATION", "LZR-032": "SAFETY",
     "LZR-033": "IMPLEMENTATION", "LZR-034": "SAFETY",
     "LZR-035": "SAFETY", "LZR-036": "IMPLEMENTATION",
+    "LZR-037": "IMPLEMENTATION",
 }
 
 REGISTRY: list = []
@@ -844,6 +845,41 @@ def r_enabled_plane_is_empty(spec):
                        f"the env would deploy nothing. Add the VPCs, turn "
                        f"{flag} off deliberately, or declare the rows owed: "
                        f"`lzctl gap add --field {path} --question \"...\"`")
+    return out
+
+@_rule("LZR-037", "error", "spec",
+       "KeyEventNotifications rows must be complete and cts_admin_account must receive an ops SMN topic")
+def r_key_event_notifications(spec):
+    """Key-event notifications are created in cts_admin_account and publish to
+    that account's ops SMN topic, so the account must be in
+    OpsSettings.accounts (or the list must be 'all'). Every row needs the
+    (Service, Resource, TraceNames) triple: CTS accepts a misspelled trace
+    name silently and the notification simply never fires, so the least the
+    pipeline can do is refuse an empty one."""
+    obs = spec.get("06_Observability") or {}
+    rows = obs.get("KeyEventNotifications") or []
+    if not rows:
+        return []
+    out = []
+    admin = str((obs.get("AuditSettings") or {}).get("cts_admin_account") or "").strip()
+    ops = [a.strip().lower() for a in _csv((obs.get("OpsSettings") or {}).get("accounts"))]
+    if not admin:
+        out.append("06_Observability: KeyEventNotifications rows need AuditSettings.cts_admin_account")
+    elif "all" not in ops and admin.lower() not in ops:
+        out.append(f"06_Observability: KeyEventNotifications publish to {admin!r}'s ops SMN topic, "
+                   f"but OpsSettings.accounts does not include it - add it (or use 'all')")
+    for i, r in enumerate(rows):
+        name = str(r.get("Name") or "").strip()
+        missing = [c for c in ("Name", "Service", "Resource", "TraceNames")
+                   if not _csv(r.get(c))]
+        if missing:
+            out.append(f"06_Observability: KeyEventNotifications[{i}] ({name or 'unnamed'}) "
+                       f"missing {', '.join(missing)}")
+        # CTS rejects hyphens (cts.0007 "Notification name verify failed"):
+        # letters, digits, underscore, Chinese characters, max 64.
+        if name and not re.fullmatch(r"[A-Za-z0-9_一-鿿]{1,64}", name):
+            out.append(f"06_Observability: KeyEventNotifications[{i}] Name {name!r} - "
+                       "CTS allows only letters, digits and underscore (no hyphens), max 64")
     return out
 
 # Decisions context for the rules that need to know what has been DECLARED.

@@ -123,7 +123,7 @@ def derive_log_converge(spec: dict) -> None:
     """Fill an EMPTY 06_Observability.LogConverge table with every LZ-created
     log stream the spec already describes. Runs automatically on every build —
     the table needs no input:
-      1. the org CTS stream        (AuditSettings cts_admin_account + group/stream)
+      1. the org CTS trail         (AuditSettings cts_admin_account; CTS-created LTS pair CTS/system-trace)
       2. DNS query-log streams     (08_DNS AccessLogs, in dns_account)
       3. CFW traffic/access/attack (05_Network CloudFirewall, in hub_account)
       4. one <vpc>-flowlog per VPC (when enable_vpc_flow_logs)
@@ -147,7 +147,8 @@ def derive_log_converge(spec: dict) -> None:
                          "SourceStream": stream, "TargetGroup": None, "Description": None})
 
     aud = o6.get("AuditSettings") or {}
-    add(aud.get("cts_admin_account"), aud.get("cts_log_group_name"), aud.get("cts_log_stream_name"))
+    # CTS writes the trail to an LTS group/stream it creates itself; the names are fixed.
+    add(aud.get("cts_admin_account"), "CTS", "system-trace")
 
     dns_account = ((spec.get("08_DNS") or {}).get("Settings") or {}).get("dns_account")
     for r in (spec.get("08_DNS") or {}).get("AccessLogs") or []:
