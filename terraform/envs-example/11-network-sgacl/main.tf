@@ -19,6 +19,6 @@ locals {
   foundation = data.terraform_remote_state.foundation.outputs
 }
 
-# Workload security groups (module 15): one module call per member account,
+# Workload security groups: one module call per member account,
 # in sgacl.generated.tf (providers in
 # providers.generated.tf). Do not add module calls here.

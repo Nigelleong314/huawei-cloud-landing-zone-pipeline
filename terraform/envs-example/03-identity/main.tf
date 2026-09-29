@@ -1,7 +1,7 @@
 # --- Identity configuration ---
 
 # 03-identity
-# IC content (1 call to module 2 in master) +
+# IC content (1 call to the identity module in master) +
 # IAM baseline per-account (1 call per created account, via provider alias).
 # Add/remove accounts by:
 #   1. Adding a provider alias in providers.tf
@@ -9,7 +9,7 @@
 # Pattern C: provider aliases are explicit, not generated dynamically (Terraform
 # does not support for_each over module providers).
 
-# ── Read module 1 outputs from remote state ────────────────────────────────
+# ── Read foundation outputs from remote state ────────────────────────────────
 
 data "terraform_remote_state" "foundation" {
   backend = "s3"
@@ -42,7 +42,7 @@ module "ic_content" {
   identity_store_id           = local.foundation.identity_store_id
   identity_center_instance_id = local.foundation.identity_center_instance_id
 
-  # Pass var if user overrides; else module 2 defaults apply.
+  # Pass var if user overrides; else the identity module defaults apply.
   groups              = var.groups != null ? var.groups : null
   users               = var.users != null ? var.users : null
   permission_sets     = var.permission_sets != null ? var.permission_sets : null

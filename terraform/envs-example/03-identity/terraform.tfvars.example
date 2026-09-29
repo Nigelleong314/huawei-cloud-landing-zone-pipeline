@@ -8,14 +8,14 @@ foundation_state_bucket = "REPLACE_ME-lz-tfstate"
 
 # environment = "shared"
 
-# ── IC content overrides (leave null to use module 2 defaults) ─────────────
+# ── IC content overrides (leave null to use the identity defaults) ─────────────
 
 # groups          = null
 # users           = null
 # permission_sets = null
 
 # Explicit account_assignments override. Empty = bind defaults (lz-admins +
-# lz-readonly on every created account from module 1 outputs).
+# lz-readonly on every created account from the foundation outputs).
 # account_assignments = []
 
 # IC-issued credentials work in these regions only.
@@ -23,7 +23,7 @@ foundation_state_bucket = "REPLACE_ME-lz-tfstate"
 
 # ── Service agencies (per-account) ─────────────────────────────────────────
 
-# Leave null to use module 2 defaults (cts-to-lz-audit-bucket + lts-to-lz-archive-bucket).
+# Leave null to use the identity defaults (cts-to-lz-audit-bucket + lts-to-lz-archive-bucket).
 # Override below to customize per-deployment.
 # service_agencies = [
 #   {

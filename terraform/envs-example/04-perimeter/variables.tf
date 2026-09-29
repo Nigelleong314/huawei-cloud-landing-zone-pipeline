@@ -22,7 +22,7 @@ variable "attach_target_id" {
   description = "Entity to attach the SCPs to. Empty = a 'Workloads' OU if the foundation exposes one, else the org root."
 }
 
-# The 8 guardrail SCPs. Passthrough to module 04-perimeter, which owns the full
+# The 8 guardrail SCPs. Passthrough to the perimeter module, which owns the full
 # typed schema + per-policy defaults. Each enabled policy is a block keyed by its
 # policy name (deny_leave_org, deny_root_user, deny_unauthorized_ram_share,
 # deny_unauthorized_rms_aggregation, require_mandatory_tags, deny_public_obs,

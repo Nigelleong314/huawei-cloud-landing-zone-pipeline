@@ -106,7 +106,7 @@ variable "cfw_lts_attack_stream_name" {
   default = "cfw-attack"
 }
 
-# ── Hub VPCs (REQUIRED — no defaults; see module 3 README for sizing) ──────
+# ── Hub VPCs (REQUIRED — no defaults; see the network module docs for sizing) ──────
 
 variable "hub_vpcs" {
   type = map(object({

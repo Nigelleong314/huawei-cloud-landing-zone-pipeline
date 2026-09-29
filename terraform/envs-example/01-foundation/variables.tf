@@ -1,6 +1,6 @@
 # --- Foundation inputs ---
 
-# Env-level variables. Most pass through to module 1 unchanged.
+# Env-level variables. Most pass through to the organization module unchanged.
 
 variable "home_region" {
   type        = string

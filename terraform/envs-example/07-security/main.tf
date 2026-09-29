@@ -50,7 +50,7 @@ locals {
   observability = data.terraform_remote_state.observability.outputs
   network       = data.terraform_remote_state.network.outputs
 
-  # Wire SecMaster cloud_log_resources to LTS groups from module 6
+  # Wire SecMaster cloud_log_resources to LTS groups from compliance-audit
   cloud_log_resources = [
     for group_name, group_id in lookup(local.observability, "lts_group_ids", {}) : {
       name         = group_name
@@ -88,7 +88,7 @@ module "security" {
   member_workspace_bindings = var.member_workspace_bindings
 }
 
-# ── Edge protection (module 13): Basic Anti-DDoS on hub EIPs + dedicated WAF ─
+# ── Edge protection: Basic Anti-DDoS on hub EIPs + dedicated WAF ─
 # Runs in the HUB account (huaweicloud.hub). Name -> ID resolution comes from the
 # 05-network state: EIPs by name, the WAF VPC/subnet by their 05-network names.
 

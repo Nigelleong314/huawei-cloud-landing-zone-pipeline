@@ -32,7 +32,7 @@ provider "huaweicloud" {
   agency_domain_name = var.security_account
 }
 
-# Edge protection (module 13) deploys into the 05-network HUB account: the
+# Edge protection deploys into the 05-network HUB account: the
 # Anti-DDoS EIPs and the WAF VPC live there. assume_role block (temporary member
 # AK/SK) like 05-network's vpn provider; default_tags so the require_mandatory_tags SCP allows creates.
 provider "huaweicloud" {
