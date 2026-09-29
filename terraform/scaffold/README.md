@@ -49,3 +49,8 @@ $env:AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
 
 Without these, `terraform init` fails with `XAmzContentSHA256Mismatch` on
 state push. `lzctl preflight` verifies them.
+
+- Comments follow the artifact convention (`# --- Section ---`,
+  `# Note: one sentence.`, short labels) and carry no history, roadmap notes
+  or generator provenance. `py -m lz_pipeline.comment_lint terraform/scaffold`
+  checks it; the exporter enforces it.

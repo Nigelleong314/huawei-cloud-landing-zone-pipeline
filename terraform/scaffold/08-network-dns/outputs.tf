@@ -1,3 +1,5 @@
+# --- DNS outputs ---
+
 output "public_zone_ids" { value = module.dns.public_zone_ids }
 output "private_zone_ids" { value = module.dns.private_zone_ids }
 output "recordset_ids" { value = module.dns.recordset_ids }

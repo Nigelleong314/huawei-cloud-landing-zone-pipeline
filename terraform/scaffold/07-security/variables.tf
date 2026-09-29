@@ -1,3 +1,5 @@
+# --- Edge protection inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string
@@ -73,7 +75,7 @@ variable "member_workspace_bindings" {
 # ── Edge protection (module 13, hub account) ────────────────────────────────
 
 variable "antiddos" {
-  # Rows from the 07_Security AntiDDoS table: { name, eip, threshold_mbps, alarm_topic }.
+  # Each entry: { name, eip, threshold_mbps, alarm_topic }.
   type    = any
   default = []
 }
@@ -108,7 +110,7 @@ variable "waf_policy_name" {
   default = "lz-waf-policy"
 }
 variable "waf_domains" {
-  # Rows from the 07_Security WAFDomains table.
+  # The protected domains.
   type    = any
   default = []
 }

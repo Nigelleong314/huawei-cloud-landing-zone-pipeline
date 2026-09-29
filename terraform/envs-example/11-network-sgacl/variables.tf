@@ -1,3 +1,5 @@
+# --- Security groups inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string
@@ -16,7 +18,7 @@ variable "foundation_state_key" {
 
 # ── Module 15 inputs (workload security groups) ─────────────────────────────
 
-# account name -> its groups + rules (11_SGACL SecurityGroups / SGRules rows).
+# account name -> its security groups and their rules.
 # The generated sgacl.generated.tf passes each account's slice to one module call.
 variable "secgroups" {
   type = map(object({

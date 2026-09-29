@@ -1,3 +1,5 @@
+# --- Central audit outputs ---
+
 # Central audit (module 6, in the CTS-admin account) outputs.
 # Per-account ops (module 7) outputs are generated alongside the module calls in
 # observability.generated.tf.

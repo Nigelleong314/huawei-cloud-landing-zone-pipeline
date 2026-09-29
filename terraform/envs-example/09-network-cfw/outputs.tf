@@ -1,3 +1,5 @@
+# --- Firewall outputs ---
+
 output "internet_object_id" { value = local.internet_object_id }
 output "vpc_object_id" { value = local.vpc_object_id }
 output "address_group_ids" { value = module.cfw.address_group_ids }

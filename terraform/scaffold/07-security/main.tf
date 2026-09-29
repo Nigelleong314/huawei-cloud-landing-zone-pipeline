@@ -1,3 +1,5 @@
+# --- Edge protection configuration ---
+
 data "terraform_remote_state" "foundation" {
   backend = "s3"
   config = {
@@ -88,7 +90,7 @@ module "security" {
 
 # ── Edge protection (module 13): Basic Anti-DDoS on hub EIPs + dedicated WAF ─
 # Runs in the HUB account (huaweicloud.hub). Name -> ID resolution comes from the
-# 05-network state: EIPs by name, the WAF VPC/subnet by 05_Network names.
+# 05-network state: EIPs by name, the WAF VPC/subnet by their 05-network names.
 
 module "edge_protection" {
   source    = "../../modules/edge-protection"

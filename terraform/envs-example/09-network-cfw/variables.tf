@@ -1,3 +1,5 @@
+# --- Firewall inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string
@@ -32,7 +34,7 @@ variable "enterprise_project_name" {
   description = "Enterprise project the hub CFW belongs to (= 05_Network enterprise_project_name). Resolved to an ID and passed to the attack-defense data source/rules, which are EP-scoped. Blank = default project '0'."
 }
 
-# ── CFW config (from sheet 09_CFW; the module enforces the object shapes) ──────
+# ── CFW config (the module enforces the object shapes) ──────
 variable "address_groups" {
   type    = any
   default = []

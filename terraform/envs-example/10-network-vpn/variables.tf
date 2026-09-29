@@ -1,3 +1,5 @@
+# --- VPN inputs ---
+
 variable "home_region" { type = string }
 variable "default_tags" {
   type    = map(string)
@@ -28,7 +30,7 @@ variable "enterprise_project_name" {
   description = "Landing-zone enterprise project name (from 02_Finance CostCenters); blank = default project."
 }
 
-# VPN config (from sheet 10_VPN; the module enforces the object shapes). The
+# VPN config (the module enforces the object shapes). The
 # module.vpn call is generated into vpn.generated.tf.
 variable "gateways" {
   type    = any

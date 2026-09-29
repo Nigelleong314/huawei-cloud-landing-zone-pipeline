@@ -1,6 +1,7 @@
+# --- Organization bootstrap ---
+
 # Foundation env: org bootstrap + accounts + IC instance + optional governance.
 # Wraps modules/organization (relative path).
-#
 # Apply time: ~10-15 minutes (faster than the RGC path; bottleneck is account
 # email-confirmation + IC instance start).
 

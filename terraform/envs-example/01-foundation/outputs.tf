@@ -1,3 +1,5 @@
+# --- Foundation outputs ---
+
 # Env outputs — consumed by downstream envs via terraform_remote_state.
 
 output "organization_id" { value = module.org_foundation.organization_id }

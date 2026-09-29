@@ -1,3 +1,5 @@
+# --- Observability inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string
@@ -94,7 +96,7 @@ variable "one_click_alarms" {
 }
 
 # CTS key-event notifications on the org tracker (compliance-audit module).
-# Rows sharing a Name in 06_Observability.KeyEventNotifications merge into one
+# Entries sharing a Name merge into one
 # notification with several operations blocks.
 variable "cts_notifications" {
   type = list(object({

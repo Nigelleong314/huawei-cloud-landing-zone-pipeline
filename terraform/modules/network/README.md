@@ -7,7 +7,7 @@ flags.
 
 ```hcl
 module "network_hub" {
-  source    = "../../modules/network"
+  source    = "../../../huaweicloud-agentic-tools/modules-v2/network"
   providers = { huaweicloud = huaweicloud.lz_infra }
 
   enable_hub = true
@@ -20,7 +20,7 @@ module "network_hub" {
 
 ```hcl
 module "network_spoke_app_prod" {
-  source    = "../../modules/network"
+  source    = "../../../huaweicloud-agentic-tools/modules-v2/network"
   providers = { huaweicloud = huaweicloud.lz_app_prod }
 
   enable_spoke   = true

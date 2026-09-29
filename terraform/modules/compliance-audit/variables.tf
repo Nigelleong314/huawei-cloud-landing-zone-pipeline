@@ -1,6 +1,4 @@
-# Module 6 - unified compliance audit
-# Lives in logging account (lz-infra). Owns: org CTS tracker + 3 OBS buckets +
-# log-infra KMS + LTS infrastructure.
+# --- Audit inputs ---
 
 variable "environment" {
   type    = string
@@ -17,8 +15,8 @@ variable "account_name" {
   description = "Account this central audit module deploys into (the CTS delegated admin). Substituted for the {account-name} token in the bucket / KMS / CTS log-group / stream names below."
 }
 
-# Explicit, required names. OBS bucket names must be globally unique across all
-# of Huawei Cloud, so there is no safe default/fallback - each must be provided.
+# --- Bucket names and key aliases ---
+# Note: OBS bucket names must be globally unique.
 variable "audit_bucket_name" {
   type        = string
   description = "Name for the CTS audit OBS bucket (globally unique)."
@@ -44,7 +42,7 @@ variable "member_account_ids" {
   description = "All created account IDs (from module 1's accounts output). Used for cross-account bucket policies + LTS cross_account_access."
 }
 
-# ---- Retention ----
+# --- Retention settings ---
 
 variable "audit_cold_after_days" {
   type        = number
@@ -56,36 +54,34 @@ variable "audit_retention_days" {
   type    = number
   default = 365
 }
-variable "lts_hot_retention_days" {
-  type    = number
-  default = 90
-}
-
-# ---- CTS LTS log group + stream (the single LTS pair, for the CTS trail) ----
-
-variable "cts_log_group_name" {
-  type        = string
-  default     = "lz-cts"
-  description = "CTS LTS log group name. Supports {account-name}."
-}
-variable "cts_log_stream_name" {
-  type        = string
-  default     = ""
-  description = "CTS LTS log stream name. Supports {account-name}. Blank = cts_log_group_name."
-}
-
-# ---- KMS ----
+# --- Encryption settings ---
 
 variable "kms_pending_days" {
-  type    = number
-  default = 7 # Day-1 default; production should bump to 30
+  type = number
+  # Key deletion waiting period
+  default = 7
 }
 
-# ---- CTS extensions (deferred - default off) ----
+# --- CTS extensions ---
 
+# --- Key-event notifications ---
 variable "cts_notifications" {
-  type    = any
+  type = list(object({
+    name        = string
+    description = optional(string, "")
+    operations = list(object({
+      service     = string
+      resource    = string
+      trace_names = list(string)
+    }))
+  }))
   default = []
+}
+
+variable "cts_notification_topic_urn" {
+  type        = string
+  default     = ""
+  description = "SMN topic URN that cts_notifications publish to. Required when cts_notifications is non-empty."
 }
 
 variable "cts_data_trackers" {

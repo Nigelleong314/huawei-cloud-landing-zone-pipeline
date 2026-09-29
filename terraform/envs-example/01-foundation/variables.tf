@@ -1,3 +1,5 @@
+# --- Foundation inputs ---
+
 # Env-level variables. Most pass through to module 1 unchanged.
 
 variable "home_region" {

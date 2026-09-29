@@ -6,9 +6,8 @@ foundation_state_bucket = "REPLACE_ME-lz-tfstate"
 
 # Cost-center EPs grouped by the account they are created in. This whole file
 # (plus providers.generated.tf / cost-centers.generated.tf) is normally produced
-# by build_envs.py from the 02_Finance sheet's CostCenters table — edit the sheet,
-# not this. Shown here for reference:
-#
+# in cost-centers.generated.tf and providers.generated.tf.
+# Shown here for reference:
 # cost_centers_by_account = {
 #   master = {
 #     finance = { description = "Finance BU", enterprise_project_type = "prod" }

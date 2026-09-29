@@ -1,3 +1,5 @@
+# --- Network configuration ---
+
 data "terraform_remote_state" "foundation" {
   backend = "s3"
   config = {
@@ -125,5 +127,5 @@ module "network_hub" {
   er_share_owner_account_id = try(local.foundation.accounts[var.hub_account].id, "")
 }
 
-# Spoke providers + per-VPC module calls are GENERATED (spokes.generated.tf /
-# providers.generated.tf) from the SpokeVPCs table by build_envs.py.
+# Spoke providers and per-VPC module calls live in spokes.generated.tf and
+# providers.generated.tf (one pair per spoke VPC).

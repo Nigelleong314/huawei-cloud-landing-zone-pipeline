@@ -1,8 +1,6 @@
 # 01-foundation/terraform.tfvars.example
-#
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 # Apply time: ~10-15 minutes.
-#
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │  IMMUTABLE FIELDS — verify before applying. Most changes after apply     │
 # │  trigger account/OU recreation.                                          │
@@ -63,7 +61,7 @@ workload_accounts = {
 
 # ── Organizational Units ───────────────────────────────────────────────────
 
-# Each OU created directly under the org root. Day-1 supports flat layout only.
+# Each OU is created directly under the organization root; the layout is flat.
 # organizational_units = {
 #   Workloads = {}
 # }
@@ -93,7 +91,7 @@ workload_accounts = {
 #   service.COC
 #   service.CTS
 #   service.DSC
-# (Note: service.RGC removed from default — no longer used after RGC removal.)
+
 
 # trusted_services = [
 #   "service.CTS",
@@ -109,7 +107,6 @@ workload_accounts = {
 
 
 # ── Tag policies ───────────────────────────────────────────────────────────
-#
 # Tag-key governance is expressed entirely via tag_policies (one entry per
 # policy). A policy with key-presence-only content (no value/scope restriction)
 # enforces that the key exists. REQUIRES tag_policy enabled at the org root:

@@ -1,3 +1,5 @@
+# --- Bootstrap inputs ---
+
 variable "home_region" {
   type    = string
   default = "ap-southeast-3"

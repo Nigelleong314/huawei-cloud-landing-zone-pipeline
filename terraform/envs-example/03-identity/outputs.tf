@@ -1,3 +1,5 @@
+# --- Identity outputs ---
+
 output "ic_group_ids" {
   description = "IC group name → ID"
   value       = module.ic_content.group_ids

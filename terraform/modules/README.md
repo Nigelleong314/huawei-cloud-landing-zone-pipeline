@@ -1,7 +1,7 @@
-# terraform/modules — the module library
+# modules-v2
 
-The 15 building blocks composed by the environments (reference scaffold in
-../scaffold, deployed per customer from a generated envs tree). Each module is
+The 14 building blocks composed by the environments (canonical scaffold in
+huawei-lz/envs-v2, deployed per customer from huawei-lz/envs-<name>). Each module is
 plain Terraform and does one job. Folders are named by domain and carry no
 numbers - only environments are numbered, because only environments have a
 deploy order.

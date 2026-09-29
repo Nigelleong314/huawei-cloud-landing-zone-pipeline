@@ -1,3 +1,5 @@
+# --- State bucket ---
+
 # State bucket — created BEFORE any other env can run.
 # This env uses LOCAL state (terraform.tfstate written to disk) since the
 # remote backend doesn't exist yet. Commit `terraform.tfstate` to a secure

@@ -1,3 +1,5 @@
+# --- Firewall configuration ---
+
 data "terraform_remote_state" "foundation" {
   backend = "s3"
   config = {

@@ -1,3 +1,5 @@
+# --- DNS inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string
@@ -32,7 +34,7 @@ variable "enterprise_project_name" {
   description = "Enterprise project (in dns_account) for the DNS zones. Blank = default project."
 }
 
-# ── DNS config (from sheet 08_DNS; the module enforces the object shapes) ──────
+# ── DNS config (the module enforces the object shapes) ──────
 variable "public_zones" {
   type    = any
   default = []

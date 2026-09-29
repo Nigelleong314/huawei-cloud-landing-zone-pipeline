@@ -1,3 +1,5 @@
+# --- Provider requirements and configuration ---
+
 terraform {
   required_version = ">= 1.6.3"
   required_providers {
@@ -21,9 +23,9 @@ provider "huaweicloud" {
 
 # VPN deploys into var.vpn_account (the hub account). assume_role BLOCK (temporary
 # member AK/SK); default_tags so taggable VPN resources carry the mandatory tags the
-# require_mandatory_tags SCP expects. Un-merged from 05-network 2026-07 (was
-# generated there as vpn.generated.tf); the alias stays "vpn" so the module call
-# and the migrated state addresses are unchanged.
+# require_mandatory_tags SCP expects.
+
+
 provider "huaweicloud" {
   alias  = "vpn"
   region = var.home_region

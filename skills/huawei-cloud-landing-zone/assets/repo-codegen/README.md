@@ -17,6 +17,11 @@ spec (JSON)         canonical config; envs are GENERATED from it
 - Env pattern: static scaffold files (`main.tf`, `providers.tf`,
   `variables.tf`, `backend.tf`, `versions.tf`, `outputs.tf`) + generated
   files (`terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`).
+- Comments in anything that ships follow one convention: `# --- Section ---`,
+  `# Note: one sentence.`, short labels. No change history, roadmap notes,
+  generator provenance, workbook sheet names or dates. `export_v2` runs
+  `lz_pipeline.comment_lint` over the assembled artifact and refuses to build
+  one that breaks it.
   Credentials are never generated: the provider reads them from the
   environment, the only shape a temporary AK/SK can take.
 

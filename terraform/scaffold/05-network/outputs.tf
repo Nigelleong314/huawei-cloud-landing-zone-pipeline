@@ -1,3 +1,5 @@
+# --- Network outputs ---
+
 output "er_id" { value = module.network_hub.er_id }
 output "route_table_ids" { value = module.network_hub.route_table_ids }
 output "hub_vpc_ids" { value = module.network_hub.hub_vpc_ids }

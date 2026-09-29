@@ -1,3 +1,5 @@
+# --- Finance inputs ---
+
 variable "home_region" { type = string }
 variable "environment" {
   type    = string

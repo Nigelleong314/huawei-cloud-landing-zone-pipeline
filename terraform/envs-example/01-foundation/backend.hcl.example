@@ -1,6 +1,5 @@
 # Copy to backend.hcl and fill in real values.
 # Then: terraform init -backend-config=backend.hcl
-#
 # bucket should be the OBS bucket created by env 00-bootstrap.
 
 bucket = "REPLACE_ME-lz-tfstate"

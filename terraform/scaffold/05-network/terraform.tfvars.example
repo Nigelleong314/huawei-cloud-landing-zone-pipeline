@@ -5,7 +5,6 @@ home_region       = "ap-southeast-3"
 foundation_state_bucket    = "REPLACE_ME-lz-tfstate"
 
 # ── Hub VPCs (REQUIRED) ────────────────────────────────────────────────────
-#
 # Recommended sizing:
 #   vpc-dmz       /20+ (NAT + ELB + per-AZ ingress subnets)
 #   vpc-access    /23+ (DC/VPN termination, future)
@@ -45,7 +44,6 @@ hub_vpcs = {
 # hub_account           = "lz-infra"
 # er_asn                = 64512
 # er_availability_zones = ["az1", "az5"]
-#
 # ER attachments (one per hub VPC) + route tables + associations/propagations.
 # attachment_type: vpc (-> er_attachments name) | cfw (CFW attachment) | spoke.
 # er_attachments = [

@@ -9,13 +9,11 @@ foundation_state_bucket = "REPLACE_ME-lz-tfstate"
 # ════════════════════════════════════════════════════════════════════════════
 # The 8 guardrail SCPs (var.scps)
 # ════════════════════════════════════════════════════════════════════════════
-#
 # One block per policy. Omit a block to leave that guardrail OFF. Each block:
 #   enforce = false → ships as a DRY-RUN policy (observe, then promote)
 #   enforce = true  → promoted to an ENFORCED policy
 #   name            → explicit policy name
 #   + that policy's own settings (see below)
-#
 # Recommendation: ship everything in dry-run first, observe 1-2 weeks via the
 # dry-run reports, then flip enforce = true one guardrail at a time.
 

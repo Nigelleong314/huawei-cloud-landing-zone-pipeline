@@ -1,3 +1,5 @@
+# --- Provider requirements and configuration ---
+
 terraform {
   required_version = ">= 1.6.3"
 
@@ -25,7 +27,6 @@ terraform {
 }
 
 # Provider config for the foundation env.
-#
 # Module 1 runs in the master account only — single provider, no aliases needed.
 # Subsequent envs (03-identity, 04-perimeter, etc.) read module 1's outputs and
 # configure additional provider aliases for cross-account access.

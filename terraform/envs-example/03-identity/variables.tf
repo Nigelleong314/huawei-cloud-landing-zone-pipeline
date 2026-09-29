@@ -1,3 +1,5 @@
+# --- Identity inputs ---
+
 variable "home_region" {
   type        = string
   description = "Primary deployment region"

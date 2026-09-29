@@ -1,22 +1,37 @@
-# Module 3 - network planning
-#
-# Locals + section toggle plumbing. Hub resources in hub.tf, spoke in spoke.tf.
+# --- Provider requirements ---
+
+terraform {
+  required_version = ">= 1.6.3"
+
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = "~> 1.87"
+      # Provider aliases
+      # Note: huaweicloud deploys resources; huaweicloud.owner manages hub ER routing.
+      configuration_aliases = [huaweicloud.owner]
+    }
+    time = { source = "hashicorp/time", version = ">= 0.9" }
+  }
+}
+
+# --- Network configuration ---
 
 locals {
   hub_enabled   = var.enable_hub
   spoke_enabled = var.enable_spoke
 
-  # All declared hub VPCs (toggle individual VPCs via the HubVPCs Enabled column).
+  # Enabled hub VPCs
   effective_hub_vpcs = local.hub_enabled ? var.hub_vpcs : {}
 
-  # Flatten hub subnets across all VPCs
+  # Hub subnet mapping
   hub_subnets_flat = local.hub_enabled ? flatten([
     for vpc_name, vpc in local.effective_hub_vpcs : [
       for subnet in vpc.subnets : merge(subnet, { vpc_name = vpc_name, key = "${vpc_name}__${subnet.name}" })
     ]
   ]) : []
 
-  # Spoke ER-attach subnet: explicit (SpokeERAttachments.Subnet) else first subnet.
+  # Spoke attachment subnet selection
   spoke_er_attach_subnet = local.spoke_enabled ? (
     var.spoke_er_attach_subnet != "" ? var.spoke_er_attach_subnet : var.spoke_subnets[0].name
   ) : null
@@ -29,7 +44,3 @@ check "spoke_inputs_provided" {
   }
 }
 
-# (Removed check "hub_er_required_for_spoke": in the combined single-apply model
-# spoke_er_id = module.network_hub.er_id is created in the same run, so it's
-# unknown at plan and the check only produced "known after apply" noise. A missing
-# ER would fail the spoke ER attachment anyway.)
