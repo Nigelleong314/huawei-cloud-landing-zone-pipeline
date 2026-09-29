@@ -137,7 +137,9 @@ def copy_tree(src: Path, dst: Path, rewrite: bool, exclude_names: set = EXCLUDE_
         name = GENERATED_RENAMES.get(rel.name, rel.name)
         out = dst / rel.parent / name
         out.parent.mkdir(parents=True, exist_ok=True)
-        if rewrite and p.suffix in (".tf", ".md"):
+        # .example too: the tfvars examples name the generated files, and a
+        # recipient never sees the ".generated" spelling.
+        if rewrite and p.suffix in (".tf", ".md", ".example"):
             text = p.read_text(encoding="utf-8")
             text = text.replace(*PATH_REWRITE)
             for old_txt, new_txt in PROSE_REWRITES:
