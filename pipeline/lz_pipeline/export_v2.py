@@ -75,8 +75,11 @@ GENERATED_RENAMES = {
     "sgacl.generated.tf":         "sgacl.tf",
 }
 
+# .lz-customer is a BUILD GUARD (a spec for another customer refuses to build
+# against this tree); it is meaningless to the recipient, so it stays in the
+# working tree and never ships.
 EXCLUDE_NAMES = {"secrets.auto.tfvars.json", "errored.tfstate",
-                 ".lzctl.lock", ".gitignore"}
+                 ".lzctl.lock", ".gitignore", ".lz-customer"}
 # .txt: stray plan/log captures
 EXCLUDE_SUFFIXES = (".bak", ".backup", ".ps1", ".py", ".xlsx", ".txt", ".log")
 

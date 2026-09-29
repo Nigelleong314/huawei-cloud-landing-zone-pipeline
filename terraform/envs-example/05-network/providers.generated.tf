@@ -3,10 +3,8 @@
 # require_mandatory_tags SCP; per-row Tags override per-key on resources).
 
 provider "huaweicloud" {
-  alias      = "spoke_EXAMPLE_Prod_A"
-  region     = var.home_region
-  access_key = var.master_access_key
-  secret_key = var.master_secret_key
+  alias  = "spoke_EXAMPLE_Prod_A"
+  region = var.home_region
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -17,10 +15,8 @@ provider "huaweicloud" {
 }
 
 provider "huaweicloud" {
-  alias      = "spoke_EXAMPLE_Sandbox1"
-  region     = var.home_region
-  access_key = var.master_access_key
-  secret_key = var.master_secret_key
+  alias  = "spoke_EXAMPLE_Sandbox1"
+  region = var.home_region
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name

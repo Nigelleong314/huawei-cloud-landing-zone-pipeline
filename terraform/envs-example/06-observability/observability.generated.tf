@@ -26,22 +26,22 @@ module "ops_acct_EXAMPLE_Security" {
   source    = "../../modules/ops-monitoring"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Security }
 
-  environment           = var.environment
-  account_name          = "EXAMPLE-Security"
-  topic_name            = var.topic_name
-  subscribers           = var.subscribers
-  one_click_alarms      = var.one_click_alarms
+  environment      = var.environment
+  account_name     = "EXAMPLE-Security"
+  topic_name       = var.topic_name
+  subscribers      = var.subscribers
+  one_click_alarms = var.one_click_alarms
 }
 
 module "ops_acct_EXAMPLE_Prod_A" {
   source    = "../../modules/ops-monitoring"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Prod_A }
 
-  environment           = var.environment
-  account_name          = "EXAMPLE-Prod-A"
-  topic_name            = var.topic_name
-  subscribers           = var.subscribers
-  one_click_alarms      = var.one_click_alarms
+  environment      = var.environment
+  account_name     = "EXAMPLE-Prod-A"
+  topic_name       = var.topic_name
+  subscribers      = var.subscribers
+  one_click_alarms = var.one_click_alarms
 }
 
 # CTS tracker (NO OBS/LTS transfer) in EXAMPLE-Sandbox1 - audit on, no storage charges.

@@ -1,12 +1,4 @@
 variable "home_region" { type = string }
-variable "master_access_key" {
-  type      = string
-  sensitive = true
-}
-variable "master_secret_key" {
-  type      = string
-  sensitive = true
-}
 variable "default_tags" {
   type    = map(string)
   default = {}

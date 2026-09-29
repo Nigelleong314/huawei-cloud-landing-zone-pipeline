@@ -5,8 +5,6 @@
 provider "huaweicloud" {
   alias        = "audit_admin"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -18,8 +16,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias        = "lts_admin"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -31,8 +27,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias        = "acct_EXAMPLE_Security"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -44,8 +38,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias        = "acct_EXAMPLE_Prod_A"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -57,8 +49,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias        = "acct_EXAMPLE_Sandbox1"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -70,8 +60,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias        = "acct_EXAMPLE_SharedInfra"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {

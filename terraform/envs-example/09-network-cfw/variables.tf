@@ -1,12 +1,4 @@
 variable "home_region" { type = string }
-variable "master_access_key" {
-  type      = string
-  sensitive = true
-}
-variable "master_secret_key" {
-  type      = string
-  sensitive = true
-}
 variable "environment" {
   type    = string
   default = "shared"

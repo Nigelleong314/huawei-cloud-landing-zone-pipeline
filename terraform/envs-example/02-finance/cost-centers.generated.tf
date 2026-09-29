@@ -2,7 +2,7 @@
 # Cost-center enterprise projects, one module call per target account.
 
 module "cost_centers_master" {
-  source    = "../../modules/financial"
+  source = "../../modules/financial"
 
   enable_multi_ep = true
   cost_centers    = var.cost_centers_by_account["master"]

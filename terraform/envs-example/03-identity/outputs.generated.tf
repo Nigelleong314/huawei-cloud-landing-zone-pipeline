@@ -4,11 +4,11 @@
 output "agencies_by_account" {
   description = "Per-account service agencies (name -> URN)."
   value = {
-    master = module.iam_baseline_master.agency_urns
-    "EXAMPLE-LogArchive" = module.iam_baseline_acct_EXAMPLE_LogArchive.agency_urns
-    "EXAMPLE-Security" = module.iam_baseline_acct_EXAMPLE_Security.agency_urns
+    master                = module.iam_baseline_master.agency_urns
+    "EXAMPLE-LogArchive"  = module.iam_baseline_acct_EXAMPLE_LogArchive.agency_urns
+    "EXAMPLE-Security"    = module.iam_baseline_acct_EXAMPLE_Security.agency_urns
     "EXAMPLE-SharedInfra" = module.iam_baseline_acct_EXAMPLE_SharedInfra.agency_urns
-    "EXAMPLE-Prod-A" = module.iam_baseline_acct_EXAMPLE_Prod_A.agency_urns
-    "EXAMPLE-Sandbox1" = module.iam_baseline_acct_EXAMPLE_Sandbox1.agency_urns
+    "EXAMPLE-Prod-A"      = module.iam_baseline_acct_EXAMPLE_Prod_A.agency_urns
+    "EXAMPLE-Sandbox1"    = module.iam_baseline_acct_EXAMPLE_Sandbox1.agency_urns
   }
 }

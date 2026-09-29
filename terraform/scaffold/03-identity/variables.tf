@@ -12,18 +12,6 @@ variable "master_default_tags" {
   default = {}
 }
 
-variable "master_access_key" {
-  type        = string
-  sensitive   = true
-  description = "Master-account AK"
-}
-
-variable "master_secret_key" {
-  type        = string
-  sensitive   = true
-  description = "Master-account SK"
-}
-
 variable "environment" {
   type    = string
   default = "shared"

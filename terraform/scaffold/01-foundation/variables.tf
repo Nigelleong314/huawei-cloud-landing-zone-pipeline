@@ -14,18 +14,6 @@ variable "default_tags" {
   default = {}
 }
 
-variable "master_access_key" {
-  type        = string
-  description = "Huawei Cloud master-account AK"
-  sensitive   = true
-}
-
-variable "master_secret_key" {
-  type        = string
-  description = "Huawei Cloud master-account SK"
-  sensitive   = true
-}
-
 variable "environment" {
   type        = string
   description = "Environment label applied to default_tags"

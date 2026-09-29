@@ -25,8 +25,9 @@ and runs the pipeline jobs. The CLI equivalents:
     lzctl build --spec specs/lz.spec.acme.json --envs-dir envs --scaffold-dir terraform/scaffold
     lzctl check                                  # the full gate; run after any change
 
-Credentials never go in a spec file: each env's `secrets.auto.tfvars.json`
-(gitignored) or the app's per-job credentials panel carries the AK/SK.
+Credentials never go in a spec file, nor anywhere else on disk: export
+`HW_ACCESS_KEY` / `HW_SECRET_KEY` (plus `HW_SECURITY_TOKEN` when the AK/SK is
+temporary), or use the app's per-job credentials panel.
 
 ## Spec structure
 

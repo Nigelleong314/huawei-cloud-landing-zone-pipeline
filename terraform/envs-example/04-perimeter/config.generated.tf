@@ -5,8 +5,6 @@
 provider "huaweicloud" {
   alias        = "config_admin"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -25,18 +23,16 @@ module "config_setup" {
   enable_config          = true
   home_region            = var.home_region
   org_id                 = local.foundation.organization_id
-  config                 = merge(var.config, {
+  config = merge(var.config, {
     recorder_bucket_writer_domains = [for k, v in local.foundation.accounts : v.id]
   })
-  conformance_packs      = [] # packs handled by config_packs below (after all recorders)
+  conformance_packs = [] # packs handled by config_packs below (after all recorders)
 }
 
 # Member recorder - EXAMPLE-LogArchive (writes back to the central EXAMPLE-Security bucket).
 provider "huaweicloud" {
   alias        = "config_rec_EXAMPLE_LogArchive"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -63,8 +59,6 @@ module "config_recorder_acct_EXAMPLE_LogArchive" {
 provider "huaweicloud" {
   alias        = "config_rec_EXAMPLE_SharedInfra"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -91,8 +85,6 @@ module "config_recorder_acct_EXAMPLE_SharedInfra" {
 provider "huaweicloud" {
   alias        = "config_rec_EXAMPLE_Prod_A"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {
@@ -119,8 +111,6 @@ module "config_recorder_acct_EXAMPLE_Prod_A" {
 provider "huaweicloud" {
   alias        = "config_rec_EXAMPLE_Sandbox1"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {

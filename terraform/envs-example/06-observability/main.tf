@@ -5,8 +5,6 @@ data "terraform_remote_state" "foundation" {
     key                         = var.foundation_state_key
     region                      = var.home_region
     endpoints                   = { s3 = "https://obs.${var.home_region}.myhuaweicloud.com" }
-    access_key                  = var.master_access_key
-    secret_key                  = var.master_secret_key
     skip_requesting_account_id  = true
     skip_s3_checksum            = true
     skip_region_validation      = true

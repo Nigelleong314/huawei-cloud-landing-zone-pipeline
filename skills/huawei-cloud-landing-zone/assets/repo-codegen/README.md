@@ -16,8 +16,9 @@ spec (JSON)         canonical config; envs are GENERATED from it
   own tag boilerplate.
 - Env pattern: static scaffold files (`main.tf`, `providers.tf`,
   `variables.tf`, `backend.tf`, `versions.tf`, `outputs.tf`) + generated
-  files (`terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`,
-  gitignored `secrets.auto.tfvars.json`).
+  files (`terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`).
+  Credentials are never generated: the provider reads them from the
+  environment, the only shape a temporary AK/SK can take.
 
 ## The codegen split (handover constraint — never violate)
 

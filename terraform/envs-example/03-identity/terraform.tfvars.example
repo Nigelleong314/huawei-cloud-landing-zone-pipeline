@@ -3,8 +3,6 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 
 home_region       = "ap-southeast-3"
-master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
-master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
 
 # OBS bucket holding the 01-foundation tfstate. Created by env 00-bootstrap.
 foundation_state_bucket = "REPLACE_ME-lz-tfstate"

@@ -5,8 +5,6 @@
 # commit real keys.
 
 home_region       = "ap-southeast-3"
-master_access_key = "REPLACE_ME_DO_NOT_COMMIT"
-master_secret_key = "REPLACE_ME_DO_NOT_COMMIT"
 
 foundation_state_bucket = "REPLACE_ME-lz-tfstate"
 

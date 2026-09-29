@@ -10,7 +10,7 @@ module "vpn" {
 
   vpc_ids = merge(local.network.hub_vpc_ids, {
     "example-prod-a-vpc" = local.network.spoke_vpc_ids["example-prod-a-vpc"]
-    "example-sbx-vpc" = local.network.spoke_vpc_ids["example-sbx-vpc"]
+    "example-sbx-vpc"    = local.network.spoke_vpc_ids["example-sbx-vpc"]
   })
   subnet_ids         = local.network.hub_subnet_ids
   er_id              = local.network.er_id

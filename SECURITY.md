@@ -9,10 +9,12 @@ reasonable time; coordinated disclosure is preferred.
 
 ## What this project does and does not hold
 
-- **No credentials, ever, in the repo or the spec.** Cloud credentials enter
-  only at deploy time, via environment variables or each environment's
-  `secrets.auto.tfvars.json` (gitignored, never generated unless the
-  variables are present, never printed).
+- **No credentials, ever, in the repo, the spec, or the generated tree.**
+  Cloud credentials enter only at deploy time, and only through environment
+  variables (`HW_ACCESS_KEY` / `HW_SECRET_KEY` / `HW_SECURITY_TOKEN` for the
+  provider, `AWS_*` for the OBS backend). Nothing writes them to disk, which
+  is also what lets a temporary AK/SK work: a session token has no tfvars
+  home.
 - **State files are never committed.** The state backend is remote (OBS);
   local state artifacts, plan files, and state backups are gitignored.
 - **Destructive applies are double-gated.** A plan classified destructive is

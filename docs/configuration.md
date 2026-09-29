@@ -11,7 +11,8 @@
 | `LZ_PRICING_REGION` | plan triage cost report | Selects `tools/pricing/<region>.json` as the rate card | explicit `--pricing` path, else the single card in `pricing/` if only one exists |
 | `LZ_WORKSPACE` | `lz-app` | Workspace root for the spec editor (alternative to `--workspace`) | walk-up from CWD |
 | `LZ_SPEC_DIR` | `python -m lz_pipeline` | Override the `lz_spec` location | next to the package |
-| `HW_ACCESS_KEY` / `HW_SECRET_KEY` | build | Huawei AK/SK written into each env's gitignored `secrets.auto.tfvars.json`. Unset → the file is skipped with a note. **Never in the spec** — the schema says so explicitly | unset |
+| `HW_ACCESS_KEY` / `HW_SECRET_KEY` | terraform (provider) | Huawei AK/SK. Read straight from the environment — never written to disk. **Never in the spec** — the schema says so explicitly | unset — provider fails |
+| `HW_SECURITY_TOKEN` | terraform (provider) | Session token, required **only** for a temporary AK/SK; must pair with the key it was minted from | unset |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | terraform (OBS S3 backend) | Backend credentials (the OBS S3-compatible endpoint speaks AWS auth) | unset — `preflight` fails |
 | `AWS_REQUEST_CHECKSUM_CALCULATION` | terraform ≥ 1.11 + OBS backend | Must be `when_required` or state save fails **after** apply | checked by `preflight` |
 | `AWS_RESPONSE_CHECKSUM_VALIDATION` | terraform ≥ 1.11 + OBS backend | Must be `when_required` (same failure mode) | checked by `preflight` |
@@ -34,7 +35,7 @@ A customer engagement lives in a DATA directory outside this repo:
 
 `lzctl assess --workspace <dir>` creates `specs/`; `lzctl build --scaffold-dir` populates `envs/`. The `envs/` ↔ `modules/` siblinghood is what the default `LZ_MODULE_SOURCE_ROOT=../../modules` assumes; override it for any other shape. The in-repo example (`terraform/envs-example` beside `terraform/modules`) has the same relationship.
 
-Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`, `secrets.auto.tfvars.json` (gitignored). Static files come from `terraform/scaffold/`.
+Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Static files come from `terraform/scaffold/`. Credentials are never among them — they live only in the environment.
 
 ## Profiles
 

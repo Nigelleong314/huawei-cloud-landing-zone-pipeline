@@ -418,10 +418,26 @@ def job_argv(verb: str, args: dict):
 
 
 def _backend_creds(envs_dir: str) -> dict:
-    """AWS_* env vars for the OBS state backend, loaded from the first env's
-    secrets.auto.tfvars.json (master AK/SK - same for every env). Values go
-    straight into the subprocess environment and are NEVER logged/returned to
-    the browser. {} when no secrets file exists (preflight then reports it)."""
+    """AWS_* env vars for the OBS state backend.
+
+    The backend speaks S3 and reads AWS_* names, while the provider reads HW_*;
+    this maps one onto the other so a single credential - permanent or
+    temporary - drives both. AWS_SESSION_TOKEN is always set (to "" when the
+    credential is permanent): leaving a stale token behind would pair it with a
+    fresh key and fail as InvalidAccessKeyId. Falls back to a legacy
+    secrets.auto.tfvars.json for trees built before credentials moved to the
+    environment. Values go straight into the subprocess environment and are
+    NEVER logged/returned to the browser. {} when nothing is set (preflight
+    then reports it)."""
+    checksums = {"AWS_REQUEST_CHECKSUM_CALCULATION": "when_required",
+                 "AWS_RESPONSE_CHECKSUM_VALIDATION": "when_required"}
+    ak = os.environ.get("HW_ACCESS_KEY") or os.environ.get("AWS_ACCESS_KEY_ID")
+    sk = os.environ.get("HW_SECRET_KEY") or os.environ.get("AWS_SECRET_ACCESS_KEY")
+    if ak and sk:
+        return {"AWS_ACCESS_KEY_ID": ak, "AWS_SECRET_ACCESS_KEY": sk,
+                "AWS_SESSION_TOKEN": os.environ.get("HW_SECURITY_TOKEN")
+                or os.environ.get("AWS_SESSION_TOKEN") or "", **checksums}
+
     ws = STATE["workspace"]
     envs = (ws / envs_dir) if not Path(envs_dir).is_absolute() else Path(envs_dir)
     if envs.exists():
@@ -433,8 +449,7 @@ def _backend_creds(envs_dir: str) -> dict:
                     ak, sk = s.get("master_access_key"), s.get("master_secret_key")
                     if ak and sk:
                         return {"AWS_ACCESS_KEY_ID": ak, "AWS_SECRET_ACCESS_KEY": sk,
-                                "AWS_REQUEST_CHECKSUM_CALCULATION": "when_required",
-                                "AWS_RESPONSE_CHECKSUM_VALIDATION": "when_required"}
+                                "AWS_SESSION_TOKEN": "", **checksums}
                 except (ValueError, OSError):
                     continue
     return {}
@@ -447,6 +462,8 @@ def start_job(verb, args):
     if creds_in.get("ak") and creds_in.get("sk"):
         override = {"AWS_ACCESS_KEY_ID": creds_in["ak"],
                     "AWS_SECRET_ACCESS_KEY": creds_in["sk"],
+                    # a browser-supplied key must not inherit an ambient token
+                    "AWS_SESSION_TOKEN": creds_in.get("token") or "",
                     "AWS_REQUEST_CHECKSUM_CALCULATION": creds_in.get("req_checksum") or "when_required",
                     "AWS_RESPONSE_CHECKSUM_VALIDATION": creds_in.get("resp_checksum") or "when_required"}
     ret, cwd = job_argv(verb, args)
@@ -468,8 +485,8 @@ def start_job(verb, args):
             # PYTHONUNBUFFERED: python children block-buffer stdout when piped,
             # which would batch the whole log until exit; line-buffer instead so
             # the UI console streams progress live (inherited by grandchildren).
-            # Backend creds are auto-loaded from the envs' secrets files so
-            # lzctl verbs (preflight/plan/apply/drift) work from the app.
+            # Backend creds are derived from the ambient HW_* credential (or
+            # a legacy secrets file) so lzctl verbs work from the app.
             env = {**os.environ, "PYTHONUNBUFFERED": "1",
                    **(_backend_creds(args.get("envs_dir") or default_envs_dir()) or {}),
                    **override}

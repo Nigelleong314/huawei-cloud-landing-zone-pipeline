@@ -570,7 +570,7 @@ def phase_report(spec_path, envs, deep=True):
                               "Planning from a tree that no longer matches the spec is a "
                               "forbidden transition.")
     if p["state"] in ("todo", "stale"):
-        p["inputs"].append("HW_ACCESS_KEY / HW_SECRET_KEY (or per-env secrets.auto.tfvars.json)")
+        p["inputs"].append("HW_ACCESS_KEY / HW_SECRET_KEY (+ HW_SECURITY_TOKEN if temporary)")
         e = _rel(envs)
         p["next"] = (f"lzctl check all --envs-dir {e} --spec {spec_path.name if spec_path else '<spec>'}"
                      f"   ->   lzctl preflight --envs-dir {e}   ->   lzctl plan --envs-dir {e} --all")

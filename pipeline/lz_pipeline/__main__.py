@@ -184,14 +184,8 @@ def cmd_build(args):
               file=sys.stderr)
         return 2
 
-    ak = os.environ.get("HW_ACCESS_KEY", "")
-    sk = os.environ.get("HW_SECRET_KEY", "")
-    if not ak or not sk:
-        print("note: HW_ACCESS_KEY / HW_SECRET_KEY not set; secrets.auto.tfvars.json skipped.",
-              file=sys.stderr)
-
     print(f"== build: {Path(args.ir).name} -> {envs_dir.name} ==")
-    be.build_from_spec(spec, envs_dir, scaffold, selected, ak, sk,
+    be.build_from_spec(spec, envs_dir, scaffold, selected,
                        customer=ir.get("customer") or "")
     dep_errs = write_deps(envs_dir)
     print(f"\n== RESULT: BUILT {len(selected)} env(s) from {Path(args.ir).name} ==")

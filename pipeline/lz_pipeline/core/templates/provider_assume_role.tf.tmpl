@@ -1,8 +1,6 @@
 provider "huaweicloud" {
   alias        = "${alias}"
   region       = var.home_region
-  access_key   = var.master_access_key
-  secret_key   = var.master_secret_key
   default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
 
   assume_role {

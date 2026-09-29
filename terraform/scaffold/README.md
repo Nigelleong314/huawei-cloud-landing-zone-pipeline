@@ -31,8 +31,9 @@ not include one.)
   `main.tf`, `variables.tf`, `outputs.tf`, plus `backend.hcl.example` /
   `terraform.tfvars.example` documenting the expected shapes.
 - Generated files per env (written by the pipeline, do not hand-edit):
-  `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`,
-  `secrets.auto.tfvars.json` (gitignored).
+  `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Credentials are
+  not among them: the provider reads `HW_ACCESS_KEY` / `HW_SECRET_KEY` /
+  `HW_SECURITY_TOKEN` from the environment.
 - State backend: OBS S3-compatible, one bucket per org, key prefix per env.
 - Cross-account access uses `assume_role` with `agency_name` + `domain_name`
   (never `role_arn`); one provider alias per target account.

@@ -1,3 +1,29 @@
+terraform {
+  required_version = ">= 1.6.3"
+
+  required_providers {
+    huaweicloud = {
+      source  = "huaweicloud/huaweicloud"
+      version = "~> 1.87"
+    }
+  }
+
+  backend "s3" {
+    key = "envs/01-foundation/terraform.tfstate"
+
+    # The following come from backend.hcl:
+    #   bucket    = "..."
+    #   region    = "..."
+    #   endpoints = { s3 = "..." }
+
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+    skip_region_validation      = true
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+  }
+}
+
 # Provider config for the foundation env.
 #
 # Module 1 runs in the master account only — single provider, no aliases needed.
@@ -9,7 +35,5 @@
 # (default_tags would stamp the master tag set onto every created account).
 # Master-account IC content keeps its tags via 03-identity's own provider.
 provider "huaweicloud" {
-  region     = var.home_region
-  access_key = var.master_access_key
-  secret_key = var.master_secret_key
+  region = var.home_region
 }

@@ -91,7 +91,6 @@ Created at runtime (not in the zip):
 
     <envs-dir>\lzctl-logs\               ★ DETAILED LOGS of every cloud job run
     <envs-dir>\state-backups\            automatic state snapshots before each apply
-    <envs-dir>\<env>\secrets.auto.tfvars.json   your credentials (never packaged/committed)
     dist\docs\                           generated documents (Export artifact job)
     dist\artifact\                       the packaged customer Terraform artifact
     drift-report.md                      report written by the Drift job
@@ -244,24 +243,34 @@ suite pass.
 ## 6. Credentials
 
 Cloud jobs need a Huawei Cloud access key for the OBS state backend and the
-provider. Two ways to supply it, both kept off the browser and out of logs:
+provider. Nothing is written to disk: the app reads the ambient environment
+and passes it straight to the child process, never to the browser or the logs.
 
-1. **Secrets file (recommended, one-time)** — in each environment folder,
-   create `secrets.auto.tfvars.json`:
+1. **Environment (recommended)** — export these before starting the app:
 
-       {"master_access_key": "<AK>", "master_secret_key": "<SK>"}
+       HW_ACCESS_KEY / HW_SECRET_KEY            the provider
+       HW_SECURITY_TOKEN                        temporary keys only
 
-   The app auto-loads it for Preflight / Plan / Apply / Drift. It is
-   git-ignored and never packaged.
+   The app maps them to the `AWS_*` names the S3-compatible OBS backend
+   expects, and sets the request/response checksum settings to
+   `when_required`, which is what Terraform 1.11+ needs.
 
-2. **Per-job entry** — each cloud job has a "Backend credentials" panel;
-   fill AK/SK there (password fields) to override for that run. Leave blank
-   to use the secrets files. The request/response checksum settings default
-   to `when_required`, which is what Terraform 1.11+ needs.
+   A **temporary** AK/SK works exactly the same way, and is the only kind a
+   federated (Identity Center) user can create. Its session token must travel
+   with it: a temporary key presented without `HW_SECURITY_TOKEN` is rejected
+   as `InvalidAccessKeyId`, which reads like a wrong key rather than a missing
+   token. Size the lifetime to outlast your longest apply — nothing refreshes
+   a credential mid-run.
+
+2. **Per-job entry** — each cloud job has a "Backend credentials" panel; fill
+   AK/SK there (password fields) to override for that run. Leave blank to use
+   the environment.
+
+Older trees may still contain a per-environment `secrets.auto.tfvars.json`.
+The app still reads one if present, but builds no longer create them and the
+Terraform no longer declares the variables they set.
 
 The app never displays, stores, or logs the key values.
-
----
 
 ## 7. Troubleshooting
 

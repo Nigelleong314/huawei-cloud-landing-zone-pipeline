@@ -4,8 +4,6 @@
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_LogArchive"
   region             = var.home_region
-  access_key         = var.master_access_key
-  secret_key         = var.master_secret_key
   domain_name        = local.foundation.master_account_name
   domain_id          = local.foundation.accounts["EXAMPLE-LogArchive"].id
   agency_name        = local.foundation.cross_account_agency_name
@@ -16,8 +14,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Security"
   region             = var.home_region
-  access_key         = var.master_access_key
-  secret_key         = var.master_secret_key
   domain_name        = local.foundation.master_account_name
   domain_id          = local.foundation.accounts["EXAMPLE-Security"].id
   agency_name        = local.foundation.cross_account_agency_name
@@ -28,8 +24,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_SharedInfra"
   region             = var.home_region
-  access_key         = var.master_access_key
-  secret_key         = var.master_secret_key
   domain_name        = local.foundation.master_account_name
   domain_id          = local.foundation.accounts["EXAMPLE-SharedInfra"].id
   agency_name        = local.foundation.cross_account_agency_name
@@ -40,8 +34,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Prod_A"
   region             = var.home_region
-  access_key         = var.master_access_key
-  secret_key         = var.master_secret_key
   domain_name        = local.foundation.master_account_name
   domain_id          = local.foundation.accounts["EXAMPLE-Prod-A"].id
   agency_name        = local.foundation.cross_account_agency_name
@@ -52,8 +44,6 @@ provider "huaweicloud" {
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Sandbox1"
   region             = var.home_region
-  access_key         = var.master_access_key
-  secret_key         = var.master_secret_key
   domain_name        = local.foundation.master_account_name
   domain_id          = local.foundation.accounts["EXAMPLE-Sandbox1"].id
   agency_name        = local.foundation.cross_account_agency_name

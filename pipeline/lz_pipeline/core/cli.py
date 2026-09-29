@@ -1,8 +1,8 @@
 """Build orchestration: env selection, scaffold copy, check_spec, build_from_spec, main."""
 
 import argparse
-import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from .helpers import _home_region, ENV_NAMES, _scalar, _truthy
@@ -171,9 +171,9 @@ def derive_log_converge(spec: dict) -> None:
                 add(account, f"{vpc}-flowlog", f"{vpc}-flowlog")
 
 
-def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected, ak: str, sk: str,
+def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
                     customer: str = ""):
-    """Write tfvars/backends/secrets + generated fan-outs for the selected envs.
+    """Write tfvars/backends + generated fan-outs for the selected envs.
 
     The caller is responsible for having run check_spec() first.
     """
@@ -200,10 +200,28 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected, ak: str,
         env_dir = envs_dir / env_name
         if scaffold_dir is not None:
             _copy_scaffold(scaffold_dir / env_name, env_dir)
-        write_env(env_dir, BUILDERS[env_name](spec), state_bucket, ak, sk, region, env_name)
+        write_env(env_dir, BUILDERS[env_name](spec), state_bucket, region, env_name)
         if env_name in _CODEGEN:
             _CODEGEN[env_name](env_dir, spec)
+        _fmt(env_dir)
         print(f"wrote {env_dir}")
+
+
+def _fmt(env_dir: Path):
+    """Canonicalise the HCL we just emitted.
+
+    The emitters pad to a column that stops being right once a value is
+    substituted, so generated files drift from `terraform fmt` and every later
+    hand-run of fmt produces noise unrelated to the actual change. Formatting
+    here keeps the generated tree byte-stable. Best effort: a tree without
+    terraform on PATH still builds.
+    """
+    try:
+        subprocess.run(["terraform", "fmt", "-no-color", str(env_dir)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=60, check=False)
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def main():
@@ -237,12 +255,6 @@ def main():
         print(f"envs dir not found: {envs_dir} (pass --scaffold-dir to create a new tree)", file=sys.stderr)
         sys.exit(2)
 
-    ak = os.environ.get("HW_ACCESS_KEY", "")
-    sk = os.environ.get("HW_SECRET_KEY", "")
-    if not ak or not sk:
-        print("WARNING: HW_ACCESS_KEY / HW_SECRET_KEY not set in environment.",
-              "secrets.auto.tfvars.json will be skipped.", file=sys.stderr)
-
     spec = parse_workbook(wb_path)
     errs = check_spec(spec, selected)
     if errs:
@@ -251,6 +263,6 @@ def main():
             print(f"  - {e}", file=sys.stderr)
         sys.exit(1)
 
-    build_from_spec(spec, envs_dir, scaffold_dir, selected, ak, sk)
+    build_from_spec(spec, envs_dir, scaffold_dir, selected)
 
     print(f"done. ({len(selected)} env(s): {', '.join(selected)})")

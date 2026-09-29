@@ -1,7 +1,22 @@
+terraform {
+  required_version = ">= 1.6.3"
+  required_providers {
+    huaweicloud = { source = "huaweicloud/huaweicloud", version = "~> 1.87" }
+  }
+
+  backend "s3" {
+    key = "envs/05-network/terraform.tfstate"
+
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+    skip_region_validation      = true
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+  }
+}
+
 provider "huaweicloud" {
-  region     = var.home_region
-  access_key = var.master_access_key
-  secret_key = var.master_secret_key
+  region = var.home_region
 }
 
 # Hub deploys into var.hub_account (assumes that account's OrganizationAccountAccessAgency).
@@ -10,10 +25,8 @@ provider "huaweicloud" {
 # services require. The attribute form yields only an agency token, which 404s on RAM
 # ("not found for http header"). domain_name = the MEMBER account.
 provider "huaweicloud" {
-  alias      = "hub"
-  region     = var.home_region
-  access_key = var.master_access_key
-  secret_key = var.master_secret_key
+  alias  = "hub"
+  region = var.home_region
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
