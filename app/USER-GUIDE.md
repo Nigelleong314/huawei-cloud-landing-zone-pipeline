@@ -248,12 +248,18 @@ and passes it straight to the child process, never to the browser or the logs.
 
 1. **Environment (recommended)** — export these before starting the app:
 
-       HW_ACCESS_KEY / HW_SECRET_KEY            the provider
-       HW_SECURITY_TOKEN                        temporary keys only
+       AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY    the access key
+       AWS_SESSION_TOKEN                            temporary keys only
 
-   The app maps them to the `AWS_*` names the S3-compatible OBS backend
-   expects, and sets the request/response checksum settings to
-   `when_required`, which is what Terraform 1.11+ needs.
+   The app accepts either naming and passes both on: the S3-compatible OBS
+   backend reads the `AWS_*` names, the Huawei provider reads `HW_*`, and
+   neither falls back to the other's. The app also sets the request/response
+   checksum settings to `when_required`, which is what Terraform 1.11+ needs.
+
+   Running terraform by hand instead? Set the `AWS_*` names and derive the
+   Huawei ones: `HW_ACCESS_KEY=$AWS_ACCESS_KEY_ID`,
+   `HW_SECRET_KEY=$AWS_SECRET_ACCESS_KEY`, and `HW_SECURITY_TOKEN` from
+   `AWS_SESSION_TOKEN` when the key is temporary.
 
    A **temporary** AK/SK works exactly the same way, and is the only kind a
    federated (Identity Center) user can create. Its session token must travel
