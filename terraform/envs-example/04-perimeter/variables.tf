@@ -48,7 +48,7 @@ variable "predefined_tags" {
 variable "config_admin_account" {
   type        = string
   default     = ""
-  description = "Account (M1 Name) to run org-wide Config on. Empty = skip Config setup."
+  description = "Account (the 01-foundation account name) to run org-wide Config on. Empty = skip Config setup."
 }
 
 variable "config" {

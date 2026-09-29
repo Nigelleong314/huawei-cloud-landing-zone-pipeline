@@ -39,6 +39,7 @@ def _emit_finance_codegen(env_dir: Path, spec: dict):
     for a in accounts:
         providers_line = "" if a == "master" else \
             f"  providers = {{ huaweicloud = huaweicloud.{_acct_alias(a)} }}\n"
+        calls.append(f"# Account: {'Master' if a == 'master' else a}")
         calls += render_lines("finance_module_call.tf.tmpl",
                               module_name=_mod(a), src=_FINANCIAL_MODULE_SRC,
                               providers_line=providers_line, account=a) + [""]

@@ -1,7 +1,8 @@
 provider "huaweicloud" {
   alias        = "${alias}"
   region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name

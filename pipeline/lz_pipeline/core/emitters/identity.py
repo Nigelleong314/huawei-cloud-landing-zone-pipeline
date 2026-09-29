@@ -31,11 +31,13 @@ def _emit_identity_codegen(env_dir: Path, spec: dict):
         "# --- IAM baseline by account ---",
         "",
     ]
+    calls.append("# Account: Master")
     calls += render_lines("identity_module_call.tf.tmpl", suffix="master",
                           source_line=f'  source = "{_IDENTITY_MODULE_SRC}"',
                           providers_line="") + [""]
     for n in accounts:
         al = _acct_alias(n)
+        calls.append(f"# Account: {n}")
         calls += render_lines(
             "identity_module_call.tf.tmpl", suffix=al,
             source_line=f'  source    = "{_IDENTITY_MODULE_SRC}"',

@@ -25,7 +25,7 @@ variable "network_state_key" {
 variable "cfw_account" {
   type        = string
   default     = "lz-infra"
-  description = "Account name (must match M1) that owns the hub CFW (= 05_Network hub_account). The env assumes this account's OrganizationAccountAccessAgency."
+  description = "Account name (must match 01-foundation) that owns the hub CFW (= 05_Network hub_account). The env assumes this account's OrganizationAccountAccessAgency."
 }
 
 variable "enterprise_project_name" {

@@ -23,6 +23,10 @@ BANNED - these belong in git history, the tracker or the guide, never here:
   dead references     docs/*.md, cookbooks, files that do not ship
   dates               2026-09-01 and friends
 
+A comment audit on 2026-09-29 found two further classes that a banned-word
+check cannot see, so they are checked structurally: headings that label
+nothing, and examples assigning variables that do not exist.
+
 Run:  py -m lz_pipeline.comment_lint <dir> [<dir> ...]
 """
 
@@ -46,14 +50,15 @@ BANNED = [
     (re.compile(r"\bscaffolding\b|\bplaceholder only\b"), "scaffolding note"),
 ]
 
-HEADER = re.compile(r"^# --- .+ ---$")
-NOTE = re.compile(r"^# Note: [A-Z].*[.?]$")
-LABELLED = re.compile(r"^# (Values|Account|VPC|Env|Spoke): ")
+HEADING = re.compile(r"^# --- .+ ---$")
+COMMENTED_ASSIGN = re.compile(r"^#\s*([a-z_][a-z0-9_]*\s*=|[{\[])")
+VARIABLE = re.compile(r'^variable\s+"([^"]+)"', re.M)
+ASSIGNMENT = re.compile(r"^(#\s*)?([a-z_][a-z0-9_]*)\s*=")
 
 SKIP_DIRS = {".terraform", "__pycache__", "lzctl-logs", "state-backups"}
 
 
-def comments(path: Path):
+def comments(path):
     """Yield (lineno, text) for every comment line, ignoring '#' inside strings."""
     for i, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
         s, q, esc = [], False, False
@@ -70,11 +75,54 @@ def comments(path: Path):
             s.append(ch)
 
 
-def check(path: Path):
+def _labels_something(lines, start, end, example):
+    for l in lines[start + 1:end]:
+        s = l.strip()
+        if not s:
+            continue
+        if not s.startswith("#") or s.startswith("# Note:"):
+            return True
+        if example and COMMENTED_ASSIGN.match(s):
+            return True
+    return False
+
+
+def check_headings(path):
+    """A heading must be followed by content or a Note before the next heading."""
+    example = path.suffix == ".example"
+    lines = path.read_text(encoding="utf-8").split("\n")
+    idx = [i for i, l in enumerate(lines) if HEADING.match(l.strip())]
+    out = []
+    for k, i in enumerate(idx):
+        nxt = idx[k + 1] if k + 1 < len(idx) else len(lines)
+        if not _labels_something(lines, i, nxt, example):
+            out.append((i + 1, f"heading labels nothing: {lines[i].strip()}"))
+    return out
+
+
+def check_example_inputs(env_dir):
+    """Every top-level name an example assigns must be a declared variable."""
+    ex, var = env_dir / "terraform.tfvars.example", env_dir / "variables.tf"
+    if not (ex.exists() and var.exists()):
+        return []
+    declared = set(VARIABLE.findall(var.read_text(encoding="utf-8")))
+    out = []
+    for n, line in enumerate(ex.read_text(encoding="utf-8").split("\n"), 1):
+        if line.startswith((" ", "#   ")):            # nested inside an object
+            continue
+        s = line.strip()
+        m = ASSIGNMENT.match(s)
+        if m and not s.startswith("# ---") and m.group(2) not in declared:
+            out.append((n, f"example assigns undeclared input: {m.group(2)}"))
+    return out
+
+
+def check(path):
     out = []
     text = path.read_text(encoding="utf-8").lstrip()
     if path.suffix == ".tf" and not text.startswith("# ---"):
         out.append((1, "file does not open with a '# --- Section ---' header"))
+    out += check_headings(path)
     for lineno, c in comments(path):
         for rx, why in BANNED:
             if rx.search(c):
@@ -86,8 +134,16 @@ def check(path: Path):
 def run(roots):
     findings, checked = [], 0
     for root in roots:
-        for p in sorted(Path(root).rglob("*")):
-            if p.suffix not in (".tf", ".example") or any(d in p.parts for d in SKIP_DIRS):
+        rp = Path(root)
+        for p in sorted(rp.rglob("*")):
+            if any(d in p.parts for d in SKIP_DIRS):
+                continue
+            if p.is_dir():
+                for lineno, msg in check_example_inputs(p):
+                    findings.append(
+                        f"{(p / 'terraform.tfvars.example').as_posix()}:{lineno}: {msg}")
+                continue
+            if p.suffix not in (".tf", ".example"):
                 continue
             checked += 1
             for lineno, msg in check(p):

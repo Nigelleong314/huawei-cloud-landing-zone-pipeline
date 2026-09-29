@@ -8,11 +8,14 @@ import re
 from ..templating import render_lines
 
 
-def _assume_role_provider(alias: str, account: str) -> list:
+def _assume_role_provider(alias: str, account: str, label: bool = True) -> list:
     """assume_role provider (temporary member AK/SK) - required when a per-account
     module creates OBS buckets, v5 IAM agencies, or org-scoped RMS in a member
     account. Shared by the config (04-perimeter) and observability (05) fan-outs."""
-    return render_lines("provider_assume_role.tf.tmpl", alias=alias, account=account) + [""]
+    head = [f"# Account: {account}"] if label else []
+    return (head
+            + render_lines("provider_assume_role.tf.tmpl", alias=alias, account=account)
+            + [""])
 
 
 def _provider_alias_block(account: str) -> list:
@@ -23,8 +26,10 @@ def _provider_alias_block(account: str) -> list:
     is the MEMBER account's domain (it created the agency). domain_id of the
     member is required for domain-scoped IAM ops."""
     from ..helpers import _acct_alias
-    return render_lines("provider_alias.tf.tmpl",
-                        alias=_acct_alias(account), account=account) + [""]
+    return ([f"# Account: {account}"]
+            + render_lines("provider_alias.tf.tmpl",
+                           alias=_acct_alias(account), account=account)
+            + [""])
 
 
 def _net_alias(name) -> str:
@@ -37,4 +42,6 @@ def _spoke_provider_block(alias: str, account: str) -> list:
     agency_name attribute form: the cross-account ER attachment + RAM-share accept
     are AK/SK-signed and 404 on an agency token. default_tags IS set: the enforced
     require_mandatory_tags SCP denies untagged CREATE requests (SYS.0403)."""
-    return render_lines("provider_spoke.tf.tmpl", alias=alias, account=account) + [""]
+    return ([f"# Account: {account}"]
+            + render_lines("provider_spoke.tf.tmpl", alias=alias, account=account)
+            + [""])

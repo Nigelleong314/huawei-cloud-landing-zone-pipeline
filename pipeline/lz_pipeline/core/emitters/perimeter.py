@@ -23,6 +23,7 @@ def _emit_perimeter_tag_codegen(env_dir: Path, spec: dict):
     calls = [
         "# --- Predefined tags by account ---",
         "",
+        "# Account: Master",
         'module "predef_tags_master" {',
         f'  source = "{_PERIMETER_MODULE_SRC}"',
         "",
@@ -35,6 +36,7 @@ def _emit_perimeter_tag_codegen(env_dir: Path, spec: dict):
     for n in accounts:
         al = _acct_alias(n)
         calls += [
+            f"# Account: {n}",
             f'module "predef_tags_{al}" {{',
             f'  source    = "{_PERIMETER_MODULE_SRC}"',
             f"  providers = {{ huaweicloud = huaweicloud.{al} }}",
@@ -111,11 +113,10 @@ def _perimeter_config_codegen(spec: dict) -> list:
     # account domains are granted write on the central bucket.
     members = [n for n in _account_names(spec) if n != admin]
     lines = head + [
-        f"# Config (RMS) - central setup in {admin} + per-member recorder fan-out,",
-        f"# all writing back to the central {admin} OBS bucket (assume_role providers).",
+        f"# Note: Member recorders use the central {admin} bucket.",
         "",
-    ] + _assume_role_provider("config_admin", admin) + [
-        "# Central: recorder + bucket (+ cross-account policy) + agency + aggregator + packs.",
+    ] + _assume_role_provider("config_admin", admin, label=False) + [
+        f"# --- Central Config setup - {admin} ---",
         'module "config_setup" {',
         f'  source    = "{_PERIMETER_MODULE_SRC}"',
         "  providers = { huaweicloud = huaweicloud.config_admin }",
@@ -128,14 +129,15 @@ def _perimeter_config_codegen(spec: dict) -> list:
         "  config                 = merge(var.config, {",
         "    recorder_bucket_writer_domains = [for k, v in local.foundation.accounts : v.id]",
         "  })",
-        "  conformance_packs      = [] # packs handled by config_packs below (after all recorders)",
+        "  # Conformance packs managed by config_packs",
+        "  conformance_packs      = []",
         "}",
         "",
     ]
     for n in members:
         al = "config_rec_" + re.sub(r"[^0-9A-Za-z_]", "_", str(n))
-        lines += [f"# Member recorder - {n} (writes back to the central {admin} bucket)."]
-        lines += _assume_role_provider(al, n)
+        lines += [f"# --- Config recorder - {n} ---"]
+        lines += _assume_role_provider(al, n, label=False)
         lines += [
             f'module "config_recorder_{_acct_alias(n)}" {{',
             f'  source    = "{_PERIMETER_MODULE_SRC}"',
@@ -148,7 +150,8 @@ def _perimeter_config_codegen(spec: dict) -> list:
             "  config                 = merge(var.config, { create_recorder_bucket = false, enable_aggregator = false })",
             "  conformance_packs      = []",
             "",
-            "  depends_on = [module.config_setup] # central bucket + cross-account policy must exist first",
+            "  # Note: Create the central bucket and policy before member recorders.",
+        "  depends_on = [module.config_setup]",
             "}",
             "",
         ]
@@ -157,7 +160,8 @@ def _perimeter_config_codegen(spec: dict) -> list:
     # recorder. Runs in the admin account (config_admin); creates no recorder itself.
     pack_deps = ", ".join(["module.config_setup"] + [f"module.config_recorder_{_acct_alias(n)}" for n in members])
     lines += [
-        "# Org conformance packs - created after ALL recorders exist (central + members).",
+        "# --- Organization conformance packs ---",
+        "# Note: All central and member recorders must exist first.",
         'module "config_packs" {',
         f'  source    = "{_PERIMETER_MODULE_SRC}"',
         "  providers = { huaweicloud = huaweicloud.config_admin }",
@@ -168,10 +172,8 @@ def _perimeter_config_codegen(spec: dict) -> list:
         "  home_region            = var.home_region",
         "  org_id                 = local.foundation.organization_id",
         "  config                 = merge(var.config, { enable_recorder = false, create_recorder_bucket = false, create_recorder_agency = false, enable_aggregator = false })",
-        "  # excluded_accounts resolution: a 32-hex token is used as a domain ID as-is;",
-        "  # any other token is treated as an M1 account name and resolved to its domain",
-        "  # ID. The management (master) account is ALWAYS excluded - it has no recorder",
-        "  # (not in the fan-out), so the org pack would CREATE_FAILED trying to deploy there.",
+        "  # Excluded account resolution",
+        "  # Note: Names resolve to domain IDs; explicit IDs pass through. Master is excluded.",
         "  conformance_packs = [for p in var.conformance_packs : merge(p, {",
         "    excluded_accounts = concat(",
         "      [for a in try(p.excluded_accounts, []) : can(regex(\"^[0-9a-f]{32}$\", a)) ? a : local.foundation.accounts[a].id],",

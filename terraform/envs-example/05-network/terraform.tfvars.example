@@ -36,7 +36,6 @@ hub_vpcs = {
   }
 }
 
-# create_vpc_shared = false  # uncomment to defer
 
 # inspection_cidr_reservation = "10.0.99.0/24"
 

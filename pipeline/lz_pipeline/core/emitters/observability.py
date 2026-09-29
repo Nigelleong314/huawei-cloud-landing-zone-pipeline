@@ -71,12 +71,10 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
         prov += _assume_role_provider(_acct_alias(a), a)
 
     calls = [
-        "# --- Audit and account monitoring ---",
-        "",
     ]
     if admin:
         calls += [
-            f"# Central audit: org CTS tracker (trail in the CTS-created LTS pair CTS/system-trace) + audit/archive buckets + KMS, in {admin}.",
+            f"# --- Central audit - {admin} ---",
             'module "audit" {',
             f'  source    = "{_AUDIT_MODULE_SRC}"',
             "  providers = { huaweicloud = huaweicloud.audit_admin }",
@@ -111,7 +109,7 @@ def _emit_observability_codegen(env_dir: Path, spec: dict):
         ]
     for a in cts_nt:
         calls += [
-            f"# CTS tracker (NO OBS/LTS transfer) in {a} - audit on, no storage charges.",
+            f"# --- Account audit tracker - {a} ---",
             f'module "cts_tracker_{_acct_alias(a)}" {{',
             f'  source    = "{_CTS_TRACKER_MODULE_SRC}"',
             f"  providers = {{ huaweicloud = huaweicloud.{_acct_alias(a)} }}",
@@ -151,7 +149,7 @@ def _cts_notification_lines(admin: str, ops: list) -> list:
         return []
     return [
         "",
-        "  # Key-event notifications publish to this account's ops SMN topic.",
+        "  # Key-event notification topic",
         "  cts_notifications          = var.cts_notifications",
         f"  cts_notification_topic_urn = module.ops_{_acct_alias(match[0])}.smn_topic_urn",
     ]
@@ -211,8 +209,8 @@ def _logconverge_codegen(enabled: bool, admin: str, rows: list, accounts: list,
                     ep_emitted.add(al)
                 ep_ref = f"  enterprise_project_id = data.huaweicloud_enterprise_project.lc_{al}_ep.id"
             lines += [
-                "# Owned source: the 08-network-dns query log writes into this group/stream.",
-                "# Created here so a fresh deploy works strictly in numeric order.",
+                "# --- DNS query-log source ---",
+                "# Note: Created before 08-network-dns attaches query logging.",
                 f'resource "huaweicloud_lts_group" "{ds}_group" {{',
                 f"  provider    = huaweicloud.{al}",
                 f'  group_name  = "{group}"',

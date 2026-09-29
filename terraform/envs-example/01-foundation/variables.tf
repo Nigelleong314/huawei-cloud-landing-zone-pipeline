@@ -44,7 +44,7 @@ variable "core_accounts" {
     ou          = optional(string, "")
     description = optional(string, "")
   }))
-  description = "Core accounts (logging/security/network/ops, etc.). See module 1 docs."
+  description = "Core accounts (logging/security/network/ops, etc.). See the organization module."
 }
 
 variable "workload_accounts" {
@@ -81,7 +81,7 @@ variable "trusted_services" {
 
 variable "delegated_administrators" {
   type        = map(string)
-  description = "Map of trusted service → delegated-admin account name (from M1 TrustedServices.DelegatedAdmin)."
+  description = "Map of trusted service → delegated-admin account name (from the 01-foundation TrustedServices.DelegatedAdmin)."
   default     = {}
 }
 

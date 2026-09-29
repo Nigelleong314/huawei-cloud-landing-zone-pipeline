@@ -25,7 +25,7 @@ variable "network_state_key" {
 variable "dns_account" {
   type        = string
   default     = "lz-infra"
-  description = "Account name (must match M1) the DNS resources deploy into. The env assumes this account's OrganizationAccountAccessAgency."
+  description = "Account name (must match 01-foundation) the DNS resources deploy into. The env assumes this account's OrganizationAccountAccessAgency."
 }
 
 variable "enterprise_project_name" {

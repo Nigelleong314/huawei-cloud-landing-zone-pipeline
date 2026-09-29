@@ -32,6 +32,7 @@ def _emit_sgacl_codegen(env_dir: Path, spec: dict):
         al = _acct_alias(a)
         prov += _spoke_provider_block(al, a)
         calls += [
+            f"# Account: {a}",
             f'module "sgacl_{al}" {{',
             f'  source    = "{_SGACL_MODULE_SRC}"',
             f"  providers = {{ huaweicloud = huaweicloud.{al} }}",

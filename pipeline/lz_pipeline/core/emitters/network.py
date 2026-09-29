@@ -36,6 +36,7 @@ def _emit_network_codegen(env_dir: Path, spec: dict):
         v_al = _net_alias(vpc_name)
         a_al = f"spoke_{_net_alias(acct)}"
         calls += [
+            f"# Account: {acct}",
             f'module "spoke_{v_al}" {{',
             f'  source    = "{_NETWORK_MODULE_SRC}"',
             # default provider = the spoke account; owner = the hub (ER owner), which
@@ -101,6 +102,7 @@ def _emit_vpn_codegen(env_dir: Path, spec: dict):
 
     vpn = [
         "# --- Site-to-cloud VPN ---",
+        "# Note: Requires the VPC and ER outputs from 05-network.",
         "",
         'module "vpn" {',
         f'  source    = "{_VPN_MODULE_SRC}"',

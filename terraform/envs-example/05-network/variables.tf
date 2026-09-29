@@ -19,7 +19,7 @@ variable "foundation_state_key" {
 variable "hub_account" {
   type        = string
   default     = "lz-infra"
-  description = "Account name (must match M1) the hub network resources deploy into."
+  description = "Account name (must match 01-foundation) the hub network resources deploy into."
 }
 
 variable "enterprise_project_name" {

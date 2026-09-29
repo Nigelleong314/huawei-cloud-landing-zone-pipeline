@@ -29,12 +29,12 @@ variable "network_state_key" {
 variable "security_account" {
   type        = string
   default     = "lz-security"
-  description = "Account name (must match M1) the SecMaster workspace deploys into."
+  description = "Account name (must match 01-foundation) the SecMaster workspace deploys into."
 }
 variable "hub_account" {
   type        = string
   default     = "lz-infra"
-  description = "Account name (must match M1) owning the hub network — edge protection (Anti-DDoS/WAF) deploys there."
+  description = "Account name (must match 01-foundation) owning the hub network — edge protection (Anti-DDoS/WAF) deploys there."
 }
 
 variable "enable_secmaster" {

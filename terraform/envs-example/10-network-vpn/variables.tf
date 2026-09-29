@@ -21,7 +21,7 @@ variable "network_state_key" {
 variable "vpn_account" {
   type        = string
   default     = "lz-infra"
-  description = "Account name (must match M1) the VPN resources deploy into (usually the hub account)."
+  description = "Account name (must match 01-foundation) the VPN resources deploy into (usually the hub account)."
 }
 
 variable "enterprise_project_name" {
