@@ -5,7 +5,11 @@ Usage:
     py tools/gen_ipam.py --envs-dir envs --out ipam.xlsx \
         [--title "Example Landing Zone - IP Management"] [--block-prefix 22] \
         [--reserve "10.42.8.0/22=CFW inspection block; never assign"] \
-        [--hosts hosts.csv]
+        [--hosts hosts.csv] [--states-dir states]
+
+--states-dir (a folder of state-<env>.json pulls, as for gen_checklist) makes the
+VPC notes and subnet purposes describe what is actually deployed in each VPC and
+subnet; without it they carry only the hub/spoke role.
 
 --reserve is repeatable for blocks consumed outside Terraform (for example the
 firewall ER-mode inspection reservation). --hosts seeds the Hosts sheet from a
@@ -16,7 +20,9 @@ register with headers.
 import argparse
 import csv
 import ipaddress
+import json
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import openpyxl
@@ -48,8 +54,10 @@ def fit(ws, widths):
 def collect(n5: dict):
     """(vpcs, subnets) from 05-network tfvars: hub_vpcs + spokes."""
     vpcs, subnets = [], []
+    hub = n5.get("hub_account", "")
     for name, v in (n5.get("hub_vpcs") or {}).items():
-        vpcs.append((name, v.get("cidr"), "Hub VPC"))
+        role = next((HUB_ROLE[t] for t in name.split("-") if t in HUB_ROLE), "")
+        vpcs.append((name, v.get("cidr"), "Hub VPC" + (f" ({hub})" if hub else "") + (f" - {role}" if role else "")))
         for s in v.get("subnets", []):
             subnets.append((name, s.get("name"), s.get("cidr")))
     for name, sp in (n5.get("spokes") or {}).items():
@@ -61,8 +69,121 @@ def collect(n5: dict):
     return vpcs, subnets
 
 
-def subnet_purpose(name: str) -> str:
-    return "ER attachment" if "-att" in (name or "") else ""
+# Resource types worth naming in a remark, and the label used for them.
+KIND = {
+    "huaweicloud_compute_instance": "ECS VM",
+    "huaweicloud_er_vpc_attachment": "ER attachment",
+    "huaweicloud_dns_endpoint": "DNS resolver endpoint",
+    "huaweicloud_natv3_gateway": "NAT gateway",
+    "huaweicloud_nat_gateway": "NAT gateway",
+    "huaweicloud_nat_private_gateway": "private NAT gateway",
+    "huaweicloud_vpn_gateway": "VPN gateway",
+    "huaweicloud_elb_loadbalancer": "load balancer",
+    "huaweicloud_lb_loadbalancer": "load balancer",
+    "huaweicloud_vpcep_endpoint": "VPC endpoint",
+    "huaweicloud_dc_virtual_gateway": "Direct Connect gateway",
+    "huaweicloud_rds_instance": "RDS instance",
+    "huaweicloud_cce_cluster": "CCE cluster",
+}
+# Subnet-name tokens of the naming convention, and the use they imply.
+TIER = {"att": "the ER attachment", "nat": "NAT gateways", "elb": "load balancers",
+        "vpn": "the VPN gateway", "dc": "Direct Connect", "dns": "DNS resolver endpoints",
+        "web": "the web tier", "compute": "the application tier", "data": "the database tier"}
+HUB_ROLE = {"dmz": "internet edge (DMZ)", "access": "hybrid access", "ss": "shared services"}
+
+
+def _strings(o):
+    if isinstance(o, dict):
+        for v in o.values():
+            yield from _strings(v)
+    elif isinstance(o, list):
+        for v in o:
+            yield from _strings(v)
+    elif isinstance(o, str):
+        yield o
+
+
+def inventory(states_dir: Path):
+    """Per subnet name: [(label, resource name)]; per VPC name: Counter of VPC-level features.
+
+    A resource belongs to the subnet (else the VPC) whose ID appears anywhere in its
+    attributes; the IDs come from the vpc and vpc_subnet resources in the same states.
+    """
+    states = [json.loads(f.read_text(encoding="utf-8")) for f in sorted(states_dir.glob("state-*.json"))]
+    managed = [(r["type"], i["attributes"]) for st in states for r in st.get("resources", [])
+               if r.get("mode") == "managed" for i in r.get("instances", [])]
+    vpc_ids = {a["id"]: a["name"] for t, a in managed if t == "huaweicloud_vpc"}
+    sub_ids = {}
+    for t, a in managed:
+        if t == "huaweicloud_vpc_subnet":
+            for k in ("id", "subnet_id"):
+                if a.get(k):
+                    sub_ids[a[k]] = a["name"]
+    by_subnet, by_vpc = defaultdict(list), defaultdict(Counter)
+    for t, a in managed:
+        if t in ("huaweicloud_vpc", "huaweicloud_vpc_subnet"):
+            continue
+        refs = set(_strings(a))
+        subnets = {sub_ids[x] for x in refs if x in sub_ids}
+        if t in KIND:
+            label = KIND[t]
+            if t == "huaweicloud_dns_endpoint" and a.get("direction"):
+                label = f"{a['direction']} {label}"
+            tags = a.get("tags") or {}
+            workload = ", ".join(v for v in (tags.get("project"), tags.get("env")) if v) \
+                if t == "huaweicloud_compute_instance" else ""
+            for n in sorted(subnets):
+                by_subnet[n].append((label, a.get("name", ""), KIND[t], workload))
+        elif not subnets:
+            for v in {vpc_ids[x] for x in refs if x in vpc_ids}:
+                if t == "huaweicloud_vpc_flow_log":
+                    by_vpc[v]["flow log"] += 1
+                elif t == "huaweicloud_dns_resolver_rule_associate":
+                    by_vpc[v]["DNS forwarding rule"] += 1
+    return by_subnet, by_vpc
+
+
+def _tier(name: str) -> str:
+    for tok in reversed((name or "").split("-")):
+        if tok in TIER:
+            return TIER[tok]
+    return ""
+
+
+def subnet_purpose(name: str, hosted=None) -> str:
+    if hosted is None:
+        return "ER attachment" if "-att" in (name or "") else ""
+    tier = _tier(name)
+    if not hosted:
+        return f"Intended for {tier}; nothing deployed yet." if tier else "Nothing deployed yet."
+    items = "; ".join(f"{label} {res}".strip() for label, res, _, _ in hosted)
+    if not tier or any(base.lower() in tier.lower() for _, _, base, _ in hosted):
+        return f"Hosts {items}."
+    return f"For {tier}. Hosts {items}."
+
+
+def _count(label: str, n: int) -> str:
+    return f"{n} {label}{'' if n == 1 else 's'}"
+
+
+def vpc_note(kind: str, subnets: list, by_subnet: dict, features: Counter) -> str:
+    hosted = Counter(label for s in subnets for label, _, _, _ in by_subnet.get(s, []))
+    workloads = sorted({w for s in subnets for _, _, _, w in by_subnet.get(s, []) if w})
+    idle = [s for s in subnets if not by_subnet.get(s)]
+    parts = [kind + "."]
+    if hosted:
+        items = [_count(lb, n) + (f" ({'; '.join(workloads)})" if lb == "ECS VM" and workloads else "")
+                 for lb, n in sorted(hosted.items())]
+        parts.append("Hosts " + ", ".join(items) + ".")
+        if idle:
+            tiers = Counter(_tier(s) or "other use" for s in idle)
+            parts.append(f"{len(idle)} of {len(subnets)} subnets still empty ("
+                         + ", ".join(f"{n} for {t}" for t, n in sorted(tiers.items())) + ").")
+    else:
+        parts.append("Nothing deployed in its subnets yet.")
+    for f, n in sorted(features.items()):
+        parts.append("Flow log enabled." if f == "flow log" else _count(f, n)[0].upper() + _count(f, n)[1:] + " associated.")
+    return " ".join(parts)
 
 
 def main():
@@ -74,6 +195,7 @@ def main():
     ap.add_argument("--supernet", help="override; default = 05-network spoke_private_supernet")
     ap.add_argument("--reserve", action="append", default=[], metavar="CIDR=note")
     ap.add_argument("--hosts", help="CSV of ip,subnet,resource,env,notes")
+    ap.add_argument("--states-dir", help="folder of state-<env>.json pulls; describes what each VPC and subnet hosts")
     args = ap.parse_args()
 
     n5 = tfvars(Path(args.envs_dir), "05-network")
@@ -82,6 +204,10 @@ def main():
         return 2
     supernet = ipaddress.ip_network(args.supernet or n5["spoke_private_supernet"])
     vpcs, subnets = collect(n5)
+    by_subnet, by_vpc = inventory(Path(args.states_dir)) if args.states_dir else (None, None)
+    vpc_subnets = defaultdict(list)
+    for vpc, name, _ in subnets:
+        vpc_subnets[vpc].append(name)
 
     reserved = {}
     for r in args.reserve:
@@ -96,7 +222,9 @@ def main():
         net = ipaddress.ip_network(cidr)
         for block in supernet.subnets(new_prefix=args.block_prefix):
             if net.overlaps(block):
-                alloc[str(block)] = (name, kind)
+                note = kind if by_subnet is None else vpc_note(
+                    kind, vpc_subnets[name], by_subnet, by_vpc.get(name, Counter()))
+                alloc[str(block)] = (name, note)
 
     wb = openpyxl.Workbook()
     s = wb.active
@@ -141,17 +269,18 @@ def main():
         b.cell(row=r, column=4).fill = FILL[status]
         dv.add(b.cell(row=r, column=4))
         r += 1
-    fit(b, [18, 15, 15, 12, 34, 55])
+    fit(b, [18, 15, 15, 12, 34, 55 if by_subnet is None else 90])
 
     sn = wb.create_sheet("Subnets")
     header(sn, 1, ["VPC", "Subnet", "CIDR", "Purpose", "Usable IPs", "Host IPs in use"])
     for i, (vpc, name, cidr) in enumerate(subnets, 2):
         size = (ipaddress.ip_network(cidr).num_addresses - 5) if cidr else ""
-        vals = [vpc, name, cidr, subnet_purpose(name), size, f'=COUNTIF(Hosts!B2:B500,B{i})']
+        purpose = subnet_purpose(name, None if by_subnet is None else by_subnet.get(name, []))
+        vals = [vpc, name, cidr, purpose, size, f'=COUNTIF(Hosts!B2:B500,B{i})']
         for c, v in enumerate(vals, 1):
             cell = sn.cell(row=i, column=c, value=v)
             cell.border, cell.alignment = BOX, WRAP
-    fit(sn, [30, 38, 18, 22, 11, 14])
+    fit(sn, [30, 38, 18, 22 if by_subnet is None else 70, 11, 14])
 
     h = wb.create_sheet("Hosts")
     header(h, 1, ["IP", "Subnet", "Resource", "Environment", "Notes"])
