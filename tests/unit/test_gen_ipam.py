@@ -3,7 +3,9 @@
 Builds a two-VPC estate (a hub DMZ and one spoke) as 05-network tfvars plus
 state pulls, and checks the remarks name the hosted resources, the workload
 tags of VMs, the empty subnets, and VPC-level features - and that without
---states-dir the generator keeps its short role labels.
+--states-dir the generator keeps its short role labels. The firewall's
+inspection range is reserved from 05-network without a flag (the Frasers IPAM
+once showed it Free), and --reserve holds a planned-but-unbuilt block.
 """
 
 import json
@@ -23,6 +25,7 @@ def _estate(tmp: Path) -> tuple[Path, Path]:
     (envs / "05-network" / "terraform.tfvars.json").write_text(json.dumps({
         "spoke_private_supernet": "10.0.0.0/16",
         "hub_account": "lz-infra",
+        "inspection_cidr_reservation": "10.0.8.0/22",
         "hub_vpcs": {"lz-hub-vpc-dmz-01": {"cidr": "10.0.0.0/22", "subnets": [
             {"name": "lz-hub-subnet-nat-01", "cidr": "10.0.0.0/25"},
             {"name": "lz-hub-subnet-elb-01", "cidr": "10.0.0.128/25"}]}},
@@ -90,3 +93,14 @@ def test_without_states_keeps_role_labels(tmp_path):
                      "lz-app-vpc-01": "Spoke VPC (lz-app)"}
     assert purposes["lz-app-subnet-att-01"] == "ER attachment"
     assert purposes["lz-app-subnet-compute-01"] is None
+
+
+def test_cfw_inspection_range_and_held_blocks_are_reserved(tmp_path):
+    envs, _ = _estate(tmp_path)
+    wb = _run(envs, tmp_path / "ipam.xlsx", "--reserve", "10.0.12.0/22=Not provisioned currently.")
+    blocks = {r[0]: (r[3], r[5]) for r in wb["Blocks"].iter_rows(min_row=2, values_only=True)}
+
+    status, note = blocks["10.0.8.0/22"]
+    assert status == "Reserved" and note.startswith("Reserved range for CFW")
+    assert blocks["10.0.12.0/22"] == ("Reserved", "Not provisioned currently.")
+    assert blocks["10.0.16.0/22"][0] == "Free"

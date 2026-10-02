@@ -11,8 +11,9 @@ Usage:
 VPC notes and subnet purposes describe what is actually deployed in each VPC and
 subnet; without it they carry only the hub/spoke role.
 
---reserve is repeatable for blocks consumed outside Terraform (for example the
-firewall ER-mode inspection reservation). --hosts seeds the Hosts sheet from a
+--reserve is repeatable for blocks held outside Terraform (for example a VPC
+planned but not provisioned). The firewall's ER-mode inspection range is read
+from 05-network (inspection_cidr_reservation) and reserved automatically. --hosts seeds the Hosts sheet from a
 CSV (ip,subnet,resource,env,notes); otherwise the sheet ships as an empty
 register with headers.
 """
@@ -212,7 +213,17 @@ def main():
     reserved = {}
     for r in args.reserve:
         cidr, _, note = r.partition("=")
-        reserved[str(ipaddress.ip_network(cidr.strip()))] = note.strip()
+        reserved[ipaddress.ip_network(cidr.strip())] = note.strip()
+    insp = n5.get("inspection_cidr_reservation")
+    if insp:
+        reserved.setdefault(ipaddress.ip_network(insp),
+                            "Reserved range for CFW: east-west inspection in ER mode. Managed by the "
+                            "Cloud Firewall service, not a VPC - do not assign.")
+    held = {}
+    for net, note in reserved.items():
+        for block in supernet.subnets(new_prefix=args.block_prefix):
+            if net.overlaps(block):
+                held[str(block)] = note
 
     # map VPC allocations onto the /N carving
     alloc = {}
@@ -259,8 +270,8 @@ def main():
         cidr = str(net)
         if cidr in alloc:
             status, owner, note = "Allocated", alloc[cidr][0], alloc[cidr][1]
-        elif cidr in reserved:
-            status, owner, note = "Reserved", "", reserved[cidr]
+        elif cidr in held:
+            status, owner, note = "Reserved", "", held[cidr]
         else:
             status, owner, note = "Free", "", ""
         for c, v in enumerate([cidr, str(net[0]), str(net[-1]), status, owner, note], 1):
@@ -294,7 +305,7 @@ def main():
 
     wb.save(args.out)
     print(f"written: {args.out}  (blocks: {n_blocks}, allocated: {len(alloc)}, "
-          f"reserved: {len(reserved)}, subnets: {len(subnets)})")
+          f"reserved: {len(held)}, subnets: {len(subnets)})")
     return 0
 
 
