@@ -104,6 +104,10 @@ PROSE_REWRITES = [("# The actual module calls + cross-account provider aliases a
 
 # source-tree module path -> artifact-relative path
 PATH_REWRITE = ("../../../huaweicloud-agentic-tools/modules-v2/", "../../modules/")
+# An envs tree may carry its own modules in <envs>/modules (customer-only code the
+# product library does not ship). In the artifact they sit in modules/ with the
+# library, one level further from the envs.
+OWN_MODULES_REWRITE = ('"../modules/', '"../../modules/')
 
 
 def excluded(p: Path, exclude_names: set) -> bool:
@@ -131,12 +135,15 @@ def excluded(p: Path, exclude_names: set) -> bool:
     return False
 
 
-def copy_tree(src: Path, dst: Path, rewrite: bool, exclude_names: set = EXCLUDE_NAMES):
+def copy_tree(src: Path, dst: Path, rewrite: bool, exclude_names: set = EXCLUDE_NAMES,
+              skip_top: tuple = (), extra_rewrites: tuple = ()):
     n = 0
     for p in sorted(src.rglob("*")):
         if p.is_dir() or any(d in p.parts for d in EXCLUDE_DIRS) or excluded(p, exclude_names):
             continue
         rel = p.relative_to(src)
+        if rel.parts[0] in skip_top:
+            continue
         name = GENERATED_RENAMES.get(rel.name, rel.name)
         out = dst / rel.parent / name
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +151,9 @@ def copy_tree(src: Path, dst: Path, rewrite: bool, exclude_names: set = EXCLUDE_
         # recipient never sees the ".generated" spelling.
         if rewrite and p.suffix in (".tf", ".md", ".example"):
             text = p.read_text(encoding="utf-8")
+            # before PATH_REWRITE: its output contains "../modules/" too
+            for old_txt, new_txt in extra_rewrites:
+                text = text.replace(old_txt, new_txt)
             text = text.replace(*PATH_REWRITE)
             for old_txt, new_txt in PROSE_REWRITES:
                 text = text.replace(old_txt, new_txt)
@@ -157,6 +167,20 @@ def copy_tree(src: Path, dst: Path, rewrite: bool, exclude_names: set = EXCLUDE_
             shutil.copy2(p, out)
         n += 1
     return n
+
+
+def copy_customer_modules(envs: Path, dst: Path, library: Path,
+                          exclude_names: set = EXCLUDE_NAMES) -> int:
+    """Copy <envs>/modules into the artifact's modules/; refuse to shadow a library module."""
+    own = envs / "modules"
+    if not own.is_dir():
+        return 0
+    names = {p.name for p in own.iterdir() if p.is_dir()}
+    clash = sorted(names & {p.name for p in library.iterdir() if p.is_dir()}) if library.is_dir() else []
+    if clash:
+        raise SystemExit(f"export refused: customer module(s) {clash} would shadow library modules of "
+                         "the same name - rename them in the envs tree")
+    return copy_tree(own, dst, rewrite=True, exclude_names=exclude_names)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -390,7 +414,9 @@ def export(profile: dict, target: Path, version: str, compat: bool,
         target.mkdir(parents=True)
 
     n_mod = copy_tree(MODULES, target / "modules", rewrite=True, exclude_names=exclude_names)
-    n_env = copy_tree(envs, target / "envs", rewrite=True, exclude_names=exclude_names)
+    n_mod += copy_customer_modules(envs, target / "modules", MODULES, exclude_names)
+    n_env = copy_tree(envs, target / "envs", rewrite=True, exclude_names=exclude_names,
+                      skip_top=("modules",), extra_rewrites=(OWN_MODULES_REWRITE,))
 
     # The artifact is read by someone with no access to our history or
     # tooling. Refuse to ship one whose comments say otherwise.
