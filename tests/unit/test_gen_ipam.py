@@ -4,7 +4,7 @@ Builds a two-VPC estate (a hub DMZ and one spoke) as 05-network tfvars plus
 state pulls, and checks the remarks name the hosted resources, the workload
 tags of VMs, the empty subnets, and VPC-level features - and that without
 --states-dir the generator keeps its short role labels. The firewall's
-inspection range is reserved from 05-network without a flag (the Frasers IPAM
+inspection range is reserved from 05-network without a flag (a customer IPAM
 once showed it Free), and --reserve holds a planned-but-unbuilt block.
 """
 

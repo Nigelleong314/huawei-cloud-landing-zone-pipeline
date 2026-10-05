@@ -6,6 +6,10 @@ deny-leave-org, deny-root-user, deny-unauthorized-RAM-share,
 deny-unauthorized-RMS-aggregation, require-mandatory-tags, deny-public-OBS,
 protect-CTS-tracker, deny-outside-allowed-region, require-tag-keys.
 
+SCPs apply to **member accounts only**, never to the organization's
+management (master) account. A control that must hold there is an IAM
+policy or a process, not a guardrail in this set.
+
 ## Packing under the 5-policy cap
 
 - Huawei caps attached SCPs at **5 per entity** (including the system

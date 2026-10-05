@@ -103,9 +103,12 @@ Check in this order:
 - **Credential-free by default**: validation, plan-preview and PR jobs get no
   credentials. Only the apply job is credentialed, behind an approval gate
   (assets/plan-triage-drift).
-- **Pass the security token explicitly.** The provider does not reliably pick
-  the session token up from the environment; wire it through as an explicit
-  variable alongside the key pair, and never echo any of the three.
+- **Inject the security token with the key pair.** Environment-only works
+  (verified live-API behavior, level 4): `HW_ACCESS_KEY` / `HW_SECRET_KEY` /
+  `HW_SECURITY_TOKEN` for the provider, `AWS_ACCESS_KEY_ID` /
+  `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` for the state backend; no
+  explicit `security_token` argument is needed. A temporary key without its
+  token fails as `InvalidAccessKeyId`. Never echo any of the three.
 - **Credentials are per-run and disposable.** A run that needs to reuse
   credentials across jobs is a design smell; mint again instead.
 - Every call made by the deploy agency is audited under that principal —

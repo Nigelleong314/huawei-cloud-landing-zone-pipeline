@@ -157,7 +157,7 @@ or gate result, or answered a question about where the engagement stands. It
 goes last, below everything else, even below a full report:
 
 ---
-**frasers** · 03-build · 4/7 · recheck: 03-build, 04-verify_pre · next: `lzctl check regen-diff`
+**acme** · 03-build · 4/7 · recheck: 03-build, 04-verify_pre · next: `lzctl check regen-diff`
 
 Slots, all from `status --json`: customer · current phase · complete/total ·
 worst state (`blocked: <phases>` outranks `recheck: <phases>`; when neither
@@ -179,7 +179,7 @@ recheck appears or clears — and when the user asks where things stand.
 Routine turns get the strip alone; a verb that ran this turn gets its card
 (rendering.md) plus the strip.
 
-**FRASERS** — 03-build · 4/7 complete · 13 envs
+**ACME** — 03-build · 4/7 complete · 13 envs
 
 **Needs attention**
 - **03-build** — the spec is newer than 9 of 13 envs; timestamp hint only, `lzctl check regen-diff` proves it
@@ -187,7 +187,7 @@ Routine turns get the strip alone; a verb that ran this turn gets its card
 
 **Next**
 ```bash
-lzctl check regen-diff --envs-dir huawei-lz/envs-frasers --spec lz_spec/lz.spec.frasers.json
+lzctl check regen-diff --envs-dir huawei-lz/envs-acme --spec lz_spec/lz.spec.acme.json
 lzctl build ...   # only if regen-diff reports differences
 ```
 agent · cloud: none · undo: regenerate or delete the tree

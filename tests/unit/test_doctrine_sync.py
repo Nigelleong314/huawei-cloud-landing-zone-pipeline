@@ -65,7 +65,7 @@ def test_skill_render_doctrine():
     assert "## Rendering" in skill
     for rule in ("Verdict first", "Exceptions only", "One Next", "Words only"):
         assert rule in skill, f"SKILL.md lost the {rule!r} rule"
-    assert "**frasers** · 03-build · 4/7" in skill, "the strip example is the strip spec"
+    assert "**acme** · 03-build · 4/7" in skill, "the strip example is the strip spec"
     assert "Needs attention" in skill, "the default report leads with exceptions"
     assert "Everything else gets no strip" in skill, (
         "the strip's scope must stay bounded: repo/tooling work is not an "

@@ -44,9 +44,14 @@ provider "huaweicloud" {
 3. **`default_tags` is mandatory on cross-account providers** where a
    mandatory-tag guardrail is enforced, or creates are denied
    (assets/cross-account, assets/scp-guardrails).
-4. **Pass `security_token` explicitly** with temporary credentials. The
-   documented environment fallback is not reliable in the field; wire it
-   through as an explicit argument alongside the key pair.
+4. **Temporary credentials travel as three values, never two.**
+   Environment-only injection works (verified live-API behavior, level 4):
+   `HW_ACCESS_KEY` / `HW_SECRET_KEY` / `HW_SECURITY_TOKEN` for the provider,
+   `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` for
+   the OBS S3 backend. The provider block can stay empty — its
+   `RequiredWith` checks do not fire on environment defaults. A temporary key
+   exported without its session token fails as `InvalidAccessKeyId`, which
+   reads like a wrong key rather than a missing token.
 5. **On the OIDC path, set `duration` explicitly** — the provider's long
    default duration does not apply there (assets/ci-credentials-oidc).
 6. **Authenticating the provider does not authenticate the backend.** The
