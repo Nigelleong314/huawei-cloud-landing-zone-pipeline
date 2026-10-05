@@ -157,6 +157,12 @@ def _decisions_gate(ir_path: Path, ir: dict):
 
 
 def cmd_build(args):
+    # A tree remembers the module source root it was built with (the emitters
+    # bind LZ_MODULE_SOURCE_ROOT at import, so adopt it before they load);
+    # build_from_spec refuses a build under a different root.
+    rec = Path(args.envs_dir).resolve() / ".lz-module-source-root"
+    if "LZ_MODULE_SOURCE_ROOT" not in os.environ and rec.exists():
+        os.environ["LZ_MODULE_SOURCE_ROOT"] = rec.read_text(encoding="utf-8-sig").strip()
     from .core import cli as be
     ir = model.load(Path(args.ir))
     problems = _decisions_gate(Path(args.ir).resolve(), ir)
