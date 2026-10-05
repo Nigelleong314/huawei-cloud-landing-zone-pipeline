@@ -37,6 +37,8 @@ Seven pipeline suites (`pipeline/lz_pipeline/tests/`) plus the app suite (`app/t
 | `fmt` | `terraform fmt -check` on hand-written HCL (`terraform/modules`, `terraform/scaffold`). Generated files are governed by goldens instead. |
 | `unit` | All suites in the table above, run as scripts. |
 
+One opt-in check runs only when named: `export-smoke --zip <artifact.zip> [--plugin-dir <dir>]` extracts a handover artifact and runs `terraform init -backend=false` (fresh `TF_DATA_DIR`, no credentials) plus `terraform validate` in every env. It needs terraform on PATH; see `docs/workflow.md`.
+
 ## The leak guard
 
 Lives in `test_phase5.py` (artifact export). Customer identifiers are **derived, not listed**: for every non-example export profile, the guard loads that profile's spec and harvests forbidden tokens automatically — so onboarding a customer extends the check with no regex to remember. Harvested per spec:

@@ -124,8 +124,12 @@ lzctl build --spec <spec> --envs-dir <envs> [--scaffold-dir <dir>] [--only 05,06
 # (--ir is an accepted alias for --spec on build and docs)
 lzctl check [all|regen-diff|validate|template-check|rules|deps|fmt|unit] \
             [--envs-dir <envs>] [--spec <spec>]   # -> python -m lz_spec.verify_pipeline
+lzctl check export-smoke --zip <artifact.zip> [--plugin-dir <dir>]
+                                                  # handover artifact: offline init + validate
 lzctl deps --envs-dir <envs>                      # regenerate deps.json (build writes it too)
 ```
+
+`lzctl check export-smoke` is the handover artifact's smoke test, run only when named (never part of `all`). It extracts the zip to a temp directory and, for every `envs/<env>/` folder, runs `terraform init -backend=false -input=false` with a fresh `TF_DATA_DIR` (a leftover `.terraform` with backend state makes even `-backend=false` read backend credentials) and then `terraform validate`. Credential variables are stripped from terraform's environment and nothing is planned. `--plugin-dir` is passed through to `init` for an air-gapped provider install; otherwise providers come from the registry once, through a shared temp plugin cache. One `PASS`/`FAIL <env>: init|validate` line per env; exit 0 when every env is valid, 1 otherwise, 2 when `--zip` is missing.
 
 Delegated commands preserve the caller's working directory — relative paths resolve exactly as supplied (locked by `tests/unit/test_cli_contract.py`).
 

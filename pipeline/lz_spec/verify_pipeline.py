@@ -5,6 +5,8 @@ Usage:
   python -m lz_spec.verify_pipeline regen-diff      # spec IR -> envs is a no-op
   python -m lz_spec.verify_pipeline validate        # terraform validate (init'ed envs)
   python -m lz_spec.verify_pipeline template-check  # template structure matches schema.py
+  python -m lz_spec.verify_pipeline export-smoke --zip ART.zip [--plugin-dir D]
+                                                    # artifact envs init + validate offline
 
 The CANONICAL config store is the json spec IR; the Excel workbook is a
 GENERATED artifact, not an input.
@@ -27,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -296,6 +299,60 @@ def check_fmt() -> bool:
     return ok
 
 
+CREDENTIAL_VARS = ("HW_ACCESS_KEY", "HW_SECRET_KEY", "HW_SECURITY_TOKEN",
+                   "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN")
+
+
+def check_export_smoke(zip_path: Path, plugin_dir=None) -> bool:
+    """Offline smoke test of a handover artifact zip: every env under an
+    envs/ folder inits without a backend and validates. Each env gets a fresh
+    TF_DATA_DIR - an existing .terraform holding backend state makes even
+    -backend=false read the backend's credentials. No credentials, no plan."""
+    print("== export-smoke ==")
+    if shutil.which("terraform") is None:
+        print("export-smoke: FAILED (terraform not on PATH)")
+        return False
+    env = {k: v for k, v in os.environ.items() if k not in CREDENTIAL_VARS}
+    init = ["terraform", "init", "-backend=false", "-input=false", "-no-color"]
+    if plugin_dir:
+        init.append(f"-plugin-dir={Path(plugin_dir).resolve()}")
+    bad = []
+    with tempfile.TemporaryDirectory(prefix="lz-smoke-", ignore_cleanup_errors=True) as td:
+        root = Path(td) / "artifact"
+        if "TF_PLUGIN_CACHE_DIR" not in env:     # one provider download for all envs
+            (Path(td) / "plugin-cache").mkdir()
+            env["TF_PLUGIN_CACHE_DIR"] = str(Path(td) / "plugin-cache")
+        try:
+            with zipfile.ZipFile(zip_path) as z:
+                z.extractall(root)
+        except zipfile.BadZipFile as e:
+            print(f"export-smoke: FAILED ({zip_path} is not a zip: {e})")
+            return False
+        env_dirs = sorted((d for d in root.rglob("*") if d.is_dir()
+                           and d.parent.name == "envs" and any(d.glob("*.tf"))),
+                          key=lambda d: d.name)
+        if not env_dirs:
+            print(f"export-smoke: FAILED (no envs/<env>/*.tf in {zip_path})")
+            return False
+        for d in env_dirs:
+            e = dict(env, TF_DATA_DIR=str(Path(td) / "tf-data" / d.name))
+            for step, cmd in (("init", init), ("validate", ["terraform", "validate", "-no-color"])):
+                r = subprocess.run(cmd, cwd=str(d), capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", env=e)
+                if r.returncode != 0:
+                    print(f"  FAIL {d.name}: {step}")
+                    for line in ((r.stdout or "") + (r.stderr or "")).strip().splitlines()[-15:]:
+                        print(f"    {line}")
+                    bad.append(d.name)
+                    break
+            else:
+                print(f"  PASS {d.name}")
+    n = len(env_dirs)
+    print("export-smoke:", f"PASS ({n}/{n} envs init + validate offline)" if not bad
+          else f"FAILED ({len(bad)}/{n} envs: {', '.join(bad)})")
+    return not bad
+
+
 CHECKS = {
     "regen-diff": check_regen_diff,
     "validate": check_validate,
@@ -316,11 +373,23 @@ def main():
                     "workspace with --envs-dir / --spec (or LZ_VERIFY_ENVS / "
                     "LZ_VERIFY_IR).")
     ap.add_argument("check", nargs="?", default="all",
-                    choices=["all", *CHECKS], help="which check to run (default: all)")
+                    choices=["all", *CHECKS, "export-smoke"],
+                    help="which check to run (default: all; export-smoke runs only when named)")
     ap.add_argument("--envs-dir", help="env tree to check (overrides LZ_VERIFY_ENVS)")
     ap.add_argument("--spec", "--ir", dest="spec",
                     help="spec IR to regenerate from (overrides LZ_VERIFY_IR)")
+    ap.add_argument("--zip", help="export-smoke: the handover artifact zip")
+    ap.add_argument("--plugin-dir", help="export-smoke: install providers from this "
+                                         "directory instead of the registry")
     args = ap.parse_args()
+    if args.check == "export-smoke":
+        if not args.zip or not Path(args.zip).is_file():
+            print(f"export-smoke needs --zip <artifact.zip> (got {args.zip!r})")
+            sys.exit(2)
+        ok = check_export_smoke(Path(args.zip), args.plugin_dir)
+        print("\n== RESULT: " + ("ALL PASSED (1/1 checks)" if ok
+                                 else "FAILED (failed: export-smoke)") + " ==")
+        sys.exit(0 if ok else 1)
     if args.envs_dir:
         ENVS = Path(args.envs_dir).resolve()
     if args.spec:
