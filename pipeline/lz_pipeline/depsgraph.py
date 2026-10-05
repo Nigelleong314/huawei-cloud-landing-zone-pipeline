@@ -24,29 +24,56 @@ _STATE_KEY_RE = re.compile(r'envs/([0-9]{2}-[a-z0-9-]+)/terraform\.tfstate')
 _LOCAL_PATH_RE = re.compile(r'"\.\./([0-9]{2}-[a-z0-9-]+)/terraform\.tfstate"')
 
 
+def _split_backend(text: str) -> tuple:
+    """(text without its `backend "s3" { ... }` blocks, keys found inside them).
+
+    The backend block holds the env's OWN state key, never a consumed one; it
+    lives inline in providers.tf, so it is cut out by brace matching rather
+    than by excluding a file.
+    """
+    own, out, pos = [], [], 0
+    for m in re.finditer(r'backend\s+"s3"\s*\{', text):
+        if m.start() < pos:
+            continue
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            i += 1
+        own += _STATE_KEY_RE.findall(text[m.start():i])
+        out.append(text[pos:m.start()])
+        pos = i
+    out.append(text[pos:])
+    return "".join(out), own
+
+
 def scan(envs_dir: Path) -> dict:
     """{env_name: {"consumes": [env, ...]}} for every env dir, in order."""
-    graph = {}
+    blobs, key_env = {}, {}
     for env in sorted(p for p in envs_dir.iterdir() if p.is_dir()):
         if not re.match(r"^[0-9]{2}-", env.name):
             continue
-        # backend.tf holds only the env's OWN state key (which may differ from
-        # the dir name when a dir is renamed but its state kept canonical), never
-        # a consumed key - exclude it so it can't read as a self-dependency.
-        texts = [tf.read_text(encoding="utf-8")
-                 for tf in sorted(env.glob("*.tf")) if tf.name != "backend.tf"]
+        texts = []
+        for tf in sorted(env.glob("*.tf")):
+            text, own = _split_backend(tf.read_text(encoding="utf-8"))
+            texts.append(text)
+            # an env's own key may differ from its dir name (a dir renumbered
+            # with its state kept in place): consumers reference that key
+            for k in own:
+                key_env.setdefault(k, env.name)
         tfvars = env / "terraform.tfvars.json"
         if tfvars.exists():
             texts.append(tfvars.read_text(encoding="utf-8"))
-        blob = "\n".join(texts)
+        blobs[env.name] = "\n".join(texts)
+    graph = {}
+    for name, blob in blobs.items():
         consumes = set()
         # Only envs that actually declare a remote-state data source consume
-        # anything; the key pattern alone could be a comment or its own backend.
+        # anything; the key pattern alone could be a comment.
         if 'data "terraform_remote_state"' in blob:
-            consumes.update(_STATE_KEY_RE.findall(blob))
+            consumes.update(key_env.get(k, k) for k in _STATE_KEY_RE.findall(blob))
             consumes.update(_LOCAL_PATH_RE.findall(blob))
-        consumes.discard(env.name)
-        graph[env.name] = {"consumes": sorted(consumes)}
+        consumes.discard(name)
+        graph[name] = {"consumes": sorted(consumes)}
     return graph
 
 
