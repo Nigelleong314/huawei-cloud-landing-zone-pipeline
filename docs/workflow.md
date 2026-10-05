@@ -100,7 +100,11 @@ Prints the CTS lookup procedure for auditing who changed a resource. Exit 0.
 
 ### `lzctl docs --envs-dir <envs> --out-dir DIR [--states-dir DIR] [--customer NAME] [--spec SPEC.json]`
 
-Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--spec` — the Excel LLD workbook (a generated artifact of the spec). Exit 0 all generated.
+Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--spec` — the Excel LLD workbook (a generated artifact of the spec). `--states-dir` is a folder of `state-<env>.json` files — exactly that name; a pull saved as anything else reads as *not deployed*, so the generators warn with the envs that have no file. `lzctl state-pull` produces the folder. Exit 0 all generated.
+
+### `lzctl state-pull --envs-dir <envs> --out DIR [ENV[,ENV...]] [--dry-run]`
+
+Writes each env's current state to `DIR/state-<env>.json` — the input `lzctl docs --states-dir DIR` expects. Envs with a remote backend are read with `terraform state pull`; an env with no backend block (`00-bootstrap`, whose local state creates the bucket the others use) has its `terraform.tfstate` copied. State holds secrets: keep `DIR` out of version control and shared drives. Exit 0.
 
 ### `lzctl intake XLSX [-o OUT.json]`
 

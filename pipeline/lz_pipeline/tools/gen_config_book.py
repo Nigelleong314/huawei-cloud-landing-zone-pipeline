@@ -21,7 +21,7 @@ from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).parent))
 from envtree import (BOX, HDR_FILL, HDR_FONT, SEC_FILL, SEC_FONT, WRAP,
-                     env_dirs, tfvars, state, instances)
+                     env_dirs, tfvars, state, missing_states, instances)
 
 
 
@@ -81,6 +81,8 @@ def main():
 
     envs_dir = Path(args.envs_dir)
     states_dir = Path(args.states_dir) if args.states_dir else None
+    if states_dir:
+        missing_states(envs_dir, states_dir)
     tv = lambda env: tfvars(envs_dir, env)
     st = lambda env: state(states_dir, env) if states_dir else {}
     envs = [d.name for d in env_dirs(envs_dir)]

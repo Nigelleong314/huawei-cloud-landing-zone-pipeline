@@ -29,6 +29,7 @@ Usage (lifecycle order):
     lzctl adopt        --envs-dir <envs> ENV ADDRESS CLOUD_ID
     lzctl state-backup --envs-dir <envs> [ENV | --all]
     lzctl providers-lock --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+    lzctl state-pull   --envs-dir <envs> --out <dir> [ENV[,ENV...]] [--dry-run]
     lzctl triage       PLAN_JSON [...]
     lzctl who-changed  RESOURCE_NAME
     lzctl order        --envs-dir <envs>
@@ -974,6 +975,48 @@ def cmd_state_backup(args):
     return 0
 
 
+def cmd_state_pull(args):
+    """Current state of each env as <out>/state-<env>.json: the names the doc
+    generators read from --states-dir (any other name reads as not deployed)."""
+    envs = Path(args.envs_dir)
+    out = Path(args.out)
+    pulled = 0
+    for name in select(envs, args.env, not args.env):   # no ENV -> all
+        env_dir = envs / name
+        dest = out / f"state-{name}.json"
+        local = not any('backend "' in tf.read_text(encoding="utf-8")
+                        for tf in env_dir.glob("*.tf"))
+        if local:   # 00-bootstrap: local state, it creates the bucket the others use
+            src = env_dir / "terraform.tfstate"
+            print(f"[{name}] copy terraform.tfstate > {dest}")
+            if args.dry_run:
+                continue
+            if not src.exists():
+                print(f"  {name}: no local terraform.tfstate (never applied here?)")
+                continue
+            out.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+        else:
+            print(f"[{name}] $ terraform state pull > {dest}")
+            if args.dry_run:
+                continue
+            r = subprocess.run(["terraform", "state", "pull"], cwd=str(env_dir),
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace")
+            if r.returncode != 0 or not r.stdout.strip():
+                print(f"  {name}: no state pulled ({(r.stderr or 'empty state').strip()[:120]})")
+                continue
+            out.mkdir(parents=True, exist_ok=True)
+            dest.write_text(r.stdout, encoding="utf-8")
+        pulled += 1
+    if args.dry_run:
+        print("\n== RESULT: DRY RUN COMPLETE (no state read) ==")
+        return 0
+    print(f"\n== RESULT: {pulled} STATE FILE(S) -> {out} (state holds secrets: "
+          "keep this folder out of version control and shared drives) ==")
+    return 0
+
+
 LOCK_PLATFORMS = ("windows_amd64", "linux_amd64")
 _LOCK_HWC_RE = re.compile(r'provider\s+"[^"]*/huaweicloud/huaweicloud"\s*\{[^}]*?'
                           r'\bversion\s*=\s*"([^"]+)"')
@@ -1301,6 +1344,9 @@ def cmd_docs(args):
         tail = (r.stdout or r.stderr).strip().splitlines()
         print(f"  {'PASS' if r.returncode == 0 else 'FAIL'} {script.name}"
               + (f" - {tail[-1]}" if tail else ""))
+        for w in (r.stderr or "").splitlines():
+            if w.startswith("warning:"):
+                print(f"    {w}")
         rc = rc or r.returncode
     if rc == 0:
         print(f"\n== RESULT: {len(jobs)} DOCUMENT(S) GENERATED -> {out} ==")
@@ -1975,6 +2021,13 @@ def main(argv=None):
     p.add_argument("--all", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_providers_lock)
+    p = sub.add_parser("state-pull", help="pull each env's state to <out>/state-<env>.json "
+                                          "(the docs --states-dir input)")
+    p.add_argument("--envs-dir", required=True)
+    p.add_argument("--out", required=True, help="folder for the state-<env>.json files")
+    p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_state_pull)
     p = sub.add_parser("adopt");      p.add_argument("--envs-dir", required=True)
     p.add_argument("env"); p.add_argument("address"); p.add_argument("cloud_id")
     p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=cmd_adopt)
