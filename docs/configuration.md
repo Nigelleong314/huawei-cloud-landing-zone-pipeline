@@ -35,7 +35,7 @@ A customer engagement lives in a DATA directory outside this repo:
 
 `lzctl assess --workspace <dir>` creates `specs/`; `lzctl build --scaffold-dir` populates `envs/`. The `envs/` ↔ `modules/` siblinghood is what the default `LZ_MODULE_SOURCE_ROOT=../../modules` assumes; override it for any other shape. The in-repo example (`terraform/envs-example` beside `terraform/modules`) has the same relationship.
 
-Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Static files come from `terraform/scaffold/`. Credentials are never among them — they live only in the environment.
+Per env, generated files (never hand-edit): `terraform.tfvars.json`, `*.generated.tf`. Static files come from `terraform/scaffold/`; the build fills the state bucket and region into the inline `backend "s3"` block of each `providers.tf`, so `terraform init` takes no flags. Credentials are never among them — they live only in the environment (`HW_ACCESS_KEY` / `HW_SECRET_KEY` / `HW_SECURITY_TOKEN`, mapped to `AWS_*` for the backend).
 
 ## Profiles
 

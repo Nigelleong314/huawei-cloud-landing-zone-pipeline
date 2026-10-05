@@ -6,7 +6,8 @@ State bucket (chicken-egg). Uses **local** Terraform state.
 
 ```powershell
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars with your AK/SK and a unique bucket name
+# edit terraform.tfvars with a unique bucket name; credentials come from
+# HW_ACCESS_KEY / HW_SECRET_KEY (+ HW_SECURITY_TOKEN) in the environment
 
 terraform init
 terraform plan
@@ -16,10 +17,9 @@ terraform apply
 ## After
 
 1. Note the `state_bucket_name` output.
-2. Copy `backend.hcl.example` → `backend.hcl` in each other env, fill in the
-   bucket name.
-3. Each other env runs `terraform init -backend-config=backend.hcl`.
-4. Store the local `terraform.tfstate` from this env securely (NOT in git).
+2. Every other env carries its backend inline in `providers.tf` (the build
+   fills in the bucket), so `terraform init` needs no flags.
+3. Store the local `terraform.tfstate` from this env securely (NOT in git).
 
 ## ⚠ Required env vars for all other envs (Terraform 1.11+)
 

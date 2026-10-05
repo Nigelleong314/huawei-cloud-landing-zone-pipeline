@@ -11,12 +11,12 @@ terraform {
   }
 
   backend "s3" {
+    bucket = "example-lz-obs-tfstate-01"
+    region = "ap-southeast-1"
+    endpoints = {
+      s3 = "https://obs.ap-southeast-1.myhuaweicloud.com"
+    }
     key = "envs/01-foundation/terraform.tfstate"
-
-    # The following come from backend.hcl:
-    #   bucket    = "..."
-    #   region    = "..."
-    #   endpoints = { s3 = "..." }
 
     skip_requesting_account_id  = true
     skip_s3_checksum            = true

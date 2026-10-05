@@ -1,7 +1,8 @@
-# 07-network-dns/terraform.tfvars.example
+# 08-network-dns/terraform.tfvars.example
 # Reference only: the terraform.tfvars.json beside this file carries the real
-# values. AK/SK come from secrets.auto.tfvars.json (gitignored) — never
-# commit real keys.
+# values. Credentials are never in a tfvars file: they come only from the
+# environment (HW_ACCESS_KEY / HW_SECRET_KEY, plus HW_SECURITY_TOKEN for a
+# temporary key, mapped to AWS_* for the state backend).
 
 home_region       = "ap-southeast-3"
 
