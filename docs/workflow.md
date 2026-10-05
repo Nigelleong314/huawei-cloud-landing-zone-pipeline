@@ -84,6 +84,12 @@ Evidence bundle → `<envs>/evidence/<ts>/` (or `--out`): the last N run logs (d
 
 On-demand `terraform state pull` backups to `state-backups/`. Exit 0.
 
+### `lzctl providers-lock --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]`
+
+Runs `terraform providers lock -platform=windows_amd64 -platform=linux_amd64` in each selected env, then prints the `huaweicloud` provider version each env's `.terraform.lock.hcl` records. It keeps each env's locked version and adds the missing platform's hashes, so a lock file written on a Windows laptop also verifies on a Linux CI runner. Envs that were never initialized are skipped (the command needs the modules `init` installs).
+
+Run it after every `terraform init -upgrade`: an upgrade rewrites the lock with the current platform's hashes only, and the next `init` on the other OS then fails the checksum check. The version report catches the other slow failure — envs drifting onto different provider versions (one estate ended up on three) — and is how to converge them: `init -upgrade` the lagging envs, then `providers-lock` again. Commit the lock files with the tree. Exit 0 locked and every env on one version, 1 on a lock error, 2 if the versions disagree.
+
 ### `lzctl adopt --envs-dir <envs> ENV ADDRESS CLOUD_ID [--dry-run]`
 
 `terraform import` an existing cloud resource, then re-plan. Exit 0 imported clean, 1 import failed, 2 imported but the configuration still differs (align and re-plan).

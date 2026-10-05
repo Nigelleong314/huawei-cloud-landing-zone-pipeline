@@ -28,6 +28,7 @@ Usage (lifecycle order):
                        [--no-refresh] [--parallelism N]
     lzctl adopt        --envs-dir <envs> ENV ADDRESS CLOUD_ID
     lzctl state-backup --envs-dir <envs> [ENV | --all]
+    lzctl providers-lock --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
     lzctl triage       PLAN_JSON [...]
     lzctl who-changed  RESOURCE_NAME
     lzctl order        --envs-dir <envs>
@@ -973,6 +974,59 @@ def cmd_state_backup(args):
     return 0
 
 
+LOCK_PLATFORMS = ("windows_amd64", "linux_amd64")
+_LOCK_HWC_RE = re.compile(r'provider\s+"[^"]*/huaweicloud/huaweicloud"\s*\{[^}]*?'
+                          r'\bversion\s*=\s*"([^"]+)"')
+
+
+def locked_huaweicloud(env_dir: Path):
+    """The huaweicloud provider version in the env's .terraform.lock.hcl, or None."""
+    lock = env_dir / ".terraform.lock.hcl"
+    if not lock.exists():
+        return None
+    m = _LOCK_HWC_RE.search(lock.read_text(encoding="utf-8"))
+    return m.group(1) if m else None
+
+
+def cmd_providers_lock(args):
+    """Record provider hashes for every CI/operator platform, then report the
+    locked huaweicloud version per env. `init -upgrade` rewrites the lock with
+    the current platform's hashes only, which breaks init on the other OS."""
+    envs = Path(args.envs_dir)
+    targets = select(envs, args.env, args.all)
+    log = logfile(envs, "providers-lock") if not args.dry_run else None
+    failed, skipped = [], []
+    for name in targets:
+        env_dir = envs / name
+        if not (env_dir / ".terraform").exists() and not args.dry_run:
+            skipped.append(name)   # providers lock needs the modules init installs
+            continue
+        r = run_tf(env_dir, ["providers", "lock"] + [f"-platform={p}" for p in LOCK_PLATFORMS],
+                   args.dry_run, log)
+        if r.returncode != 0:
+            failed.append(name)
+    print("\n== huaweicloud provider in .terraform.lock.hcl ==")
+    versions = {}
+    for name in targets:
+        v = locked_huaweicloud(envs / name)
+        note = " (SKIP: not initialized)" if name in skipped else \
+               " (FAIL: lock error above)" if name in failed else ""
+        print(f"  {name:20} {v or '-'}{note}")
+        if v:
+            versions.setdefault(v, []).append(name)
+    if failed:
+        print(f"\n== RESULT: FAILED (providers lock error in {', '.join(failed)}) ==")
+        return 1
+    if len(versions) > 1:
+        print(f"\n== RESULT: VERSIONS DISAGREE ({', '.join(sorted(versions))}) - "
+              "upgrade the lagging env(s) with `terraform init -upgrade`, then re-run "
+              "providers-lock (the upgrade drops the other platforms' hashes) ==")
+        return 2
+    print(f"\n== RESULT: LOCKED ({', '.join(versions) or 'no lock files'}; "
+          f"platforms {', '.join(LOCK_PLATFORMS)}) ==")
+    return 0
+
+
 # Documented transient platform errors that merit exactly one retry (async
 # authority grants, log-service hiccups). Extend per engagement with
 # LZ_TRANSIENT_SIGNATURES (comma-separated substrings) rather than editing
@@ -1914,6 +1968,13 @@ def main(argv=None):
     parallelism(p)
     p.add_argument("--report"); p.set_defaults(fn=cmd_drift)
     p = sub.add_parser("state-backup"); common(p); p.set_defaults(fn=cmd_state_backup)
+    p = sub.add_parser("providers-lock", help="lock provider hashes for windows_amd64 + "
+                                              "linux_amd64; report the huaweicloud version per env")
+    p.add_argument("--envs-dir", required=True)
+    p.add_argument("env", nargs="?")
+    p.add_argument("--all", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_providers_lock)
     p = sub.add_parser("adopt");      p.add_argument("--envs-dir", required=True)
     p.add_argument("env"); p.add_argument("address"); p.add_argument("cloud_id")
     p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=cmd_adopt)

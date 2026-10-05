@@ -25,7 +25,7 @@ def lzctl(*args, cwd=None):
 ALL_VERBS = ["preflight", "order", "plan", "apply", "drift", "state-backup",
              "adopt", "who-changed", "triage", "docs", "intake", "assess",
              "verify", "report", "build", "validate", "spec-validate",
-             "check", "export"]
+             "check", "export", "providers-lock"]
 
 
 def test_every_verb_is_registered():
