@@ -19,6 +19,17 @@ deployed with the estate:
 
 Reference assets/billing before touching vault billing:
 
+- **A vault bills on provisioned capacity, not bytes used.** Its size is
+  the cost, whatever the backups occupy.
+- **Auto-expand only grows.** It steps the size up by about 25% every few
+  days as backups approach the cap, and never shrinks it back. Expect the
+  live size to run well ahead of the spec value.
+- **The state lagging the live size is deliberate**: an auto-expanding
+  vault carries `ignore_changes = [size]`, or every plan would try to
+  shrink it back to the spec value. Read the cost from the live vault,
+  never from state or the spec.
+- **Retention is the real cost lever.** Fewer retained backups is what
+  stops the growth; resizing a vault down does not.
 - **Auto-expanding vaults cannot be converted to prepaid.** Auto-expand is
   a postpaid-only feature — choosing yearly/monthly billing means choosing
   fixed size, and someone must then watch capacity.
