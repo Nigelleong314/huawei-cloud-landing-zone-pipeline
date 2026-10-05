@@ -42,10 +42,10 @@ def _inject_backend(providers: Path, bucket: str, region: str):
     `terraform init` then needs no -backend-config flag, which is one less way
     for a handover recipient to end up on a silent empty state.
 
-    THE KEY IS NEVER WRITTEN HERE. It addresses live state, and several envs
-    deliberately keep a pre-renumbering key; the scaffold owns it as a static
-    value so no rebuild can rewrite it. Idempotent: an already-filled block is
-    left alone.
+    THE KEY IS NEVER WRITTEN HERE. It addresses live state, which an env may
+    keep under a key that differs from its current directory name; the
+    scaffold owns it as a static value so no rebuild can rewrite it.
+    Idempotent: an already-filled block is left alone.
     """
     if not providers.exists():
         return

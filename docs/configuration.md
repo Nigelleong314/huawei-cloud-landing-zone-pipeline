@@ -56,7 +56,7 @@ Optional curation keys:
 - `skip_envs` — env directories that are not shipped (e.g. a hand-managed env); they are also dropped from the shipped `deps.json`, with a warning when a shipped env consumes one.
 - `ship_markdown` — `false` drops every `.md` under the artifact's `modules/` and `envs/` (default `true`).
 
-Library modules no shipped env references are pruned automatically, and an env module source that does not resolve inside the artifact's `modules/` refuses the export. No `*.tfstate*` file ever ships — including the `00-bootstrap` local state, which is handed over out of band.
+Library modules no shipped env references are pruned automatically, and an env module source that does not resolve inside the artifact's `modules/` refuses the export. Env module sources are rewritten from `LZ_MODULE_SOURCE_ROOT` (the root the tree was built against — set it for the export too) to the artifact's `../../modules/`. No `*.tfstate*` file ever ships — including the `00-bootstrap` local state, which is handed over out of band.
 
 A feature disabled in the profile is stripped from the staged artifact at generation time — exports are always re-runnable; artifact surgery is never needed.
 

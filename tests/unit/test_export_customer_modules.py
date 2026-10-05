@@ -1,7 +1,7 @@
 """A customer's own modules ship in the artifact's modules/ beside the library.
 
-An envs tree may carry modules that belong to that customer only (Frasers'
-workload VM, KMS, CBR and OBS-backup modules) in <envs>/modules; the product
+An envs tree may carry modules that belong to that customer only (a customer
+tree's workload VM or backup modules, say) in <envs>/modules; the product
 library stays landing-zone only. The export must move them to modules/, point
 the env sources at the new place, leave library sources as they were, and
 refuse a customer module that would shadow a library one.
@@ -10,6 +10,7 @@ refuse a customer module that would shadow a library one.
 import pytest
 
 from lz_pipeline import export_v2
+from lz_pipeline.core import helpers
 
 
 def _tree(tmp_path):
@@ -27,7 +28,10 @@ def _tree(tmp_path):
     return envs, library
 
 
-def test_env_copy_skips_own_modules_and_repoints_sources(tmp_path):
+def test_env_copy_skips_own_modules_and_repoints_sources(tmp_path, monkeypatch):
+    # the tree was built against a module root outside the envs tree
+    monkeypatch.setattr(helpers, "MODULE_SOURCE_ROOT",
+                        "../../../huaweicloud-agentic-tools/modules-v2")
     envs, _ = _tree(tmp_path)
     dst = tmp_path / "out" / "envs"
     export_v2.copy_tree(envs, dst, rewrite=True, skip_top=("modules",),

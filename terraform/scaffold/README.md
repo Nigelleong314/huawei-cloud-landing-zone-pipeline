@@ -22,8 +22,8 @@ files into the new tree, then generates the per-env inputs next to them.
 | `10-network-vpn/` | VPN gateways + customer gateways + connections | hub account |
 | `11-network-sgacl/` | Workload security groups | per workload account |
 
-(A live tree may add a hand-scaffolded `12-workloads/` env; the scaffold does
-not include one.)
+(A tree may add its own hand-written envs beside these; the build leaves
+them alone, and an export profile can leave them out with `skip_envs`.)
 
 ## Conventions
 
