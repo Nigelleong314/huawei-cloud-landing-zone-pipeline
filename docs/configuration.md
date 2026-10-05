@@ -38,6 +38,47 @@ A customer engagement lives in a DATA directory outside this repo:
 
 Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Static files come from `terraform/scaffold/`. Credentials are never among them — they live only in the environment.
 
+## Pre-commit secret gate for env trees
+
+An env tree kept under git sits next to state pulls, saved plans and
+credential files. `lz_pipeline.tools.precommit_secrets` refuses a commit
+whose staged content holds any of them, judged by content rather than
+filename: Terraform state (UTF-8 BOM and UTF-16 included), binary or JSON
+plans, a Huawei access key next to a secret key, an `access_key` /
+`secret_key` / `security_token` assignment with a literal value, and any
+`secrets.auto.tfvars.json`. It exits 1 listing each path and why, never the
+value. It is stdlib-only, so it also runs as a copied script.
+
+Install it as the env repository's own hook (Git for Windows runs it too;
+use `py` if `python` is not on PATH):
+
+```sh
+cat > .git/hooks/pre-commit <<'EOF'
+#!/bin/sh
+exec python -m lz_pipeline.tools.precommit_secrets
+EOF
+chmod +x .git/hooks/pre-commit
+```
+
+`python -m` needs the pipeline installed (`pip install -e <pipeline repo>`);
+otherwise point the hook at the file: `exec python /path/to/precommit_secrets.py`.
+With the pre-commit framework, add a local hook to `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: lz-precommit-secrets
+        name: refuse state, plans and credentials
+        entry: python -m lz_pipeline.tools.precommit_secrets
+        language: system
+        pass_filenames: false
+        always_run: true
+```
+
+The hook is a backstop, not the policy: keep `.gitignore` covering state,
+plans and secrets files, and rotate any credential that was ever staged.
+
 ## Profiles
 
 Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pipeline.export_v2`; paths resolve against the invoking workspace:
