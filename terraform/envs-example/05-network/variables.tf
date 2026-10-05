@@ -255,5 +255,3 @@ variable "spokes" {
   }))
   description = "Map keyed by spoke VPC NAME -> spoke VPC config (account + VPC + subnets + per-resource tags). The provider/module fan-out is generated from the SpokeVPCs table; the spoke default route (0.0.0.0/0 -> hub ER) is auto-wired."
 }
-
-# ── VPN (merged into 05-network) ────────────────────────────────

@@ -16,7 +16,7 @@ variable "foundation_state_key" {
   default = "envs/01-foundation/terraform.tfstate"
 }
 
-# ── Module 15 inputs (workload security groups) ─────────────────────────────
+# ── secgroups inputs (workload security groups) ─────────────────────────────
 
 # account name -> its security groups and their rules.
 # The generated sgacl.generated.tf passes each account's slice to one module call.

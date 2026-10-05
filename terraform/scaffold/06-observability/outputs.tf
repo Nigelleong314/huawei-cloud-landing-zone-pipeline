@@ -1,7 +1,7 @@
 # --- Central audit outputs ---
 
-# Central audit (module 6, in the CTS-admin account) outputs.
-# Per-account ops (module 7) outputs are generated alongside the module calls in
+# Central audit (compliance-audit, in the CTS-admin account) outputs.
+# Per-account ops (ops-monitoring) outputs are generated alongside the module calls in
 # observability.generated.tf.
 output "audit_bucket_name" { value = module.audit.audit_bucket_name }
 output "audit_bucket_id" { value = module.audit.audit_bucket_id }

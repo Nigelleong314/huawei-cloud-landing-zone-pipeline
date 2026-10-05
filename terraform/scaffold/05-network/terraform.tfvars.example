@@ -73,7 +73,7 @@ hub_vpcs = {
 # cfw_period_unit   = "month"         # subscription only
 # cfw_period        = 1               # subscription only
 # cfw_auto_renew    = false           # subscription only
-# cfw_acl_rules = []                  # see module 3 variables.tf for shape
+# cfw_acl_rules = []                  # see the network module variables for shape
 # cfw_address_groups = []
 # cfw_service_groups = []
 

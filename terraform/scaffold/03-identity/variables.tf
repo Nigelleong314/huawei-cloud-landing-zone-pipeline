@@ -19,7 +19,7 @@ variable "environment" {
   default = "shared"
 }
 
-# ── Remote state location for module 1 foundation outputs ──────────────────
+# ── Remote state location for the foundation outputs ──────────────────
 
 variable "foundation_state_bucket" {
   type        = string
@@ -32,7 +32,7 @@ variable "foundation_state_key" {
   description = "Key path in the state bucket for the 01-foundation state"
 }
 
-# ── Module 2 passthroughs ──────────────────────────────────────────────────
+# ── Identity module passthroughs ──────────────────────────────────────────────────
 
 variable "groups" {
   type    = any

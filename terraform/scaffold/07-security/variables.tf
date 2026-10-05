@@ -72,7 +72,7 @@ variable "member_workspace_bindings" {
   default = []
 }
 
-# ── Edge protection (module 13, hub account) ────────────────────────────────
+# ── Edge protection (hub account) ────────────────────────────────
 
 variable "antiddos" {
   # Each entry: { name, eip, threshold_mbps, alarm_topic }.

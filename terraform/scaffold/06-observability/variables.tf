@@ -16,7 +16,7 @@ variable "foundation_state_key" {
   default = "envs/01-foundation/terraform.tfstate"
 }
 
-# ── Module 6 inputs (central audit, in the CTS-admin account) ──────────────
+# ── compliance-audit inputs (central audit, in the CTS-admin account) ──────────────
 
 # Required, globally-unique OBS bucket names + KMS aliases (no defaults).
 # These accept the {account-name} token (substituted in the module).
@@ -35,7 +35,7 @@ variable "kms_pending_days" {
   default = 7
 }
 
-# ── Module 12 inputs (org LTS log aggregation, in the LTS-admin account) ───
+# ── log-aggregation inputs (org LTS log aggregation, in the LTS-admin account) ───
 # The converge fan-out (source lookups + module call) is GENERATED into
 # logconverge.generated.tf from the LogConverge table.
 
@@ -72,7 +72,7 @@ variable "archive_bucket_force_destroy" {
   default = false
 }
 
-# ── Module 7 inputs (per-account ops) ──────────────────────────────────────
+# ── ops-monitoring inputs (per-account ops) ──────────────────────────────────────
 
 variable "topic_name" {
   type    = string

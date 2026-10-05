@@ -22,7 +22,7 @@ variable "environment" {
   default     = "shared"
 }
 
-# ── Module 1 passthroughs ──────────────────────────────────────────────────
+# ── Organization module passthroughs ──────────────────────────────────────────────────
 
 variable "enabled_policy_types" {
   type        = set(string)

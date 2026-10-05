@@ -136,7 +136,7 @@ workload_accounts = {
 
 # ── Enterprise project (bootstrap) ─────────────────────────────────────────
 
-# Single bootstrap EP for landing zone resources. Module 8 creates additional
-# cost-center EPs (different module, different scope).
+# Single bootstrap EP for landing zone resources. 02-finance creates the
+# cost-center EPs.
 # create_enterprise_project = false
 # enterprise_project_name   = "landing-zone"

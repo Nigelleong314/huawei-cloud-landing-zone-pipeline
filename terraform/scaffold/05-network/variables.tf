@@ -106,7 +106,7 @@ variable "cfw_lts_attack_stream_name" {
   default = "cfw-attack"
 }
 
-# ── Hub VPCs (REQUIRED — no defaults; see module 3 README for sizing) ──────
+# ── Hub VPCs (REQUIRED — no defaults; see the network module docs for sizing) ──────
 
 variable "hub_vpcs" {
   type = map(object({
@@ -255,5 +255,3 @@ variable "spokes" {
   }))
   description = "Map keyed by spoke VPC NAME -> spoke VPC config (account + VPC + subnets + per-resource tags). The provider/module fan-out is generated from the SpokeVPCs table; the spoke default route (0.0.0.0/0 -> hub ER) is auto-wired."
 }
-
-# ── VPN (merged into 05-network) ────────────────────────────────

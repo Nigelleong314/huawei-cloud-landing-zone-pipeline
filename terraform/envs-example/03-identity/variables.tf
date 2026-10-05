@@ -32,7 +32,7 @@ variable "foundation_state_key" {
   description = "Key path in the state bucket for the 01-foundation state"
 }
 
-# ── Module 2 passthroughs ──────────────────────────────────────────────────
+# ── Identity module passthroughs ──────────────────────────────────────────────────
 
 variable "groups" {
   type    = any

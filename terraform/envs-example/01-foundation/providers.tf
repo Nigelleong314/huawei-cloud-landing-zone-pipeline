@@ -27,7 +27,7 @@ terraform {
 }
 
 # Provider config for the foundation env.
-# Module 1 runs in the master account only — single provider, no aliases needed.
+# The organization module runs in the master account only — single provider, no aliases needed.
 # Subsequent envs (03-identity, 04-perimeter, etc.) read the foundation outputs and
 # configure additional provider aliases for cross-account access.
 

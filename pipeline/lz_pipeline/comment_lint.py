@@ -53,7 +53,7 @@ BANNED = [
     # Module and env numbering that no longer exists in the shipped tree:
     # "module 06-compliance-audit", "env-05 observability", "modules-v2/x".
     (re.compile(r"\bmodules?[ -]\d{2}-|\benv-\d{2}\b|\bmodules?-v\d\b"
-                r"|\bmodule \d+\b"), "stale module or env numbering"),
+                r"|\b[Mm]odule \d+\b"), "stale module or env numbering"),
     (re.compile(r"[\w/-]+\.md\b"), "reference to a document that does not ship"),
     (re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b"), "date"),
     (re.compile(r"\bscaffolding\b|\bplaceholder only\b"), "scaffolding note"),

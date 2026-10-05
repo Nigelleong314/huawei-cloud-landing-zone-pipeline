@@ -1,6 +1,6 @@
 # --- Foundation inputs ---
 
-# Env-level variables. Most pass through to module 1 unchanged.
+# Env-level variables. Most pass through to the organization module unchanged.
 
 variable "home_region" {
   type        = string
@@ -22,7 +22,7 @@ variable "environment" {
   default     = "shared"
 }
 
-# ── Module 1 passthroughs ──────────────────────────────────────────────────
+# ── Organization module passthroughs ──────────────────────────────────────────────────
 
 variable "enabled_policy_types" {
   type        = set(string)
