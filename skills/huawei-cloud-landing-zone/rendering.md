@@ -13,8 +13,8 @@ artifact paths when the record is a file.
 
 ## Phase report — full form (explicit ask only: "full status", `-v`)
 
-**FRASERS** — 4/7 complete · 13 envs
-`spec` lz_spec/lz.spec.frasers.json · `envs` huawei-lz/envs-frasers
+**ACME** — 4/7 complete · 13 envs
+`spec` lz_spec/lz.spec.acme.json · `envs` huawei-lz/envs-acme
 
 | Phase | Status |
 |---|---|
@@ -36,7 +36,7 @@ artifact paths when the record is a file.
 
 **Next**
 ```bash
-lzctl check regen-diff --envs-dir huawei-lz/envs-frasers --spec lz_spec/lz.spec.frasers.json
+lzctl check regen-diff --envs-dir huawei-lz/envs-acme --spec lz_spec/lz.spec.acme.json
 lzctl build ...   # only if regen-diff reports differences
 ```
 agent · cloud: none · undo: regenerate or delete the tree
@@ -50,7 +50,7 @@ are incomplete.
 
 ## PLAN
 
-### PLAN — frasers · 3 envs · changes present (exit 2)
+### PLAN — acme · 3 envs · changes present (exit 2)
 
 | Env | Verdict | Changes |
 |---|---|---|
@@ -63,7 +63,7 @@ are incomplete.
 
 **Next**
 ```bash
-lzctl apply --envs-dir huawei-lz/envs-frasers 05-network   # human at a terminal, never the agent
+lzctl apply --envs-dir huawei-lz/envs-acme 05-network   # human at a terminal, never the agent
 ```
 human · cloud: write · undo: none once applied — triage before every apply
 
@@ -76,7 +76,7 @@ envs, with the run's exit code.
 
 ## APPLY — reporting a human's run, from lzctl-logs/
 
-### APPLY — frasers · 05-network · applied (exit 0)
+### APPLY — acme · 05-network · applied (exit 0)
 
 - state backup: `state-backups/20260901-101500-05-network.tfstate.json`
 - plan: reused from the triage run (configuration unchanged)
@@ -85,7 +85,7 @@ envs, with the run's exit code.
 
 **Next**
 ```bash
-lzctl verify --envs-dir huawei-lz/envs-frasers
+lzctl verify --envs-dir huawei-lz/envs-acme
 ```
 agent · cloud: read-only · undo: plans write nothing
 
@@ -96,7 +96,7 @@ This skill never runs the apply; this card reads the record a human made.
 
 ## VERIFY / DRIFT
 
-### VERIFY — frasers · 13 envs · fail (exit 2)
+### VERIFY — acme · 13 envs · fail (exit 2)
 
 - **09-network-cfw** — DRIFT: 1 destructive, 0 update, 2 create
 - 11-sgacl — known-benign drift only (3)
@@ -107,18 +107,18 @@ changes.
 
 **Next**
 ```bash
-lzctl drift --envs-dir huawei-lz/envs-frasers 09-network-cfw --report drift-09.md
+lzctl drift --envs-dir huawei-lz/envs-acme 09-network-cfw --report drift-09.md
 ```
 agent · cloud: read-only · undo: plans write nothing
 
 Slots: only non-clean envs are listed; destructive drift is bold and always
-first. Pass form: `### VERIFY — frasers · 13 envs · pass (exit 0)`, one
+first. Pass form: `### VERIFY — acme · 13 envs · pass (exit 0)`, one
 line `13 of 13 clean or known-benign`, Next = the deliver commands. A
 standalone `lzctl drift` renders the same shape titled `### DRIFT —`.
 
 ## VALIDATE
 
-### VALIDATE — lz.spec.frasers.json · 3 errors · 2 warnings (exit 1)
+### VALIDATE — lz.spec.acme.json · 3 errors · 2 warnings (exit 1)
 
 - 05_Network.SpokeVPCs[prod-app]: cidr 10.0.0.0/20 overlaps hub 10.0.0.0/16
 - 03_Identity.AccountAssignments[3]: group "platform-ops" not defined in Groups
@@ -135,11 +135,11 @@ human · cloud: none · undo: spec edits are a git diff
 Slots: every error verbatim, capped at 20 with "and n more" (the full list
 stays in the command output). Errors are never summarized away — they are
 the actionable content. Pass form:
-`### VALIDATE — lz.spec.frasers.json · 0 errors · 2 warnings (exit 0)`.
+`### VALIDATE — lz.spec.acme.json · 0 errors · 2 warnings (exit 0)`.
 
 ## DECISIONS
 
-### DECISIONS — frasers · 2 open · build blocked (exit 3)
+### DECISIONS — acme · 2 open · build blocked (exit 3)
 
 - **C16** (open) — prod supernet CIDR, pending the IP workshop — resolve in the app, Decisions & gaps
 - **G1** (open) — VPN PSK placeholder in 10_VPN.Connections — the app deep-links to the sheet
@@ -153,17 +153,17 @@ human · cloud: none · undo: resolutions are additive; the decision set is immu
 
 Slots: every open item renders — ref, the question, the venue; defaulted and
 answered compress to the count line. Nothing open:
-`### DECISIONS — frasers · none open (exit 0)` plus the count line.
+`### DECISIONS — acme · none open (exit 0)` plus the count line.
 
 ## DOCS / EXPORT
 
-### DOCS — frasers · 4 documents (exit 0)
+### DOCS — acme · 4 documents (exit 0)
 
 - `dist/docs/`: ip-management.xlsx · config-book.xlsx · resource-checklist.xlsx · LLD workbook
 
 **Next**
 ```bash
-lzctl report --envs-dir huawei-lz/envs-frasers   # evidence bundle; export follows verify
+lzctl report --envs-dir huawei-lz/envs-acme   # evidence bundle; export follows verify
 ```
 agent · cloud: none · undo: regenerate — documents are derived artifacts
 
