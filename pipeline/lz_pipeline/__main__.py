@@ -10,10 +10,40 @@ its output is byte-identical to the workbook path.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import sys
 from pathlib import Path
+
+
+def lz_spec_problem():
+    """Why `lz_spec` would not import as the pipeline's own package, or None.
+
+    The working directory comes first on sys.path under `-m`, so a folder
+    named lz_spec there wins: without __init__.py it becomes a namespace
+    package (an editable install's finder is then never asked), with one it
+    is a stranger's lz_spec. Both surface later as a ModuleNotFoundError or
+    a stale schema; name the folder up front instead.
+    """
+    spec = importlib.util.find_spec("lz_spec")
+    if spec is None:
+        return None   # plain "No module named 'lz_spec'" already says it
+    own = Path(__file__).resolve().parent.parent / "lz_spec"
+    if spec.origin in (None, "namespace"):
+        where = ", ".join(spec.submodule_search_locations or [])
+        return (f"lz_spec resolves to a folder without __init__.py ({where}), "
+                f"which shadows the pipeline's own package ({own}) - run from "
+                "another directory or rename that folder")
+    found = Path(spec.origin).resolve().parent
+    if found != own:
+        return (f"lz_spec resolves to {found}, which shadows the pipeline's own "
+                f"package ({own}) - run from another directory or rename that folder")
+    return None
+
+
+if (_problem := lz_spec_problem()):
+    raise SystemExit(_problem)
 
 from . import model, schema_check
 
