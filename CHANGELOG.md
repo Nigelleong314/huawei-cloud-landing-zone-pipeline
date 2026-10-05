@@ -7,6 +7,7 @@
 - **Lessons from a delivered estate, back-ported.**
   - `lzctl providers-lock` locks windows_amd64 + linux_amd64 hashes per env and exits 2 when envs disagree on the huaweicloud version.
   - `lzctl drift --no-refresh` is a config-vs-recorded-state check (seconds instead of a full refresh). `--parallelism N` on plan/apply/drift is for large CFW envs that fail with `WSAEACCES`.
+  - `lzctl plan` (and apply's plan step) fails an env whose terraform exit code contradicts the plan summary it printed (exit 0 with `Plan: N to add`, exit 2 with `No changes.`) instead of trusting either, and warns when `.lzctl.lock` shows an apply running or interrupted.
   - `lzctl state-pull` writes the `state-<env>.json` files the doc generators read. The generators now warn about envs with no state file instead of silently reporting 0 rows.
   - `lz_pipeline.tools.gen_operator_policy` generates the least-privilege IAM 5.0 policy for day-to-day plan/apply, used as an Identity Center permission set in the management account (`docs/operator-policy.md`).
   - `lz_pipeline.tools.precommit_secrets` is a content-based, BOM-aware staged-file gate that blocks state, plans, AK/SK and `secrets.auto.tfvars.json`.

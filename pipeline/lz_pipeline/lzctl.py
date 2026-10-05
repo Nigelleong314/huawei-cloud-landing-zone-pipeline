@@ -913,6 +913,25 @@ def _parallelism(args) -> list:
     return [f"-parallelism={n}"] if n else []
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_PLAN_COUNTS_RE = re.compile(
+    r"\bPlan: (?:(\d+) to import, )?(\d+) to add, (\d+) to change, (\d+) to destroy")
+
+
+def _plan_exit_mismatch(rc: int, output: str):
+    """Why terraform's -detailed-exitcode contradicts the summary it printed,
+    or None. When they disagree one of them is wrong, so neither is trusted."""
+    text = _ANSI_RE.sub("", output)
+    m = _PLAN_COUNTS_RE.search(text)
+    changes = bool(m and any(int(n or 0) for n in m.groups())) \
+        or "Changes to Outputs:" in text
+    if rc == 0 and changes:
+        return "exited 0 (no changes) but its summary lists changes"
+    if rc == 2 and not changes and "No changes." in text:
+        return "exited 2 (changes present) but its summary says No changes."
+    return None
+
+
 def _plan_one(env_dir: Path, dry: bool, log, extra=()) -> int:
     if not (env_dir / ".terraform").exists() and not dry:
         init_args = ["init", "-input=false"]
@@ -927,6 +946,11 @@ def _plan_one(env_dir: Path, dry: bool, log, extra=()) -> int:
     if r.returncode == 1:
         print(f"  FAIL {env_dir.name}: plan error (see output above)")
         return 1
+    why = _plan_exit_mismatch(r.returncode, r.stdout)
+    if why:
+        print(f"  FAIL {env_dir.name}: terraform {why} - trusting neither; "
+              "inspect the output above and re-plan")
+        return 1
     cls, _ = triage_plan(env_dir, dry, log)
     return cls
 
@@ -935,6 +959,11 @@ def cmd_plan(args):
     envs = Path(args.envs_dir)
     worst = 0
     targets = select(envs, args.env, args.all)
+    lock = Lock(envs).path
+    if lock.exists():
+        print(f"WARNING: {lock} present - an apply is running or was interrupted, and "
+              "its terraform may still be writing state; this plan can read a "
+              "half-applied env")
     log = logfile(envs, "plan") if not args.dry_run else None
     for name in targets:
         rc = _plan_one(envs / name, args.dry_run, log, _parallelism(args))
