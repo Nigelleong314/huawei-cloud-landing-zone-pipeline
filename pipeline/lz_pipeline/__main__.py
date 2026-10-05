@@ -4,8 +4,8 @@
     py -m lz_pipeline spec-validate <lz.spec.json | workbook.xlsx>
     py -m lz_pipeline build --spec lz.spec.json --envs-dir <dir> [--scaffold-dir <dir>] [--only 05,06]
 
-Run from anywhere; lz_spec is located next to this package (override with
-LZ_SPEC_DIR). The build path runs the lz_pipeline.core builders/emitters, so
+Run from anywhere; lz_spec must sit next to this package (a stray lz_spec
+folder in the working directory is refused). The build path runs the lz_pipeline.core builders/emitters, so
 its output is byte-identical to the workbook path.
 """
 

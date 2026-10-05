@@ -1408,6 +1408,13 @@
               "type": "object",
               "description": "",
               "properties": {
+                "enable_secmaster": {
+                  "type": [
+                    "boolean",
+                    "string"
+                  ],
+                  "description": "FALSE leaves SecMaster out of 07-security entirely (no workspace, no wiring); edge protection still deploys and the env keeps its number."
+                },
                 "security_account": {
                   "type": "string",
                   "description": "Account name from module 1 where the SecMaster workspace is deployed."

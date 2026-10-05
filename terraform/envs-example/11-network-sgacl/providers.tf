@@ -7,7 +7,12 @@ terraform {
   }
 
   backend "s3" {
-    # key is the HISTORICAL (pre-renumber) env name - it pins the live OBS state; never change
+    bucket = "example-lz-obs-tfstate-01"
+    region = "ap-southeast-1"
+    endpoints = {
+      s3 = "https://obs.ap-southeast-1.myhuaweicloud.com"
+    }
+    # Note: the key pins the live OBS state; never change it
     key                         = "envs/11-network-sgacl/terraform.tfstate"
     skip_requesting_account_id  = true
     skip_s3_checksum            = true

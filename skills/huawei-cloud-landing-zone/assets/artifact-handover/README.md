@@ -8,11 +8,19 @@ tree:
 - `modules/` + `envs/` with paths rewritten to be self-contained.
 - `*.generated.tf` renamed to plain `.tf` names — in the artifact they are
   ordinary hand-maintained Terraform (the customer has no generator).
-- Generator-era comments rewritten to operator-facing wording.
-- Excluded always: secrets files, state backups, logs, plan files, `.bak`,
-  Python tooling, Excel sources.
-- Shipped deliberately: the 00-bootstrap LOCAL state (operators cannot
-  manage the state bucket without it), one root `.gitignore`.
+- Comments already follow the artifact convention; the export runs
+  `comment_lint` over the assembled tree and refuses one that breaks it.
+- Excluded always: secrets files, every `*.tfstate*` (state in any
+  spelling), state backups, logs, plan files, `.bak`, Python tooling, Excel
+  sources.
+- The 00-bootstrap LOCAL state is **never** in the artifact. Operators
+  cannot manage the state bucket without it, so hand it over out of band
+  (an encrypted transfer to the customer's operator, recorded in the
+  handover checklist) and have them store it outside the repository.
+- Shipped deliberately: one root `.gitignore` (lock files stay tracked).
+- Curation per profile: `skip_envs` (env dirs not shipped, also dropped
+  from `deps.json`), `ship_markdown` (default true), and library modules no
+  shipped env references are pruned automatically.
 - `MANIFEST.txt`: sha256 of every shipped file + version + enabled features.
 - Release metadata: VERSION, CHANGELOG generated from the spec diff between
   releases (never hand-written). Each release snapshots its spec so the next
@@ -41,7 +49,8 @@ every profile's export, including other customers'.
 
 1. Artifact exported from a clean verify run; manifest checksums match.
 2. All envs plan clean or known-benign against live.
-3. State backups current; bucket versioning confirmed.
+3. State backups current; bucket versioning confirmed; the 00-bootstrap
+   local state handed over out of band.
 4. Credentials rotated out of delivery hands; customer's own AK/SK proven
    against preflight.
 5. Document set regenerated from the shipped state.

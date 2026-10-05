@@ -86,7 +86,8 @@ def build_01_foundation(spec):
 
     tps = m1.get("TagPolicies") or []
     if tps:
-        out["tag_policies"] = [_render_tag_policy(t) for t in tps if t.get("Name") and t.get("TagKey")]
+        out["tag_policies"] = [_render_tag_policy(t)
+                               for t in tps if t.get("Name") and t.get("TagKey")]
 
     return out
 
@@ -623,9 +624,9 @@ def build_05_network(spec):
     # wired from these three names + Settings.snat_vpc_attachment. er-hybrid
     # carries the 0.0.0.0/0 -> CFW default so VPN/DC traffic is inspected.
     out["er_route_tables"] = [
-        {"name": "er-inbound",  "description": "All VPC attachments auto-associate; auto static route 0.0.0.0/0 -> CFW"},
-        {"name": "er-outbound", "description": "CFW auto-associates; VPC CIDRs auto-propagated; auto 0.0.0.0/0 -> SNAT VPC attachment"},
-        {"name": "er-hybrid",   "description": "VPN/DC attachments associate here (10_VPN.ERAssocRouteTable); 0/0 -> CFW keeps DC traffic inspected"},
+        {"name": "er-inbound",  "description": "All VPC attachments associate automatically; default route 0.0.0.0/0 points to CFW"},
+        {"name": "er-outbound", "description": "CFW associates automatically; VPC CIDRs propagate automatically; default route 0.0.0.0/0 points to the SNAT VPC attachment"},
+        {"name": "er-hybrid",   "description": "VPN and Direct Connect attachments associate here; default route 0.0.0.0/0 points to CFW so data-center traffic remains inspected"},
     ]
     out["cfw_default_route_tables"] = ["er-hybrid"]
 

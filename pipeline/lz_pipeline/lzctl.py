@@ -1329,7 +1329,8 @@ def cmd_docs(args):
                                  "--title", f"{title} - IP management"]),
         (tools / "gen_config_book.py", ["--envs-dir", envs, "--out", str(out / "config-book.xlsx"),
                                         "--customer", title]
-         + (["--states-dir", args.states_dir] if args.states_dir else [])),
+         + (["--states-dir", args.states_dir] if args.states_dir else [])
+         + (["--ir", ir] if ir else [])),
     ]
     if args.states_dir:
         jobs.append((tools / "gen_checklist.py",

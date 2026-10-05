@@ -1397,6 +1397,7 @@ M5_SECURITY = Sheet(
             name="Settings",
             kind="scalar",
             rows=[
+                KV("enable_secmaster",         "bool",   True,            True,            "FALSE leaves SecMaster out of 07-security entirely (no workspace, no wiring); edge protection still deploys and the env keeps its number."),
                 KV("security_account",         "string", "lz-security",  "lz-security",  "Account name from module 1 where the SecMaster workspace is deployed."),
                 KV("secmaster_workspace_name", "string", "lz-secmaster", "lz-secmaster", "Name of the SecMaster workspace."),
                 KV("enable_hss",               "bool",   False,           False,           "RESERVED - Host Security Service is not implemented; the flag is wired to the module but deploys nothing. Keep FALSE (LZR-033) and record the requirement as a decision."),

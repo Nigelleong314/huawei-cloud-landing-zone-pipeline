@@ -15,8 +15,8 @@
 # (e.g. cn-east-3, cn-north-4, ap-southeast-1, ap-southeast-3).
 home_region = "ap-southeast-3"
 
-# Huawei Cloud master-account AK/SK. Marked sensitive.
-# terraform.tfvars is gitignored — DO NOT commit real values.
+# Credentials are not variables: the provider reads HW_ACCESS_KEY /
+# HW_SECRET_KEY (plus HW_SECURITY_TOKEN) from the environment.
 
 # Core accounts to create. Map keyed by account name. Each entry needs a
 # UNIQUE email (Huawei requires one inbox per account) and an OU placement.

@@ -1,7 +1,6 @@
 """An export must never carry working-copy metadata into a handover artifact.
 
-An env tree kept under version control (envs-frasers is, since 2026-09-29)
-has a .git directory beside the Terraform. copy_tree walks the tree, so
+An env tree kept under version control (a customer tree may be) has a .git directory beside the Terraform. copy_tree walks the tree, so
 without an explicit exclusion the whole repository - internal commit
 messages, and every earlier revision of files this exporter deliberately
 filters - lands in the customer's zip. That happened once; this test is the

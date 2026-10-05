@@ -160,6 +160,14 @@ def _normalize_ou_parent(v) -> str:
     return s
 
 
+def _join(items, conj):
+    """['a'] -> 'a'; ['a','b'] -> 'a or b'; ['a','b','c'] -> 'a, b, or c'."""
+    items = list(items)
+    if len(items) <= 2:
+        return f" {conj} ".join(items)
+    return ", ".join(items[:-1]) + f", {conj} " + items[-1]
+
+
 def _render_tag_policy(row: dict) -> dict:
     """Build a tag_policies entry from {Name, TagKey, TagValue, Scope}.
 
@@ -177,12 +185,14 @@ def _render_tag_policy(row: dict) -> dict:
     if scope:
         key_rule["enforced_for"] = {"@@assign": scope}
     content = {"tags": {key: key_rule}}
-    desc_parts = [f"Enforce {key}"]
-    desc_parts.append(f"in [{', '.join(values)}]" if values else "key (any value)")
-    desc_parts.append(f"on [{', '.join(scope)}]" if scope else "on all services")
+    where = f"for {_join(scope, 'and')} resources" if scope else "across all services"
+    if values:
+        description = f"Require {key} to be {_join(values, 'or')} {where}"
+    else:
+        description = f"Require the {key} tag key {where}; any value is allowed"
     return {
         "name":        row["Name"],
-        "description": " ".join(desc_parts),
+        "description": description,
         "content":     json.dumps(content, separators=(",", ":")),
     }
 

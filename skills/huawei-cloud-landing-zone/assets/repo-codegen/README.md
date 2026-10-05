@@ -5,7 +5,7 @@
 ```text
 modules/            one module per governance domain (main/variables/outputs/versions)
 envs-<customer>/    numbered env dirs composing the modules
-  00-bootstrap/     state bucket (LOCAL state, ships with the artifact)
+  00-bootstrap/     state bucket (LOCAL state, handed over out of band)
   01-foundation/ …  every other env: OBS remote state
   deps.json         dependency graph -> apply order
 spec (JSON)         canonical config; envs are GENERATED from it
@@ -14,9 +14,10 @@ spec (JSON)         canonical config; envs are GENERATED from it
 - Module pattern: every variable typed + described, every output described.
   Tags come SOLELY from provider `default_tags` — modules never inject their
   own tag boilerplate.
-- Env pattern: static scaffold files (`main.tf`, `providers.tf`,
-  `variables.tf`, `backend.tf`, `versions.tf`, `outputs.tf`) + generated
-  files (`terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`).
+- Env pattern: static scaffold files (`main.tf`, `providers.tf` with an
+  inline `backend "s3"` block the build fills in, `variables.tf`,
+  `outputs.tf`) + generated files (`terraform.tfvars.json`,
+  `*.generated.tf`). `terraform init` needs no flags.
 - Comments in anything that ships follow one convention: `# --- Section ---`,
   `# Note: one sentence.`, short labels. No change history, roadmap notes,
   generator provenance, workbook sheet names or dates. `export_v2` runs

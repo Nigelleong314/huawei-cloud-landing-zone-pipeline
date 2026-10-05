@@ -13,11 +13,6 @@ terraform {
   backend "s3" {
     key = "envs/01-foundation/terraform.tfstate"
 
-    # The following come from backend.hcl:
-    #   bucket    = "..."
-    #   region    = "..."
-    #   endpoints = { s3 = "..." }
-
     skip_requesting_account_id  = true
     skip_s3_checksum            = true
     skip_region_validation      = true

@@ -26,16 +26,26 @@ def write_env(env_dir: Path, tfvars: dict, state_bucket: str, region: str, env_n
             (env_dir / stale).unlink(missing_ok=True)
 
 
+def write_root_gitignore(envs_dir: Path):
+    """One .gitignore for the whole envs tree, written only when absent so a
+    user's own rules are never overwritten. Lock files stay tracked."""
+    path = envs_dir / ".gitignore"
+    if path.exists():
+        return
+    tpl = Path(__file__).parent / "templates" / "envs.gitignore.tmpl"
+    path.write_text(tpl.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+
+
 def _inject_backend(providers: Path, bucket: str, region: str):
     """Fill bucket/region/endpoints into the scaffold's `backend "s3"` block.
 
     `terraform init` then needs no -backend-config flag, which is one less way
     for a handover recipient to end up on a silent empty state.
 
-    THE KEY IS NEVER WRITTEN HERE. It addresses live state, and several envs
-    deliberately keep a pre-renumbering key; the scaffold owns it as a static
-    value so no rebuild can rewrite it. Idempotent: an already-filled block is
-    left alone.
+    THE KEY IS NEVER WRITTEN HERE. It addresses live state, which an env may
+    keep under a key that differs from its current directory name; the
+    scaffold owns it as a static value so no rebuild can rewrite it.
+    Idempotent: an already-filled block is left alone.
     """
     if not providers.exists():
         return

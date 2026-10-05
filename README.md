@@ -235,6 +235,7 @@ Running from a checkout, the integration/eval test tiers, adding another model, 
 | `docs/development.md` | Checkout mode, test tiers, adding a model, extending the skill |
 | `docs/workflow.md` | Phase contract, every `lzctl` command with flags and exit codes, gates, failure handling |
 | `docs/configuration.md` | Every environment variable, workspace layout, profiles, rate cards, schema |
+| `docs/operator-policy.md` | Least-privilege IAM policy for day-to-day plan/apply (`gen_operator_policy`) |
 | `docs/testing.md` | Test suites, the verify harness, the leak guard, the eval suite |
 | `docs/rgc-positioning.md` | RGC vs this pipeline, coexistence guidance |
 | `docs/troubleshooting.md` | Known errors with exact signatures and fixes |

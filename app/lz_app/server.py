@@ -36,7 +36,6 @@ STATE = {
     "file": None,        # current file NAME inside the spec folder (save target)
 }
 JOBS = {}                # id -> {"verb", "status", "output", "rc"}
-HIDDEN_ENVS = {"12-workloads"}   # hand-managed; planned/applied manually, not via the app
 
 
 # ── Spec file folder (lz_spec/): the UI picks files by NAME, never by path ──
@@ -574,9 +573,7 @@ class Handler(BaseHTTPRequestHandler):
                     import re as _re
                     order = sorted(p.name for p in envs.iterdir()
                                    if p.is_dir() and _re.match(r"^\d{2}-", p.name))
-                # hand-managed envs are operated outside the app (interactive-only
-                # variables, own local modules) - never offered in the UI
-                order = [e for e in order if (envs / e).is_dir() and e not in HIDDEN_ENVS]
+                order = [e for e in order if (envs / e).is_dir()]
                 return self._send({"envs": order})
             if self.path == "/api/schema":
                 return self._send(schema_meta())

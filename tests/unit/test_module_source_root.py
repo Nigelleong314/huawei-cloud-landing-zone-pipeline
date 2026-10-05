@@ -52,3 +52,10 @@ def test_recorded_root_is_reused_and_a_different_one_refused(tmp_path):
 
 def test_root_marker_never_ships():
     assert ".lz-module-source-root" in export_v2.EXCLUDE_NAMES
+
+
+def test_export_rewrites_the_recorded_root(tmp_path, monkeypatch):
+    from lz_pipeline import export_v2
+    monkeypatch.delenv("LZ_MODULE_SOURCE_ROOT", raising=False)
+    (tmp_path / ".lz-module-source-root").write_text("../../../lib/modules-v2\n", encoding="utf-8")
+    assert export_v2.path_rewrite(tmp_path) == ('"../../../lib/modules-v2/', '"../../modules/')

@@ -4,6 +4,25 @@
 
 ### Added
 
+- **Lessons from a delivered estate, back-ported.**
+  - `lzctl providers-lock` locks windows_amd64 + linux_amd64 hashes per env and exits 2 when envs disagree on the huaweicloud version.
+  - `lzctl drift --no-refresh` is a config-vs-recorded-state check (seconds instead of a full refresh). `--parallelism N` on plan/apply/drift is for large CFW envs that fail with `WSAEACCES`.
+  - `lzctl state-pull` writes the `state-<env>.json` files the doc generators read. The generators now warn about envs with no state file instead of silently reporting 0 rows.
+  - `lz_pipeline.tools.gen_operator_policy` generates the least-privilege IAM 5.0 policy for day-to-day plan/apply, used as an Identity Center permission set in the management account (`docs/operator-policy.md`).
+  - `lz_pipeline.tools.precommit_secrets` is a content-based, BOM-aware staged-file gate that blocks state, plans, AK/SK and `secrets.auto.tfvars.json`.
+  - `gen_config_book --ir` lists app-scoped permission sets and CTS key-event notifications, and no longer truncates CFW groups at 900 characters. `lzctl docs --spec` passes the spec through.
+  - `07_Security.Settings.enable_secmaster` (default TRUE): when FALSE, `build` blanks 07-security exactly as export does, so the built tree equals the artifact.
+  - Export profile keys `skip_envs` and `ship_markdown`; unreferenced library modules are pruned.
+  - cfw module `reverse_shell_action` (0/1/2, default 2, as before).
+  - `build` writes one root `.gitignore` per envs tree (only when absent) and records `LZ_MODULE_SOURCE_ROOT` in `.lz-module-source-root`. A rebuild or export without the variable reuses the recorded value, and a build with a different value is refused.
+  - Skill notes cover:
+    - trust-agency sessions vs Identity Center sessions (`IAM.0091`);
+    - CFW domain lists are append-only, and CFW rules are never `-target`ed;
+    - SCPs do not cover the management account;
+    - never import console assignments while the table is empty;
+    - CBR capacity billing;
+    - environment-only temporary credentials (a key without its token fails as `InvalidAccessKeyId`).
+
 - **`null` is the declared unknown**: every typed slot accepts null for "not known yet"; `lzctl set` writes one value at a schema-validated path (`--value` typed coercion, `--json`, `--null`), and `lzctl set --field 'Sheet.Table[+]' --json '{...}'` appends a row with every column checked against the schema — the last spec write that used to need a hand-rolled JSON mutator. **LZR-034** errors on an unset required scalar no OPEN decision tracks; **LZR-035** errors on an ANSWERED decision whose target holds nothing — unless a registered OPEN gap covers the target (the answer settled intent; the concrete values are owed and block build); **LZR-036** errors on an enabled network plane with no VPCs. Validation at 0 errors with OPEN gaps outstanding is now a legitimate, reachable state; `lzctl build` still exits 3 until every OPEN item carries a resolution.
 
 - **Decisions gate reaches the UI**: the app's **Decisions & gaps** view resolves OPEN decisions and fills gap values (resolution + who decided + why), writing only the `resolution` block so the provenance hash over the immutable decision set survives. `lzctl gap add` registers an agent-discovered gap as an OPEN item and refuses to re-stamp an already-edited set.
@@ -11,7 +30,18 @@
 - **Rendering design system** for agent replies (`skills/huawei-cloud-landing-zone/SKILL.md` + `rendering.md`): verdict first, exceptions only, one Next block with its runner/cloud/undo provenance, words only. Phases render zero-padded (`03-build`). The CLI emits data; the agent renders it.
 - **LZR-032** fails validation on unresolved `REPLACE_WITH_` placeholders (VPN PSK exempt by design); **LZR-033** blocks `enable_hss` / `enable_dbss`, now documented as RESERVED.
 
+### Fixed
+
+- `deps.json` / `regen-diff`: an env's own inline backend key was read as a dependency (`08-network-dns consumes '07-dns'`). Keys inside `backend "s3"` blocks now map to the env that owns them.
+- `lzctl set` on a csv-list column stored a JSON list and broke the workbook round-trip; it now stores the comma-separated string.
+- `python -m lz_pipeline` names a stray `lz_spec` folder that shadows the package instead of failing with `ModuleNotFoundError`.
+
 ### Changed
+
+- **No `*.tfstate*` ever ships in an export**, including the 00-bootstrap local state, which is handed over separately. Relative paths in an export profile resolve against the profile file. The export module-path rewrite follows the tree's module source root. A source outside the artifact's `modules/` refuses the export.
+- Tag-policy and ER route-table descriptions use the wording reviewed for handover.
+- The `backend.hcl(.example)` files and secrets-file wording are gone from the scaffold, the example tree and the docs. The backend is inline in `providers.tf`, `terraform init` takes no flags, and credentials come only from environment variables. The per-env scaffold `.gitignore` files are removed so `.terraform.lock.hcl` is committed.
+- Removed customer names from the skill examples, tests and module-library docs. Removed the dead `PROSE_REWRITES` and the app's hard-coded `HIDDEN_ENVS`.
 
 - **Round-4 fleet findings, fixed minimal** (40 real agent runs, two models): `lzctl assess` shapes its neutral draft from `schema.py` instead of the stale example fixture (fresh drafts now carry every sheet - 11_SGACL included - all fields, and the current schema_version); a blank schema default whose description says "Leave blank to ..." counts as a documented answer, not a missing value (LZR-034 stops demanding gaps for it); spec paths survive row names containing dots (`TrustedServices[service.LTS]`); rows are addressable by 0-based index and `set --field 'Sheet.Table[row]' --null` deletes one (the only row-level verb - a keyless-table mistake no longer needs `assess --force`); `set --help` documents the list-single one-element-per-`[+]` contract; D4's questionnaire wiring points at the real `identity_center_alias` sheet and D23's guidance says the commercial arrangement stays out of the spec; the skill states plainly that structural-integrity errors (email completeness, min-rows, uniqueness, references) are gap-proof by design.
 - **Declared unknowns now clear every validation layer** (round-3 benchmark findings). `validate()`'s required and conditional-required errors, and LZR-036's enabled-but-empty network planes, are waived when a registered OPEN gap covers the target — the same contract LZR-034/035 already honored; `build` stays strict because its decisions gate demands resolutions first. `Enabled` is now part of the setter's column contract on toggled object tables (the schema always auto-prepended it; `specpath` didn't know, so rows copied from the example spec were refused). Questionnaire dumps (`*dump.json`) are excluded from exports and documented as secret-bearing working material — `lzctl intake` copies answers verbatim, pasted secrets included. `gap add --help` now says which flags `add` requires. Re-scoring the round-3 corpus with these fixes: 216 -> 174 errors, validator-clean runs 1/20 -> 2/20, and most remaining runs sit at 1-5 genuinely actionable errors.

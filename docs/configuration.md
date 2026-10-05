@@ -10,7 +10,6 @@
 | `LZ_VERIFY_ENVS` | `lz_spec.verify_pipeline` | Envs tree the harness runs against | `terraform/envs-example` |
 | `LZ_PRICING_REGION` | plan triage cost report | Selects `tools/pricing/<region>.json` as the rate card | explicit `--pricing` path, else the single card in `pricing/` if only one exists |
 | `LZ_WORKSPACE` | `lz-app` | Workspace root for the spec editor (alternative to `--workspace`) | walk-up from CWD |
-| `LZ_SPEC_DIR` | `python -m lz_pipeline` | Override the `lz_spec` location | next to the package |
 | `HW_ACCESS_KEY` / `HW_SECRET_KEY` | terraform (provider) | Huawei AK/SK. Read straight from the environment — never written to disk. **Never in the spec** — the schema says so explicitly | unset — provider fails |
 | `HW_SECURITY_TOKEN` | terraform (provider) | Session token, required **only** for a temporary AK/SK; must pair with the key it was minted from | unset |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | terraform (OBS S3 backend) | Backend credentials (the OBS S3-compatible endpoint speaks AWS auth) | unset — `preflight` fails |
@@ -38,7 +37,7 @@ A customer engagement lives in a DATA directory outside this repo:
 
 `lzctl assess --workspace <dir>` creates `specs/`; `lzctl build --scaffold-dir` populates `envs/`. The `envs/` ↔ `modules/` siblinghood is what the default `LZ_MODULE_SOURCE_ROOT=../../modules` assumes; override it for any other shape. Every generated module `source` embeds that root, so the tree remembers it: the first build writes `.lz-module-source-root`, a later build without the variable reuses it, and a build with a *different* value is refused rather than rewriting every source. To re-root a tree on purpose, edit that file and rebuild. A tree built before the guard existed has no file yet and records whatever its next build uses, so run that build with the variable it needs. Both guard files stay out of the handover artifact. The in-repo example (`terraform/envs-example` beside `terraform/modules`) has the same relationship.
 
-Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Static files come from `terraform/scaffold/`. Credentials are never among them — they live only in the environment.
+Per env, generated files (never hand-edit): `terraform.tfvars.json`, `*.generated.tf`. Static files come from `terraform/scaffold/`; the build fills the state bucket and region into the inline `backend "s3"` block of each `providers.tf`, so `terraform init` takes no flags. Credentials are never among them — they live only in the environment (`HW_ACCESS_KEY` / `HW_SECRET_KEY` / `HW_SECURITY_TOKEN`, mapped to `AWS_*` for the backend).
 
 ## Pre-commit secret gate for env trees
 
@@ -83,19 +82,28 @@ plans and secrets files, and rotate any credential that was ever staged.
 
 ## Profiles
 
-Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pipeline.export_v2`; paths resolve against the invoking workspace:
+Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pipeline.export_v2`. Relative paths resolve against the **profile file's directory**, so an export runs the same from any working directory (a path that only exists relative to the current directory still resolves there, with a note):
 
 ```json
 {
   "customer": "example",
   "features": {"secmaster": true},
-  "envs_dir": "terraform/envs-example",
+  "envs_dir": "../../../terraform/envs-example",
   "docs_dir": null,
-  "ir": "pipeline/lz_pipeline/fixtures/example.spec.json"
+  "ir": "../fixtures/example.spec.json"
 }
 ```
 
+Optional curation keys:
+
+- `skip_envs` — env directories that are not shipped (e.g. a hand-managed env); they are also dropped from the shipped `deps.json`, with a warning when a shipped env consumes one.
+- `ship_markdown` — `false` drops every `.md` under the artifact's `modules/` and `envs/` (default `true`).
+
+Library modules no shipped env references are pruned automatically, and an env module source that does not resolve inside the artifact's `modules/` refuses the export. Env module sources are rewritten from `LZ_MODULE_SOURCE_ROOT` (the root the tree was built against — set it for the export too) to the artifact's `../../modules/`. No `*.tfstate*` file ever ships — including the `00-bootstrap` local state, which is handed over out of band.
+
 A feature disabled in the profile is stripped from the staged artifact at generation time — exports are always re-runnable; artifact surgery is never needed.
+
+Set the same switch in the spec so the built tree already matches the artifact: `07_Security.Settings.enable_secmaster = FALSE` makes `build` strip SecMaster from `07-security` (the env keeps its directory and number; edge protection stays), and the export strip is then a no-op. Turning it back on needs a rebuild with `--scaffold-dir` to restore the scaffold files.
 
 ## Rate cards
 

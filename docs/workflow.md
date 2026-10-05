@@ -44,7 +44,7 @@ Prints the apply order from `deps.json` (falls back to numeric prefix order). Ex
 
 ### `lzctl plan --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--pricing CARD.json] [--parallelism N]`
 
-Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (with `-backend-config=backend.hcl` when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). `--parallelism N` passes `-parallelism=N` to terraform (default 10): lower it (e.g. `2`) when a large env — a CFW env with hundreds of rules — fails with socket errors such as `WSAEACCES` on Windows. Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
+Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (no flags: the backend is inline in `providers.tf`; a legacy `backend.hcl` is still passed when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). `--parallelism N` passes `-parallelism=N` to terraform (default 10): lower it (e.g. `2`) when a large env — a CFW env with hundreds of rules — fails with socket errors such as `WSAEACCES` on Windows. Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
 
 ### `lzctl triage PLAN_JSON [...]`
 

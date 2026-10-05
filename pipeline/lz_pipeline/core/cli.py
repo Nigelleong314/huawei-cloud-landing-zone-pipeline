@@ -9,8 +9,9 @@ from .helpers import _home_region, ENV_NAMES, MODULE_SOURCE_ROOT, _scalar, _trut
 from .parsing import parse_workbook
 from .validation import validate
 from .builders import BUILDERS
-from .writer import write_env
+from .writer import write_env, write_root_gitignore
 from .emitters import _CODEGEN
+from .features import secmaster_enabled, strip_secmaster
 
 
 _SHEET_ENV = {
@@ -207,6 +208,7 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
     else:
         envs_dir.mkdir(parents=True, exist_ok=True)
         root_marker.write_text(MODULE_SOURCE_ROOT + "\n", encoding="utf-8", newline="\n")
+    write_root_gitignore(envs_dir)
 
     derive_log_converge(spec)
     g = spec.get("Global", {}).get("Settings", {})
@@ -220,6 +222,10 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
         write_env(env_dir, BUILDERS[env_name](spec), state_bucket, region, env_name)
         if env_name in _CODEGEN:
             _CODEGEN[env_name](env_dir, spec)
+        # a disabled feature is absent from the built tree, exactly as export ships it
+        if env_name == "07-security" and not secmaster_enabled(spec):
+            strip_secmaster(env_dir)
+            print(f"  enable_secmaster=FALSE: SecMaster stripped from {env_name}")
         _fmt(env_dir)
         print(f"wrote {env_dir}")
 
