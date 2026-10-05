@@ -14,6 +14,7 @@
 | `HW_ACCESS_KEY` / `HW_SECRET_KEY` | terraform (provider) | Huawei AK/SK. Read straight from the environment — never written to disk. **Never in the spec** — the schema says so explicitly | unset — provider fails |
 | `HW_SECURITY_TOKEN` | terraform (provider) | Session token, required **only** for a temporary AK/SK; must pair with the key it was minted from | unset |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | terraform (OBS S3 backend) | Backend credentials (the OBS S3-compatible endpoint speaks AWS auth) | unset — `preflight` fails |
+| `AWS_SESSION_TOKEN` | terraform (OBS S3 backend) | Session token for a temporary key pair. A temporary key without it fails as `InvalidAccessKeyId` | unset |
 | `AWS_REQUEST_CHECKSUM_CALCULATION` | terraform ≥ 1.11 + OBS backend | Must be `when_required` or state save fails **after** apply | checked by `preflight` |
 | `AWS_RESPONSE_CHECKSUM_VALIDATION` | terraform ≥ 1.11 + OBS backend | Must be `when_required` (same failure mode) | checked by `preflight` |
 
