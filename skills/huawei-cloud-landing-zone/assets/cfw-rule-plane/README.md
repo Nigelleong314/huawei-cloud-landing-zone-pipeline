@@ -22,6 +22,9 @@ groups, service groups (+members), ACL rules, black/white lists.
   fail create with no ID in the API response. Collapse nested CIDRs before
   emitting, and validate it pre-plan — this is cheap to check and opaque to
   diagnose.
+- Domain-group `domain_names` is **ordered**. Append new domains at the
+  end, never insert — an insertion shifts every later entry and the plan
+  diffs forever.
 - Domain matching is **per label**: an apex domain does not match its
   subdomains. Expand to explicit wildcards. Protocols without SNI (mail, for
   one) must use a *network*-type domain group, not an application-type one —
@@ -71,6 +74,9 @@ the VPC border and need VPC-border allows in addition to the egress rules.
   (assets/silent-failures). Expect "1 add + catch-alls replaced" as the
   normal plan shape when adding a rule, and know the border is briefly open
   during it.
+- **Never `-target` firewall rules.** Targeting a new rule skips the
+  catch-all recreation, so the new allow lands **below** the deny and never
+  matches.
 - Prefer disabling a rule over deleting one that will come back. Break-glass
   is disabling a catch-all — which opens that entire border to everything not
   explicitly denied. Say that out loud when proposing it.

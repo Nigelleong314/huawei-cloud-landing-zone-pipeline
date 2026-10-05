@@ -39,6 +39,9 @@
 - **Identity lifecycle**: joiners and leavers flow through the IdP + SCIM
   only — no local users. Leaver deprovisioning is **verified by listing
   account assignments**, not assumed from the IdP disable.
+- **Console-managed account assignments**: never import them while the
+  spec's AccountAssignments table is empty — the next plan deletes every
+  imported assignment. Fill the table first, then import.
 - **Permission-set changes are spec changes** — auditable, reviewed,
   applied through Terraform. Console edits to permission sets are drift
   (assets/plan-triage-drift), not administration.

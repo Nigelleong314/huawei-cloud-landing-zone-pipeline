@@ -35,3 +35,19 @@ provider "huaweicloud" {
   `ignore_changes = [tags]` on member-side attachments.
 - Org-sharing enablement is master-account-only (404 from a member agency).
 - Fresh-agency 403s right after account creation are transient — retry once.
+
+## When the base credentials are themselves a session
+
+Verified live-API behavior (level 4):
+
+- **Real Identity Center session credentials** chain through all three
+  modes: `assume_role { domain_name }`, `assume_role { domain_id }`, and the
+  top-level `agency_name` + `agency_domain_name`.
+- **A hand-made trust-agency session** (STS v5 `agencies/assume`) does not.
+  The IAM 3.0 assume calls reject it with
+  `IAM.0091, The token is unsupported for trust agency`; only
+  `assume_role { agency_name, domain_id }` (the STS path) chains from it.
+- **Never use a trust agency as an Identity Center stand-in when testing** —
+  it fails modes that work in production.
+- The operator's policy needs both `sts:agencies:assume` and
+  `iam:tokens:assume`; the deny message calls the latter `iam:assume`.
