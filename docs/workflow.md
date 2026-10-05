@@ -42,15 +42,15 @@ Checks: terraform on PATH and ≥ 1.6.3; `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCES
 
 Prints the apply order from `deps.json` (falls back to numeric prefix order). Exit 0.
 
-### `lzctl plan --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--pricing CARD.json]`
+### `lzctl plan --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--pricing CARD.json] [--parallelism N]`
 
-Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (with `-backend-config=backend.hcl` when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
+Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (with `-backend-config=backend.hcl` when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). `--parallelism N` passes `-parallelism=N` to terraform (default 10): lower it (e.g. `2`) when a large env — a CFW env with hundreds of rules — fails with socket errors such as `WSAEACCES` on Windows. Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
 
 ### `lzctl triage PLAN_JSON [...]`
 
 Offline classification of exported plan JSON (`terraform show -json tf.plan > plan.json`) into benign / create / update / destructive classes. Same 0/2/3 convention.
 
-### `lzctl apply --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes] [--destroy-confirm ENV]...`
+### `lzctl apply --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes] [--destroy-confirm ENV]... [--parallelism N]`
 
 Per env, in order:
 
@@ -62,11 +62,15 @@ Per env, in order:
 6. **Apply** the reviewed plan file.
 7. **Retry-once on documented transients** — if the apply fails and the output matches a transient signature (`LTS.2101,EPS.0004` by default; extend via the `LZ_TRANSIENT_SIGNATURES` env var), re-plan + apply the remainder exactly once. Never a replay of the stale plan.
 
+`--parallelism N` is passed to every plan and apply in the run, as for `plan`.
+
 Exit: 0 applied/current, 1 apply or plan error, 2 stopped by operator, 3 blocked on destructive changes or a content gate (placeholder PSK), 4 refused: this context cannot satisfy a required confirmation (agent session without `LZ_OPERATOR_APPLY=1`, or an interactive prompt with no terminal).
 
-### `lzctl drift --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
+### `lzctl drift --envs-dir <envs> [ENV[,ENV...]] [--report out.md] [--no-refresh] [--parallelism N]`
 
 Re-plans every (or the selected) env and summarizes: `clean`, `known-benign drift only`, `DRIFT: n destructive, n update, n create`, `ERROR`, or `SKIP (not initialized)`. Optional markdown report. Exit 0 clean/benign, 2 if any drift or errors.
+
+`--no-refresh` plans with `-refresh=false`: configuration against *recorded state* only, without reading the cloud. It answers "does the code still match what was applied?" in seconds (7 s against ~32 min on a large CFW env) — use it after a rebuild or a module change — but it is blind to changes made outside Terraform, so a real drift sweep (and `lzctl verify`) still refreshes. `--parallelism N` as for `plan`.
 
 ### `lzctl verify --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
 

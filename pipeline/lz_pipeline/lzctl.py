@@ -18,11 +18,14 @@ Usage (lifecycle order):
     lzctl build        --spec SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
     lzctl preflight    --envs-dir <envs>
     lzctl plan         --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+                       [--parallelism N]
     lzctl apply        --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
                        [--allow-destroy] [--yes] [--destroy-confirm ENV]
+                       [--parallelism N]
     lzctl verify       --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
     lzctl report       --envs-dir <envs> [--out <dir>]
     lzctl drift        --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
+                       [--no-refresh] [--parallelism N]
     lzctl adopt        --envs-dir <envs> ENV ADDRESS CLOUD_ID
     lzctl state-backup --envs-dir <envs> [ENV | --all]
     lzctl triage       PLAN_JSON [...]
@@ -901,7 +904,14 @@ def cmd_order(args):
     return 0
 
 
-def _plan_one(env_dir: Path, dry: bool, log) -> int:
+def _parallelism(args) -> list:
+    """-parallelism=N when asked: a large env (many CFW rules) can exhaust
+    local sockets on Windows (WSAEACCES) at terraform's default of 10."""
+    n = getattr(args, "parallelism", None)
+    return [f"-parallelism={n}"] if n else []
+
+
+def _plan_one(env_dir: Path, dry: bool, log, extra=()) -> int:
     if not (env_dir / ".terraform").exists() and not dry:
         init_args = ["init", "-input=false"]
         if (env_dir / "backend.hcl").exists():
@@ -910,7 +920,8 @@ def _plan_one(env_dir: Path, dry: bool, log) -> int:
         if r.returncode != 0:
             print(f"  FAIL {env_dir.name}: init error (see output above)")
             return 1
-    r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.plan", "-detailed-exitcode"], dry, log)
+    r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.plan", "-detailed-exitcode",
+                         *extra], dry, log)
     if r.returncode == 1:
         print(f"  FAIL {env_dir.name}: plan error (see output above)")
         return 1
@@ -924,7 +935,7 @@ def cmd_plan(args):
     targets = select(envs, args.env, args.all)
     log = logfile(envs, "plan") if not args.dry_run else None
     for name in targets:
-        rc = _plan_one(envs / name, args.dry_run, log)
+        rc = _plan_one(envs / name, args.dry_run, log, _parallelism(args))
         if rc == 1:
             print(f"\n== RESULT: FAILED (plan error in {name}) ==")
             return 1
@@ -1025,6 +1036,7 @@ def cmd_apply(args):
     lock = Lock(envs)
     lock.acquire(dry=args.dry_run)
     log = logfile(envs, "apply") if not args.dry_run else None
+    par = _parallelism(args)
     applied, skipped = 0, 0
     try:
         for name in order:
@@ -1042,7 +1054,7 @@ def cmd_apply(args):
                       f"(configuration unchanged since; terraform verifies state freshness)")
                 rc, _ = triage_plan(env_dir, False, log)
             else:
-                rc = _plan_one(env_dir, args.dry_run, log)
+                rc = _plan_one(env_dir, args.dry_run, log, par)
             if rc == 1:
                 print(f"\n== RESULT: FAILED (plan error in {name}; earlier envs were applied) ==")
                 return 1
@@ -1082,7 +1094,7 @@ def cmd_apply(args):
                         print("\n== RESULT: STOPPED (destructive apply not confirmed) ==")
                         return 2
             # 3. apply the reviewed plan file
-            r = run_tf(env_dir, ["apply", "-input=false", "tf.plan"], args.dry_run, log)
+            r = run_tf(env_dir, ["apply", "-input=false", *par, "tf.plan"], args.dry_run, log)
             if r.returncode != 0 and not args.dry_run and _is_transient(r.stdout):
                 # Retry-once on documented transients (async grants, log-service
                 # hiccups). The saved plan is stale after a partial apply, so
@@ -1090,11 +1102,11 @@ def cmd_apply(args):
                 print(f"  RETRY {name}: transient platform error - re-plan + apply once")
                 if log:
                     log.write("\n[retry] transient signature matched; re-plan + apply\n")
-                rc2 = _plan_one(env_dir, False, log)
+                rc2 = _plan_one(env_dir, False, log, par)
                 if rc2 == 0:
                     r = subprocess.CompletedProcess([], 0, "", "")
                 elif rc2 == 2:
-                    r = run_tf(env_dir, ["apply", "-input=false", "tf.plan"], False, log)
+                    r = run_tf(env_dir, ["apply", "-input=false", *par, "tf.plan"], False, log)
                 # rc2 in (1, 3): fall through with the original failure
             if r.returncode != 0:
                 if "stale" in r.stdout.lower():
@@ -1121,6 +1133,9 @@ def cmd_drift(args):
     rows = []
     log = logfile(envs, "drift")
     targets = select(envs, args.env, not args.env)   # no ENV -> all
+    # --no-refresh compares configuration with recorded state only (seconds,
+    # not the full cloud read); it cannot see changes made outside terraform
+    extra = _parallelism(args) + (["-refresh=false"] if getattr(args, "no_refresh", False) else [])
     for name in targets:
         env_dir = envs / name
         if not (env_dir / ".terraform").exists():
@@ -1130,7 +1145,7 @@ def cmd_drift(args):
         # it can never arm cmd_apply's saved-plan reuse (tf.plan stays the
         # reviewed artifact from an explicit plan run)
         r = run_tf(env_dir, ["plan", "-input=false", "-out", "drift.tfplan",
-                             "-detailed-exitcode"], False, log)
+                             "-detailed-exitcode", *extra], False, log)
         if r.returncode == 0:
             rows.append((name, "clean"))
         elif r.returncode == 1:
@@ -1876,10 +1891,15 @@ def main(argv=None):
         p.add_argument("--all", action="store_true")
         p.add_argument("--dry-run", action="store_true")
 
+    def parallelism(p):
+        p.add_argument("--parallelism", type=int, metavar="N",
+                       help="pass -parallelism=N to terraform (lower it if a large "
+                            "env fails with socket errors such as WSAEACCES)")
+
     p = sub.add_parser("preflight");  p.add_argument("--envs-dir", required=True); p.set_defaults(fn=cmd_preflight)
     p = sub.add_parser("order");      p.add_argument("--envs-dir", required=True); p.set_defaults(fn=cmd_order)
-    p = sub.add_parser("plan");       common(p); p.set_defaults(fn=cmd_plan)
-    p = sub.add_parser("apply");      common(p)
+    p = sub.add_parser("plan");       common(p); parallelism(p); p.set_defaults(fn=cmd_plan)
+    p = sub.add_parser("apply");      common(p); parallelism(p)
     p.add_argument("--allow-destroy", action="store_true")
     p.add_argument("--yes", action="store_true",
                    help="skip the per-env confirm; NEVER skips the destructive confirm")
@@ -1888,6 +1908,10 @@ def main(argv=None):
     p.set_defaults(fn=cmd_apply)
     p = sub.add_parser("drift");      p.add_argument("--envs-dir", required=True)
     p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")
+    p.add_argument("--no-refresh", action="store_true",
+                   help="plan with -refresh=false: configuration vs recorded state "
+                        "only (fast; blind to changes made outside terraform)")
+    parallelism(p)
     p.add_argument("--report"); p.set_defaults(fn=cmd_drift)
     p = sub.add_parser("state-backup"); common(p); p.set_defaults(fn=cmd_state_backup)
     p = sub.add_parser("adopt");      p.add_argument("--envs-dir", required=True)
