@@ -5,7 +5,7 @@
 ```text
 modules/            one module per governance domain (main/variables/outputs/versions)
 envs-<customer>/    numbered env dirs composing the modules
-  00-bootstrap/     state bucket (LOCAL state, ships with the artifact)
+  00-bootstrap/     state bucket (LOCAL state, handed over out of band)
   01-foundation/ …  every other env: OBS remote state
   deps.json         dependency graph -> apply order
 spec (JSON)         canonical config; envs are GENERATED from it

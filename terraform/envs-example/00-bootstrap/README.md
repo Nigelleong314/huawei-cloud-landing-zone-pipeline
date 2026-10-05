@@ -20,6 +20,7 @@ terraform apply
 2. Every other env carries its backend inline in `providers.tf` (the build
    fills in the bucket), so `terraform init` needs no flags.
 3. Store the local `terraform.tfstate` from this env securely (NOT in git).
+   It is never part of the handover artifact; hand it over separately.
 
 ## ⚠ Required env vars for all other envs (Terraform 1.11+)
 

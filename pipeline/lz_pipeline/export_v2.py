@@ -20,12 +20,17 @@ Usage:
     py -m lz_pipeline.export_v2 --profile profiles/acme.json --target <dir>
         [--version 1.1.0] [--compat] [--no-workbook]
 
-Profile:
+Profile (relative paths resolve against the profile file's directory):
     {"customer": "acme-corp",
      "features": {"secmaster": false},
-     "envs_dir": "envs",       # relative to workspace root
-     "docs_dir": "handover-docs",
-     "ir": "lz_spec/lz.spec.acme.json"}
+     "envs_dir": "../envs",
+     "docs_dir": "../handover-docs",
+     "ir": "../lz_spec/lz.spec.acme.json",
+     "skip_envs": ["99-sandbox"],     # env dirs not shipped (default: none)
+     "ship_markdown": true}           # README/notes under modules/ and envs/
+
+Library modules no shipped env uses are pruned from the artifact. State is
+never shipped (the 00-bootstrap local state is handed over out of band).
 """
 
 import argparse
@@ -41,8 +46,8 @@ from pathlib import Path
 from . import model
 from .core.features import strip_secmaster
 
-# Workspace root: profile paths (envs_dir/docs_dir/ir) resolve against the
-# invoking workspace, not the package location.
+# Invoking directory: the fallback for profile paths that do not exist
+# relative to the profile file (see resolve_profile_paths).
 ROOT = Path.cwd()
 PKG = Path(__file__).resolve().parent
 REPO = PKG.parent.parent                    # pipeline/lz_pipeline -> repo root
@@ -118,10 +123,11 @@ def excluded(p: Path, exclude_names: set) -> bool:
         return True
     if any(p.name.endswith(s) for s in EXCLUDE_SUFFIXES):
         return True
-    # env-local state stays out EXCEPT the bootstrap state (local backend);
+    # State never ships, in any spelling - not even the 00-bootstrap local
+    # state: it is handed over out of band (see the artifact-handover notes).
     # state-*.json covers the runbooks' `terraform state pull > state-...json`
     # backup convention in every spelling.
-    if p.name.startswith("terraform.tfstate") and p.parent.name != "00-bootstrap":
+    if ".tfstate" in p.name:
         return True
     if p.name.startswith("state-") and p.name.endswith(".json"):
         return True
@@ -182,6 +188,78 @@ def copy_customer_modules(envs: Path, dst: Path, library: Path,
         raise SystemExit(f"export refused: customer module(s) {clash} would shadow library modules of "
                          "the same name - rename them in the envs tree")
     return copy_tree(own, dst, rewrite=True, exclude_names=exclude_names)
+
+
+_ENV_SOURCE = re.compile(r'^\s*source\s*=\s*"(\.\.?/[^"]*)"', re.M)
+_SIBLING_SOURCE = re.compile(r'^\s*source\s*=\s*"\.\./([^/".]+)', re.M)
+
+
+def prune_modules(target: Path) -> list:
+    """Delete artifact modules no shipped env (or module they call) uses.
+
+    Every local env source must already point at ../../modules/<name>; one
+    that does not would break in the artifact, and would make its module look
+    unused - refuse rather than ship it."""
+    mods, envs = target / "modules", target / "envs"
+    if not mods.is_dir() or not envs.is_dir():
+        return []
+    used, bad = set(), []
+    for p in envs.rglob("*.tf"):
+        for src in _ENV_SOURCE.findall(p.read_text(encoding="utf-8")):
+            if src.startswith("../../modules/"):
+                used.add(src.split("/")[3])
+            else:
+                bad.append(f"{p.relative_to(target).as_posix()}: {src}")
+    if bad:
+        raise SystemExit("export refused: module sources outside the artifact's modules/ "
+                         "(set LZ_MODULE_SOURCE_ROOT to the root the envs were built "
+                         "against):\n  " + "\n  ".join(bad[:20]))
+    queue = list(used)
+    while queue:
+        for p in (mods / queue.pop()).rglob("*.tf"):
+            for name in _SIBLING_SOURCE.findall(p.read_text(encoding="utf-8")):
+                if name not in used:
+                    used.add(name)
+                    queue.append(name)
+    dropped = sorted(d.name for d in mods.iterdir() if d.is_dir() and d.name not in used)
+    for name in dropped:
+        shutil.rmtree(mods / name)
+    return dropped
+
+
+def drop_envs_from_deps(deps_path: Path, skipped: set):
+    """Remove skipped envs from a shipped deps.json (order and graph)."""
+    if not skipped or not deps_path.exists():
+        return
+    doc = json.loads(deps_path.read_text(encoding="utf-8"))
+    doc["apply_order"] = [e for e in doc.get("apply_order", []) if e not in skipped]
+    envs = doc.get("envs") or {}
+    for name in skipped:
+        envs.pop(name, None)
+    for name, node in envs.items():
+        lost = sorted(set(node.get("consumes", [])) & skipped)
+        if lost:
+            print(f"  WARNING: shipped env {name} consumes skipped env(s) {lost}")
+    deps_path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
+def resolve_profile_paths(profile: dict, profile_dir: Path) -> dict:
+    """Relative envs_dir/docs_dir/ir resolve against the profile file's own
+    directory. A path that only exists relative to the invoking directory
+    (the older convention) still resolves there, with a note."""
+    out = dict(profile)
+    for key in ("envs_dir", "docs_dir", "ir"):
+        val = profile.get(key)
+        if not val or Path(val).is_absolute():
+            continue
+        here = (profile_dir / val).resolve()
+        legacy = (ROOT / val).resolve()
+        if not here.exists() and legacy.exists():
+            print(f"  note: profile {key} {val!r} resolved against the current directory; "
+                  "write it relative to the profile file", file=sys.stderr)
+            here = legacy
+        out[key] = str(here)
+    return out
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -263,6 +341,7 @@ def _assert_no_source_secrets(envs: Path, target: Path) -> None:
 
 def export(profile: dict, target: Path, version: str, compat: bool,
            releases_dir: Path, no_workbook: bool = False) -> int:
+    # main() makes profile paths absolute; ROOT only anchors direct callers
     envs = ROOT / profile["envs_dir"]
     docs_rel = profile.get("docs_dir")
     docs = (ROOT / docs_rel) if docs_rel else None
@@ -296,8 +375,17 @@ def export(profile: dict, target: Path, version: str, compat: bool,
 
     n_mod = copy_tree(MODULES, target / "modules", rewrite=True, exclude_names=exclude_names)
     n_mod += copy_customer_modules(envs, target / "modules", MODULES, exclude_names)
+    # skip_envs: env dirs the profile does not ship (they stay in the tree)
+    skip_envs = set(profile.get("skip_envs") or ())
+    unknown = sorted(skip_envs - {p.name for p in envs.iterdir() if p.is_dir()})
+    if unknown:
+        print(f"  WARNING: skip_envs names no env dir: {unknown}")
     n_env = copy_tree(envs, target / "envs", rewrite=True, exclude_names=exclude_names,
-                      skip_top=("modules",), extra_rewrites=(OWN_MODULES_REWRITE,))
+                      skip_top=("modules", *sorted(skip_envs)),
+                      extra_rewrites=(OWN_MODULES_REWRITE,))
+    if not profile.get("ship_markdown", True):
+        for md in [*(target / "modules").rglob("*.md"), *(target / "envs").rglob("*.md")]:
+            md.unlink()
 
     # The artifact is read by someone with no access to our history or
     # tooling. Refuse to ship one whose comments say otherwise.
@@ -320,6 +408,9 @@ def export(profile: dict, target: Path, version: str, compat: bool,
             shutil.copy2(wb, target / wb.name)
             n_doc += 1
             wb_copied = True
+    # the envs tree's root .gitignore when the docs bring none (lock files tracked)
+    if not (target / ".gitignore").exists() and (envs / ".gitignore").exists():
+        shutil.copy2(envs / ".gitignore", target / ".gitignore")
 
     # The Excel LLD workbook is a first-class artifact, GENERATED from this
     # profile's own spec IR - so every profile ships one, always matching the
@@ -347,6 +438,13 @@ def export(profile: dict, target: Path, version: str, compat: bool,
     if "secmaster" in feats and not feats["secmaster"]:
         strip_secmaster(target / "envs" / "07-security")
         print("  feature secmaster=off: stripped from envs/07-security")
+
+    # curation: only the modules the shipped envs use, and a deps.json
+    # without the envs that were not shipped
+    dropped = prune_modules(target)
+    if dropped:
+        print(f"  pruned unused modules: {', '.join(dropped)}")
+    drop_envs_from_deps(target / "envs" / "deps.json", skip_envs)
 
     # runner + release metadata (not in compat mode)
     if not compat:
@@ -422,7 +520,9 @@ def main(argv=None):
                     help="skip generating landing-zone-spec.xlsx into the artifact")
     ap.add_argument("--releases-dir", default=str(ROOT / "releases"))
     args = ap.parse_args(argv)
-    profile = json.loads(Path(args.profile).read_text(encoding="utf-8"))
+    profile_path = Path(args.profile).resolve()
+    profile = resolve_profile_paths(json.loads(profile_path.read_text(encoding="utf-8")),
+                                    profile_path.parent)
     return export(profile, Path(args.target), args.version, args.compat,
                   Path(args.releases_dir), args.no_workbook)
 

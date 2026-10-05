@@ -39,17 +39,24 @@ Per env, generated files (never hand-edit): `terraform.tfvars.json`, `*.generate
 
 ## Profiles
 
-Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pipeline.export_v2`; paths resolve against the invoking workspace:
+Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pipeline.export_v2`. Relative paths resolve against the **profile file's directory**, so an export runs the same from any working directory (a path that only exists relative to the current directory still resolves there, with a note):
 
 ```json
 {
   "customer": "example",
   "features": {"secmaster": true},
-  "envs_dir": "terraform/envs-example",
+  "envs_dir": "../../../terraform/envs-example",
   "docs_dir": null,
-  "ir": "pipeline/lz_pipeline/fixtures/example.spec.json"
+  "ir": "../fixtures/example.spec.json"
 }
 ```
+
+Optional curation keys:
+
+- `skip_envs` — env directories that are not shipped (e.g. a hand-managed env); they are also dropped from the shipped `deps.json`, with a warning when a shipped env consumes one.
+- `ship_markdown` — `false` drops every `.md` under the artifact's `modules/` and `envs/` (default `true`).
+
+Library modules no shipped env references are pruned automatically, and an env module source that does not resolve inside the artifact's `modules/` refuses the export. No `*.tfstate*` file ever ships — including the `00-bootstrap` local state, which is handed over out of band.
 
 A feature disabled in the profile is stripped from the staged artifact at generation time — exports are always re-runnable; artifact surgery is never needed.
 
