@@ -1,0 +1,46 @@
+# Nothing here may contain a credential, a plan or state.
+#
+# A plan file in any spelling embeds every variable value, and the binary
+# form also carries a full copy of the state. .terraform.lock.hcl is NOT
+# ignored: it pins the provider checksums and is committed with each env.
+
+# Provider cache
+.terraform/
+.terraform.tfstate.lock.info
+
+# State, in every spelling, including the local bootstrap state
+*.tfstate
+*.tfstate.*
+state-backups/
+state-*.json
+*-state.json
+state-*.txt
+
+# Runner output
+lzctl-logs/
+.lzctl.lock
+*.log
+
+# Plans: tf.plan, tfplan.bin, plan.json, *.plan.txt
+plan
+plan.*
+plan-*
+plan_*
+tfplan*
+tf.plan*
+tf-plan*
+tf_plan*
+*.tfplan
+*.plan.json
+*.plan.txt
+
+# Generator backups of files it rewrites
+*.bak
+
+# Credentials never live on disk
+secrets.auto.tfvars.json
+
+# Values filled in locally (terraform.tfvars.json is the delivered
+# configuration and is tracked)
+terraform.tfvars
+*.auto.tfvars

@@ -9,7 +9,7 @@ from .helpers import _home_region, ENV_NAMES, _scalar, _truthy
 from .parsing import parse_workbook
 from .validation import validate
 from .builders import BUILDERS
-from .writer import write_env
+from .writer import write_env, write_root_gitignore
 from .emitters import _CODEGEN
 
 
@@ -190,6 +190,9 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
         else:
             envs_dir.mkdir(parents=True, exist_ok=True)
             marker.write_text(customer + "\n", encoding="utf-8", newline="\n")
+
+    envs_dir.mkdir(parents=True, exist_ok=True)
+    write_root_gitignore(envs_dir)
 
     derive_log_converge(spec)
     g = spec.get("Global", {}).get("Settings", {})
