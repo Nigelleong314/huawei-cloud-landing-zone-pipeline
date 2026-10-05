@@ -9,6 +9,26 @@ def _lc(v, default):
     return str(v).strip().lower() if v is not None and str(v).strip() != "" else default
 
 
+def _join(items, conj):
+    """['a'] -> 'a'; ['a','b'] -> 'a or b'; ['a','b','c'] -> 'a, b, or c'."""
+    items = list(items)
+    if len(items) <= 2:
+        return f" {conj} ".join(items)
+    return ", ".join(items[:-1]) + f", {conj} " + items[-1]
+
+
+def _tag_policy_description(row: dict) -> str:
+    """Operator-facing wording for a TagPolicies row (the content is rendered
+    by _render_tag_policy)."""
+    key = str(row["TagKey"]).strip().lower()
+    values = row.get("TagValue") if isinstance(row.get("TagValue"), list) else _split_csv(row.get("TagValue"))
+    scope = row.get("Scope") if isinstance(row.get("Scope"), list) else _split_csv(row.get("Scope"))
+    where = f"for {_join(scope, 'and')} resources" if scope else "across all services"
+    if values:
+        return f"Require {key} to be {_join(values, 'or')} {where}"
+    return f"Require the {key} tag key {where}; any value is allowed"
+
+
 def build_00_bootstrap(spec):
     g = spec.get("Global", {}).get("Settings", {})
     return _drop_none({
@@ -86,7 +106,8 @@ def build_01_foundation(spec):
 
     tps = m1.get("TagPolicies") or []
     if tps:
-        out["tag_policies"] = [_render_tag_policy(t) for t in tps if t.get("Name") and t.get("TagKey")]
+        out["tag_policies"] = [{**_render_tag_policy(t), "description": _tag_policy_description(t)}
+                               for t in tps if t.get("Name") and t.get("TagKey")]
 
     return out
 
@@ -623,9 +644,9 @@ def build_05_network(spec):
     # wired from these three names + Settings.snat_vpc_attachment. er-hybrid
     # carries the 0.0.0.0/0 -> CFW default so VPN/DC traffic is inspected.
     out["er_route_tables"] = [
-        {"name": "er-inbound",  "description": "All VPC attachments auto-associate; auto static route 0.0.0.0/0 -> CFW"},
-        {"name": "er-outbound", "description": "CFW auto-associates; VPC CIDRs auto-propagated; auto 0.0.0.0/0 -> SNAT VPC attachment"},
-        {"name": "er-hybrid",   "description": "VPN/DC attachments associate here (10_VPN.ERAssocRouteTable); 0/0 -> CFW keeps DC traffic inspected"},
+        {"name": "er-inbound",  "description": "All VPC attachments associate automatically; default route 0.0.0.0/0 points to CFW"},
+        {"name": "er-outbound", "description": "CFW associates automatically; VPC CIDRs propagate automatically; default route 0.0.0.0/0 points to the SNAT VPC attachment"},
+        {"name": "er-hybrid",   "description": "VPN and Direct Connect attachments associate here; default route 0.0.0.0/0 points to CFW so data-center traffic remains inspected"},
     ]
     out["cfw_default_route_tables"] = ["er-hybrid"]
 
