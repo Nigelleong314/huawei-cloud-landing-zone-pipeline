@@ -1,7 +1,5 @@
 # --- Service agency outputs by account ---
 
-# Per-account service-agency URNs (consumed by the compliance-audit bucket policies).
-
 output "agencies_by_account" {
   description = "Per-account service agencies (name -> URN)."
   value = {

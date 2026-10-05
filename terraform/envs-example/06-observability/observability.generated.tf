@@ -1,8 +1,4 @@
-# --- Audit and account monitoring ---
-
-# Central audit + per-account ops monitoring.
-
-# Central audit: org CTS tracker (trail in the CTS-created LTS pair CTS/system-trace) + audit/archive buckets + KMS, in EXAMPLE-Security.
+# --- Central audit - EXAMPLE-Security ---
 module "audit" {
   source    = "../../modules/compliance-audit"
   providers = { huaweicloud = huaweicloud.audit_admin }
@@ -18,7 +14,7 @@ module "audit" {
   kms_pending_days           = var.kms_pending_days
   audit_bucket_force_destroy = var.audit_bucket_force_destroy
 
-  # Key-event notifications publish to this account's ops SMN topic.
+  # Key-event notification topic
   cts_notifications          = var.cts_notifications
   cts_notification_topic_urn = module.ops_acct_EXAMPLE_Security.smn_topic_urn
 }
@@ -45,7 +41,7 @@ module "ops_acct_EXAMPLE_Prod_A" {
   one_click_alarms = var.one_click_alarms
 }
 
-# CTS tracker (NO OBS/LTS transfer) in EXAMPLE-Sandbox1 - audit on, no storage charges.
+# --- Account audit tracker - EXAMPLE-Sandbox1 ---
 module "cts_tracker_acct_EXAMPLE_Sandbox1" {
   source    = "../../modules/cts-tracker"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Sandbox1 }

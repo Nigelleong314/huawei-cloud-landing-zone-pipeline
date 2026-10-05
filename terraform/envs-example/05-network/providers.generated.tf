@@ -1,8 +1,6 @@
 # --- Spoke account providers ---
 
-# One provider per distinct spoke account (default_tags satisfies the
-# require_mandatory_tags SCP; per-row Tags override per-key on resources).
-
+# Account: EXAMPLE-Prod-A
 provider "huaweicloud" {
   alias  = "spoke_EXAMPLE_Prod_A"
   region = var.home_region
@@ -11,10 +9,11 @@ provider "huaweicloud" {
     agency_name = local.foundation.cross_account_agency_name
     domain_name = "EXAMPLE-Prod-A"
   }
-  # Required by the organization tag guardrails; per-resource tags override.
+  # Mandatory resource tags
   default_tags = var.default_tags
 }
 
+# Account: EXAMPLE-Sandbox1
 provider "huaweicloud" {
   alias  = "spoke_EXAMPLE_Sandbox1"
   region = var.home_region
@@ -23,6 +22,6 @@ provider "huaweicloud" {
     agency_name = local.foundation.cross_account_agency_name
     domain_name = "EXAMPLE-Sandbox1"
   }
-  # Required by the organization tag guardrails; per-resource tags override.
+  # Mandatory resource tags
   default_tags = var.default_tags
 }

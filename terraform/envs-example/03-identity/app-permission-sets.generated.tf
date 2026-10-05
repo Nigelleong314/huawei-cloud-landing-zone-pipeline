@@ -1,8 +1,5 @@
 # --- Application permission sets ---
 
-# Application-scoped permission sets: each row's CustomPolicy from the workbook
-# is attached verbatim as the permission set's custom identity policy.
-
 resource "huaweicloud_identitycenter_permission_set" "app_admin" {
   instance_id      = local.foundation.identity_center_instance_id
   name             = "App-Admin"

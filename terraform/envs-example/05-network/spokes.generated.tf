@@ -1,8 +1,6 @@
 # --- Spoke VPCs by account ---
 
-# One spoke module call per SpokeVPCs row. The hub (module.network_hub) +
-# local.vpc_flow_lts are defined in main.tf.
-
+# Account: EXAMPLE-Prod-A
 module "spoke_example_prod_a_vpc" {
   source = "../../modules/network"
   providers = {
@@ -32,6 +30,7 @@ module "spoke_example_prod_a_vpc" {
   depends_on = [module.network_hub]
 }
 
+# Account: EXAMPLE-Sandbox1
 module "spoke_example_sbx_vpc" {
   source = "../../modules/network"
   providers = {

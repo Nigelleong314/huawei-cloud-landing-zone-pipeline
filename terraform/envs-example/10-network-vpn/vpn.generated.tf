@@ -1,7 +1,5 @@
 # --- Site-to-cloud VPN ---
-
-# VPN: S2C gateways attach to the 05-network hub VPC/ER,
-# resolved via remote state (local.network). Apply 05-network first.
+# Note: Requires the VPC and ER outputs from 05-network.
 
 module "vpn" {
   source    = "../../modules/vpn"

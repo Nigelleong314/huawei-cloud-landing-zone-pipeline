@@ -38,6 +38,7 @@
 
 ### Changed
 
+- `terraform/envs-example` re-blessed from the current emitters (comment and alignment changes only, no resource changes); `regen-diff` passes again. An empty sgacl or log-aggregation fan-out now carries a `# Note:` line instead of a bare heading.
 - **No `*.tfstate*` ever ships in an export**, including the 00-bootstrap local state, which is handed over separately. Relative paths in an export profile resolve against the profile file. The export module-path rewrite follows the tree's module source root. A source outside the artifact's `modules/` refuses the export.
 - Tag-policy and ER route-table descriptions use the wording reviewed for handover.
 - The `backend.hcl(.example)` files and secrets-file wording are gone from the scaffold, the example tree and the docs. The backend is inline in `providers.tf`, `terraform init` takes no flags, and credentials come only from environment variables. The per-env scaffold `.gitignore` files are removed so `.terraform.lock.hcl` is committed.

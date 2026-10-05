@@ -1,5 +1,4 @@
 # --- Spoke outputs by account ---
-
 output "spoke_vpc_ids" {
   description = "Spoke VPC IDs keyed by VPC name."
   value = {

@@ -1,7 +1,6 @@
 # --- IAM baseline by account ---
 
-# IAM baseline applied to the master account + every M1 account.
-
+# Account: Master
 module "iam_baseline_master" {
   source = "../../modules/identity"
 
@@ -11,6 +10,7 @@ module "iam_baseline_master" {
   iam_login_policy    = var.iam_login_policy
 }
 
+# Account: EXAMPLE-LogArchive
 module "iam_baseline_acct_EXAMPLE_LogArchive" {
   source    = "../../modules/identity"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_LogArchive }
@@ -21,6 +21,7 @@ module "iam_baseline_acct_EXAMPLE_LogArchive" {
   iam_login_policy    = var.iam_login_policy
 }
 
+# Account: EXAMPLE-Security
 module "iam_baseline_acct_EXAMPLE_Security" {
   source    = "../../modules/identity"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Security }
@@ -31,6 +32,7 @@ module "iam_baseline_acct_EXAMPLE_Security" {
   iam_login_policy    = var.iam_login_policy
 }
 
+# Account: EXAMPLE-SharedInfra
 module "iam_baseline_acct_EXAMPLE_SharedInfra" {
   source    = "../../modules/identity"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_SharedInfra }
@@ -41,6 +43,7 @@ module "iam_baseline_acct_EXAMPLE_SharedInfra" {
   iam_login_policy    = var.iam_login_policy
 }
 
+# Account: EXAMPLE-Prod-A
 module "iam_baseline_acct_EXAMPLE_Prod_A" {
   source    = "../../modules/identity"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Prod_A }
@@ -51,6 +54,7 @@ module "iam_baseline_acct_EXAMPLE_Prod_A" {
   iam_login_policy    = var.iam_login_policy
 }
 
+# Account: EXAMPLE-Sandbox1
 module "iam_baseline_acct_EXAMPLE_Sandbox1" {
   source    = "../../modules/identity"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Sandbox1 }

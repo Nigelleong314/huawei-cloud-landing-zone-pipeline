@@ -1,7 +1,5 @@
 # --- Cost-center project outputs by account ---
 
-# Cost-center EP IDs keyed by target account.
-
 output "cost_center_ep_ids_by_account" {
   description = "Map of account -> { cost-center EP name -> EP ID }."
   value = {

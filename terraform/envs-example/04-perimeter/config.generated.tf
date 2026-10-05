@@ -1,12 +1,11 @@
 # --- Config recorders by account ---
-
-# Config (RMS) - central setup in EXAMPLE-Security + per-member recorder fan-out,
-# all writing back to the central EXAMPLE-Security OBS bucket (assume_role providers).
+# Note: Member recorders use the central EXAMPLE-Security bucket.
 
 provider "huaweicloud" {
-  alias        = "config_admin"
-  region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  alias  = "config_admin"
+  region = var.home_region
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -14,7 +13,7 @@ provider "huaweicloud" {
   }
 }
 
-# Central: recorder + bucket (+ cross-account policy) + agency + aggregator + packs.
+# --- Central Config setup - EXAMPLE-Security ---
 module "config_setup" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.config_admin }
@@ -27,14 +26,16 @@ module "config_setup" {
   config = merge(var.config, {
     recorder_bucket_writer_domains = [for k, v in local.foundation.accounts : v.id]
   })
-  conformance_packs = [] # packs handled by config_packs below (after all recorders)
+  # Conformance packs managed by config_packs
+  conformance_packs = []
 }
 
-# Member recorder - EXAMPLE-LogArchive (writes back to the central EXAMPLE-Security bucket).
+# --- Config recorder - EXAMPLE-LogArchive ---
 provider "huaweicloud" {
-  alias        = "config_rec_EXAMPLE_LogArchive"
-  region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  alias  = "config_rec_EXAMPLE_LogArchive"
+  region = var.home_region
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -53,14 +54,16 @@ module "config_recorder_acct_EXAMPLE_LogArchive" {
   config                 = merge(var.config, { create_recorder_bucket = false, enable_aggregator = false })
   conformance_packs      = []
 
-  depends_on = [module.config_setup] # central bucket + cross-account policy must exist first
+  # Note: Create the central bucket and policy before member recorders.
+  depends_on = [module.config_setup]
 }
 
-# Member recorder - EXAMPLE-SharedInfra (writes back to the central EXAMPLE-Security bucket).
+# --- Config recorder - EXAMPLE-SharedInfra ---
 provider "huaweicloud" {
-  alias        = "config_rec_EXAMPLE_SharedInfra"
-  region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  alias  = "config_rec_EXAMPLE_SharedInfra"
+  region = var.home_region
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -79,14 +82,16 @@ module "config_recorder_acct_EXAMPLE_SharedInfra" {
   config                 = merge(var.config, { create_recorder_bucket = false, enable_aggregator = false })
   conformance_packs      = []
 
-  depends_on = [module.config_setup] # central bucket + cross-account policy must exist first
+  # Note: Create the central bucket and policy before member recorders.
+  depends_on = [module.config_setup]
 }
 
-# Member recorder - EXAMPLE-Prod-A (writes back to the central EXAMPLE-Security bucket).
+# --- Config recorder - EXAMPLE-Prod-A ---
 provider "huaweicloud" {
-  alias        = "config_rec_EXAMPLE_Prod_A"
-  region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  alias  = "config_rec_EXAMPLE_Prod_A"
+  region = var.home_region
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -105,14 +110,16 @@ module "config_recorder_acct_EXAMPLE_Prod_A" {
   config                 = merge(var.config, { create_recorder_bucket = false, enable_aggregator = false })
   conformance_packs      = []
 
-  depends_on = [module.config_setup] # central bucket + cross-account policy must exist first
+  # Note: Create the central bucket and policy before member recorders.
+  depends_on = [module.config_setup]
 }
 
-# Member recorder - EXAMPLE-Sandbox1 (writes back to the central EXAMPLE-Security bucket).
+# --- Config recorder - EXAMPLE-Sandbox1 ---
 provider "huaweicloud" {
-  alias        = "config_rec_EXAMPLE_Sandbox1"
-  region       = var.home_region
-  default_tags = var.default_tags # mandatory tags so the require_mandatory_tags SCP allows creates
+  alias  = "config_rec_EXAMPLE_Sandbox1"
+  region = var.home_region
+  # Mandatory resource tags
+  default_tags = var.default_tags
 
   assume_role {
     agency_name = local.foundation.cross_account_agency_name
@@ -131,10 +138,12 @@ module "config_recorder_acct_EXAMPLE_Sandbox1" {
   config                 = merge(var.config, { create_recorder_bucket = false, enable_aggregator = false })
   conformance_packs      = []
 
-  depends_on = [module.config_setup] # central bucket + cross-account policy must exist first
+  # Note: Create the central bucket and policy before member recorders.
+  depends_on = [module.config_setup]
 }
 
-# Org conformance packs - created after ALL recorders exist (central + members).
+# --- Organization conformance packs ---
+# Note: All central and member recorders must exist first.
 module "config_packs" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.config_admin }
@@ -145,10 +154,8 @@ module "config_packs" {
   home_region            = var.home_region
   org_id                 = local.foundation.organization_id
   config                 = merge(var.config, { enable_recorder = false, create_recorder_bucket = false, create_recorder_agency = false, enable_aggregator = false })
-  # excluded_accounts resolution: a 32-hex token is used as a domain ID as-is;
-  # any other token is treated as an M1 account name and resolved to its domain
-  # ID. The management (master) account is ALWAYS excluded - it has no recorder
-  # (not in the fan-out), so the org pack would CREATE_FAILED trying to deploy there.
+  # Excluded account resolution
+  # Note: Names resolve to domain IDs; explicit IDs pass through. Master is excluded.
   conformance_packs = [for p in var.conformance_packs : merge(p, {
     excluded_accounts = concat(
       [for a in try(p.excluded_accounts, []) : can(regex("^[0-9a-f]{32}$", a)) ? a : local.foundation.accounts[a].id],

@@ -1,7 +1,6 @@
 # --- Account providers ---
 
-# Provider alias per M1 account (master uses the default provider in providers.tf).
-
+# Account: EXAMPLE-LogArchive
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_LogArchive"
   region             = var.home_region
@@ -12,6 +11,7 @@ provider "huaweicloud" {
   default_tags       = var.default_tags
 }
 
+# Account: EXAMPLE-Security
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Security"
   region             = var.home_region
@@ -22,6 +22,7 @@ provider "huaweicloud" {
   default_tags       = var.default_tags
 }
 
+# Account: EXAMPLE-SharedInfra
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_SharedInfra"
   region             = var.home_region
@@ -32,6 +33,7 @@ provider "huaweicloud" {
   default_tags       = var.default_tags
 }
 
+# Account: EXAMPLE-Prod-A
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Prod_A"
   region             = var.home_region
@@ -42,6 +44,7 @@ provider "huaweicloud" {
   default_tags       = var.default_tags
 }
 
+# Account: EXAMPLE-Sandbox1
 provider "huaweicloud" {
   alias              = "acct_EXAMPLE_Sandbox1"
   region             = var.home_region

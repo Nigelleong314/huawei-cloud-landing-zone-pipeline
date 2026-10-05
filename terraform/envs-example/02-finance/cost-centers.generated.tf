@@ -1,7 +1,6 @@
 # --- Cost-center projects by account ---
 
-# Cost-center enterprise projects, one module call per target account.
-
+# Account: Master
 module "cost_centers_master" {
   source = "../../modules/financial"
 
@@ -9,6 +8,7 @@ module "cost_centers_master" {
   cost_centers    = var.cost_centers_by_account["master"]
 }
 
+# Account: EXAMPLE-LogArchive
 module "cost_centers_acct_EXAMPLE_LogArchive" {
   source    = "../../modules/financial"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_LogArchive }
@@ -17,6 +17,7 @@ module "cost_centers_acct_EXAMPLE_LogArchive" {
   cost_centers    = var.cost_centers_by_account["EXAMPLE-LogArchive"]
 }
 
+# Account: EXAMPLE-Security
 module "cost_centers_acct_EXAMPLE_Security" {
   source    = "../../modules/financial"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Security }
@@ -25,6 +26,7 @@ module "cost_centers_acct_EXAMPLE_Security" {
   cost_centers    = var.cost_centers_by_account["EXAMPLE-Security"]
 }
 
+# Account: EXAMPLE-SharedInfra
 module "cost_centers_acct_EXAMPLE_SharedInfra" {
   source    = "../../modules/financial"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_SharedInfra }
@@ -33,6 +35,7 @@ module "cost_centers_acct_EXAMPLE_SharedInfra" {
   cost_centers    = var.cost_centers_by_account["EXAMPLE-SharedInfra"]
 }
 
+# Account: EXAMPLE-Prod-A
 module "cost_centers_acct_EXAMPLE_Prod_A" {
   source    = "../../modules/financial"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Prod_A }
@@ -41,6 +44,7 @@ module "cost_centers_acct_EXAMPLE_Prod_A" {
   cost_centers    = var.cost_centers_by_account["EXAMPLE-Prod-A"]
 }
 
+# Account: EXAMPLE-Sandbox1
 module "cost_centers_acct_EXAMPLE_Sandbox1" {
   source    = "../../modules/financial"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Sandbox1 }

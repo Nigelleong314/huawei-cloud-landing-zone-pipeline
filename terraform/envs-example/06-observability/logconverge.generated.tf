@@ -1,7 +1,5 @@
 # --- Organization log aggregation ---
 
-# Org LTS log aggregation: member source lookups + converge/archive in the LTS admin.
-
 data "huaweicloud_lts_streams" "lc_s0" {
   provider       = huaweicloud.acct_EXAMPLE_SharedInfra
   log_group_name = "example-hub-core-vpc-flowlog"

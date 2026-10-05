@@ -1,7 +1,6 @@
 # --- Predefined tags by account ---
 
-# Predefined-tag dictionary applied to the master account + every M1 account.
-
+# Account: Master
 module "predef_tags_master" {
   source = "../../modules/perimeter"
 
@@ -10,6 +9,7 @@ module "predef_tags_master" {
   predefined_tags        = var.predefined_tags
 }
 
+# Account: EXAMPLE-LogArchive
 module "predef_tags_acct_EXAMPLE_LogArchive" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_LogArchive }
@@ -19,6 +19,7 @@ module "predef_tags_acct_EXAMPLE_LogArchive" {
   predefined_tags        = var.predefined_tags
 }
 
+# Account: EXAMPLE-Security
 module "predef_tags_acct_EXAMPLE_Security" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Security }
@@ -28,6 +29,7 @@ module "predef_tags_acct_EXAMPLE_Security" {
   predefined_tags        = var.predefined_tags
 }
 
+# Account: EXAMPLE-SharedInfra
 module "predef_tags_acct_EXAMPLE_SharedInfra" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_SharedInfra }
@@ -37,6 +39,7 @@ module "predef_tags_acct_EXAMPLE_SharedInfra" {
   predefined_tags        = var.predefined_tags
 }
 
+# Account: EXAMPLE-Prod-A
 module "predef_tags_acct_EXAMPLE_Prod_A" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Prod_A }
@@ -46,6 +49,7 @@ module "predef_tags_acct_EXAMPLE_Prod_A" {
   predefined_tags        = var.predefined_tags
 }
 
+# Account: EXAMPLE-Sandbox1
 module "predef_tags_acct_EXAMPLE_Sandbox1" {
   source    = "../../modules/perimeter"
   providers = { huaweicloud = huaweicloud.acct_EXAMPLE_Sandbox1 }
