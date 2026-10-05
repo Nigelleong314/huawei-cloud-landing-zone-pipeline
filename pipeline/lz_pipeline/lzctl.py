@@ -1712,7 +1712,9 @@ def _coerce(raw: str, typ: str):
             raise ValueError("expected true or false")
         return v
     if t == "csv-list":
-        return [x.strip() for x in raw.split(",") if x.strip()]
+        # stored as the cell text the workbook holds ("a,b"), not a JSON
+        # list: a list does not survive the spec -> workbook round-trip
+        return ",".join(x.strip() for x in raw.split(",") if x.strip())
     if t == "json":
         return json.loads(raw)
     return raw

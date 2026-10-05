@@ -238,7 +238,7 @@ def sheets_of(p):
     ("Global.Settings.home_region", "--value", "ap-southeast-3", "ap-southeast-3"),
     ("05_Network.Settings.enable_hub", "--value", "no", False),
     ("08_DNS.ResolverRules[ad-forward].TargetIPs", "--value", "10.1.1.1, 10.1.1.2",
-     ["10.1.1.1", "10.1.1.2"]),
+     "10.1.1.1,10.1.1.2"),
     ("Global.Settings.home_region", "--json", '"ap-southeast-1"', "ap-southeast-1"),
 ])
 def test_set_writes_the_coerced_value(draft, field, flag, value, expected):
@@ -251,6 +251,19 @@ def test_set_writes_the_coerced_value(draft, field, flag, value, expected):
     got = s[sheet][table][tail] if "[" not in field else \
         next(row[tail] for row in s[sheet][table] if row.get("Name") == "ad-forward")
     assert got == expected
+
+
+def test_set_csv_list_survives_the_workbook_round_trip(draft, tmp_path):
+    """A csv-list is stored as the cell text ("a,b"), never a JSON list: a
+    list made gen_workbook fail its spec -> workbook -> spec identity check."""
+    r = run("lz_pipeline.lzctl", "set", "--spec", str(draft),
+            "--field", "03_Identity.Users[ops.lead].GroupNames", "--value", "g1, g2")
+    assert r.returncode == 0, r.stdout + r.stderr
+    user = sheets_of(draft)["03_Identity"]["Users"][0]
+    assert user["GroupNames"] == "g1,g2"
+    r = run("lz_pipeline.tools.gen_workbook", "--ir", str(draft),
+            "-o", str(tmp_path / "lld.xlsx"))
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
 def test_set_null_is_the_declared_unknown(draft):
