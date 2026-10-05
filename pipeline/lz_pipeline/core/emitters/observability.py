@@ -178,7 +178,7 @@ def _logconverge_codegen(enabled: bool, admin: str, rows: list, accounts: list,
         "",
     ]
     if not enabled:
-        lines.append("# LogAggregation disabled or no LogConverge rows - nothing generated.")
+        lines.append("# Note: Log aggregation is disabled or has no sources.")
         return lines
 
     # Deterministic per-row stream lookups: lc_s<i> in sheet order.

@@ -27,7 +27,8 @@ def _emit_sgacl_codegen(env_dir: Path, spec: dict):
         "",
     ]
     if not accounts:
-        calls.append("# No SecurityGroups rows - nothing generated.")
+        prov.append("# Note: No account defines workload security groups.")
+        calls.append("# Note: No account defines workload security groups.")
     for a in accounts:
         al = _acct_alias(a)
         prov += _spoke_provider_block(al, a)
