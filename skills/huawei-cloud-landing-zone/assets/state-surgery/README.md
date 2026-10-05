@@ -7,6 +7,13 @@ changes — without touching the cloud.
 
 - **State keys**: never rename a `backend.tf` key; a renamed env keeps its
   historical key forever, a genuinely new env gets a new key.
+- **Orphaned keys after a rename**: when a key is renamed or renumbered
+  anyway (`terraform init -migrate-state`), the state is copied and the old
+  object stays in the OBS bucket. Once the migrated env plans clean, list
+  the bucket's keys and compare them with every env's backend `key`; any
+  key no env names is an orphan. Back it up (download it, record its
+  `serial` and ETag), then delete it. With bucket versioning on, the delete
+  leaves a delete marker, so the object can still be restored.
 - **`for_each` keys**: renaming a spoke/subnet/rule whose resources are
   keyed by that name plans **destroy + recreate of the live resources**. A
   module-level `state mv` does NOT fix it — every per-key resource needs its
