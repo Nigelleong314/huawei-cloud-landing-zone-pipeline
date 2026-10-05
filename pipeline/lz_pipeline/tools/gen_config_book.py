@@ -6,7 +6,10 @@ Sections degrade gracefully when a feature is unused or state is absent.
 
 Usage:
     py tools/gen_config_book.py --envs-dir envs \
-        [--states-dir <dir>] --out book.xlsx [--customer "Example Corp"] [--version 1.0]
+        [--states-dir <dir>] --out book.xlsx [--customer "Example Corp"] [--version 1.0]         [--ir lz.spec.json]
+
+--ir (alias --spec) adds the sections whose values live only in generated HCL,
+not tfvars: the app-scoped permission sets (03_Identity.AppPermissionSets).
 """
 
 import argparse
@@ -77,7 +80,16 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--customer", default="")
     ap.add_argument("--version", default="1.0")
+    ap.add_argument("--ir", "--spec", dest="ir",
+                    help="JSON spec - adds sections for values that live only in generated HCL")
     args = ap.parse_args()
+
+    app_permission_sets = []
+    if args.ir:
+        ir = json.loads(Path(args.ir).read_text(encoding="utf-8"))
+        rows = (ir.get("sheets", {}).get("03_Identity", {}) or {}).get("AppPermissionSets") or []
+        app_permission_sets = [r for r in rows
+                               if r.get("Name") and str(r.get("Enabled", "TRUE")).upper() != "FALSE"]
 
     envs_dir = Path(args.envs_dir)
     states_dir = Path(args.states_dir) if args.states_dir else None
@@ -159,6 +171,12 @@ def main():
     s.section("Permission sets")
     s.table(["Permission set", "Definition"],
             [(k, _j(v, 500)) for k, v in (i3.get("permission_sets") or {}).items()])
+    if app_permission_sets:
+        s.section("App-scoped permission sets (enterprise-project scoped)")
+        s.table(["Permission set", "Account", "Enterprise projects", "Description"],
+                [(r.get("Name", ""), r.get("Account", ""),
+                  r.get("EnterpriseProjects", ""), r.get("Description", ""))
+                 for r in app_permission_sets])
     s.section("Per-account IAM baseline")
     s.kv([("Login policy", _j(i3.get("iam_login_policy"), 400)),
           ("Password policy", _j(i3.get("iam_password_policy"), 400))])
@@ -284,7 +302,9 @@ def main():
         s.section("Notifications and alarms")
         s.kv([("SMN topics", len(instances(st06, "huaweicloud_smn_topic"))),
               ("SMN subscriptions", len(instances(st06, "huaweicloud_smn_subscription"))),
-              ("CES one-click alarm bundles", len(instances(st06, "huaweicloud_ces_one_click_alarm")))])
+              ("CES one-click alarm bundles", len(instances(st06, "huaweicloud_ces_one_click_alarm"))),
+              ("CTS key-event notifications",
+               ", ".join(sorted(str(k) for _, k, _ in instances(st06, "huaweicloud_cts_notification"))) or "-")])
 
     # ---- 07 DNS ----
     s = book.sheet("07 DNS", [34, 22, 26, 50])
@@ -319,11 +339,11 @@ def main():
     if c8.get("address_groups"):
         s.section("Address groups")
         s.table(["Group", "Members"],
-                [(g.get("name"), ", ".join(g.get("members") or [])[:900]) for g in c8["address_groups"]])
+                [(g.get("name"), ", ".join(g.get("members") or [])) for g in c8["address_groups"]])
     if c8.get("domain_groups"):
         s.section("Domain groups")
         s.table(["Group", "Type", "Domains"],
-                [(g.get("name"), g.get("type"), ", ".join(g.get("domains") or [])[:900]) for g in c8["domain_groups"]])
+                [(g.get("name"), g.get("type"), ", ".join(g.get("domains") or [])) for g in c8["domain_groups"]])
     if c8.get("service_groups"):
         s.section("Service groups")
         s.table(["Group", "Members"],
