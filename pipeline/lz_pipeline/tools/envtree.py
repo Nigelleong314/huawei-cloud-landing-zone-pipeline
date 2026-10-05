@@ -7,6 +7,7 @@ terraform.tfvars.json files, the generated/static provider files, and
 
 import json
 import re
+import sys
 from pathlib import Path
 
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -41,6 +42,21 @@ def state(states_dir: Path, env: str) -> dict:
     if not p.exists():
         return {}
     return json.loads(p.read_text(encoding="utf-8-sig"))
+
+
+def missing_states(envs_dir: Path, states_dir: Path) -> list:
+    """Envs with no state-<env>.json in states_dir, warned on stderr.
+
+    A pull saved under any other name reads as an empty state, and the
+    generators would silently report the env as not deployed.
+    """
+    missing = [d.name for d in env_dirs(envs_dir)
+               if not (states_dir / f"state-{d.name}.json").exists()]
+    if missing:
+        print(f"warning: no state-<env>.json in {states_dir} for: {', '.join(missing)} "
+              "- read as not deployed (`lzctl state-pull` writes these names)",
+              file=sys.stderr)
+    return missing
 
 
 def instances(st: dict, rtype: str) -> list:

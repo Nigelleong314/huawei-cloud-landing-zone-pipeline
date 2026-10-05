@@ -4,7 +4,7 @@
 
 | Variable | Used by | Meaning | Default |
 |---|---|---|---|
-| `LZ_MODULE_SOURCE_ROOT` | build (emitters) | Where emitted env HCL finds the module library, **relative to each env dir** | `../../modules` (matches the product layout: `<workspace>/modules` beside `<workspace>/envs/NN-*`) |
+| `LZ_MODULE_SOURCE_ROOT` | build (emitters) | Where emitted env HCL finds the module library, **relative to each env dir**. The first build records it in `<envs>/.lz-module-source-root`; later builds use the recorded value when the variable is unset and refuse a different one | `../../modules` (matches the product layout: `<workspace>/modules` beside `<workspace>/envs/NN-*`) |
 | `LZ_TRANSIENT_SIGNATURES` | `lzctl apply` | Comma-separated substrings of platform errors that merit exactly one retry (re-plan + apply). Keep signatures specific | `LTS.2101,EPS.0004` |
 | `LZ_VERIFY_IR` | `lz_spec.verify_pipeline` | Spec the regression harness runs against | `pipeline/lz_pipeline/fixtures/example.spec.json` |
 | `LZ_VERIFY_ENVS` | `lz_spec.verify_pipeline` | Envs tree the harness runs against | `terraform/envs-example` |
@@ -26,6 +26,8 @@ A customer engagement lives in a DATA directory outside this repo:
   specs/                       lz.spec.<customer>.json + lz.spec.<customer>.decisions.md
   envs/                        00-bootstrap ... 11-network-sgacl
     deps.json                  generated apply order (do not hand-edit)
+    .lz-customer               build guard: the customer this tree was built for
+    .lz-module-source-root     build guard: the LZ_MODULE_SOURCE_ROOT it was built with
     .lzctl.lock                transient advisory lock
     lzctl-logs/                timestamped run logs
     state-backups/             pre-apply state pulls
@@ -33,7 +35,7 @@ A customer engagement lives in a DATA directory outside this repo:
   modules/                     copy of terraform/modules (snapshot for this customer)
 ```
 
-`lzctl assess --workspace <dir>` creates `specs/`; `lzctl build --scaffold-dir` populates `envs/`. The `envs/` ↔ `modules/` siblinghood is what the default `LZ_MODULE_SOURCE_ROOT=../../modules` assumes; override it for any other shape. The in-repo example (`terraform/envs-example` beside `terraform/modules`) has the same relationship.
+`lzctl assess --workspace <dir>` creates `specs/`; `lzctl build --scaffold-dir` populates `envs/`. The `envs/` ↔ `modules/` siblinghood is what the default `LZ_MODULE_SOURCE_ROOT=../../modules` assumes; override it for any other shape. Every generated module `source` embeds that root, so the tree remembers it: the first build writes `.lz-module-source-root`, a later build without the variable reuses it, and a build with a *different* value is refused rather than rewriting every source. To re-root a tree on purpose, edit that file and rebuild. A tree built before the guard existed has no file yet and records whatever its next build uses, so run that build with the variable it needs. Both guard files stay out of the handover artifact. The in-repo example (`terraform/envs-example` beside `terraform/modules`) has the same relationship.
 
 Per env, generated files (never hand-edit): `terraform.tfvars.json`, `backend.hcl`, `*.generated.tf`. Static files come from `terraform/scaffold/`. Credentials are never among them — they live only in the environment.
 

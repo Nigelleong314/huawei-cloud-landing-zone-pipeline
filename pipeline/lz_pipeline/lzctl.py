@@ -18,13 +18,18 @@ Usage (lifecycle order):
     lzctl build        --spec SPEC.json --envs-dir <envs> [--scaffold-dir <dir>]
     lzctl preflight    --envs-dir <envs>
     lzctl plan         --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+                       [--parallelism N]
     lzctl apply        --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
                        [--allow-destroy] [--yes] [--destroy-confirm ENV]
+                       [--parallelism N]
     lzctl verify       --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
     lzctl report       --envs-dir <envs> [--out <dir>]
     lzctl drift        --envs-dir <envs> [ENV[,ENV...]] [--report out.md]
+                       [--no-refresh] [--parallelism N]
     lzctl adopt        --envs-dir <envs> ENV ADDRESS CLOUD_ID
     lzctl state-backup --envs-dir <envs> [ENV | --all]
+    lzctl providers-lock --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]
+    lzctl state-pull   --envs-dir <envs> --out <dir> [ENV[,ENV...]] [--dry-run]
     lzctl triage       PLAN_JSON [...]
     lzctl who-changed  RESOURCE_NAME
     lzctl order        --envs-dir <envs>
@@ -901,7 +906,14 @@ def cmd_order(args):
     return 0
 
 
-def _plan_one(env_dir: Path, dry: bool, log) -> int:
+def _parallelism(args) -> list:
+    """-parallelism=N when asked: a large env (many CFW rules) can exhaust
+    local sockets on Windows (WSAEACCES) at terraform's default of 10."""
+    n = getattr(args, "parallelism", None)
+    return [f"-parallelism={n}"] if n else []
+
+
+def _plan_one(env_dir: Path, dry: bool, log, extra=()) -> int:
     if not (env_dir / ".terraform").exists() and not dry:
         init_args = ["init", "-input=false"]
         if (env_dir / "backend.hcl").exists():
@@ -910,7 +922,8 @@ def _plan_one(env_dir: Path, dry: bool, log) -> int:
         if r.returncode != 0:
             print(f"  FAIL {env_dir.name}: init error (see output above)")
             return 1
-    r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.plan", "-detailed-exitcode"], dry, log)
+    r = run_tf(env_dir, ["plan", "-input=false", "-out", "tf.plan", "-detailed-exitcode",
+                         *extra], dry, log)
     if r.returncode == 1:
         print(f"  FAIL {env_dir.name}: plan error (see output above)")
         return 1
@@ -924,7 +937,7 @@ def cmd_plan(args):
     targets = select(envs, args.env, args.all)
     log = logfile(envs, "plan") if not args.dry_run else None
     for name in targets:
-        rc = _plan_one(envs / name, args.dry_run, log)
+        rc = _plan_one(envs / name, args.dry_run, log, _parallelism(args))
         if rc == 1:
             print(f"\n== RESULT: FAILED (plan error in {name}) ==")
             return 1
@@ -959,6 +972,101 @@ def cmd_state_backup(args):
         out = dest / f"{ts}-{name}.tfstate.json"
         out.write_text(r.stdout, encoding="utf-8")
         print(f"  {name}: backed up -> {out.name} ({len(r.stdout)} bytes)")
+    return 0
+
+
+def cmd_state_pull(args):
+    """Current state of each env as <out>/state-<env>.json: the names the doc
+    generators read from --states-dir (any other name reads as not deployed)."""
+    envs = Path(args.envs_dir)
+    out = Path(args.out)
+    pulled = 0
+    for name in select(envs, args.env, not args.env):   # no ENV -> all
+        env_dir = envs / name
+        dest = out / f"state-{name}.json"
+        local = not any('backend "' in tf.read_text(encoding="utf-8")
+                        for tf in env_dir.glob("*.tf"))
+        if local:   # 00-bootstrap: local state, it creates the bucket the others use
+            src = env_dir / "terraform.tfstate"
+            print(f"[{name}] copy terraform.tfstate > {dest}")
+            if args.dry_run:
+                continue
+            if not src.exists():
+                print(f"  {name}: no local terraform.tfstate (never applied here?)")
+                continue
+            out.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+        else:
+            print(f"[{name}] $ terraform state pull > {dest}")
+            if args.dry_run:
+                continue
+            r = subprocess.run(["terraform", "state", "pull"], cwd=str(env_dir),
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace")
+            if r.returncode != 0 or not r.stdout.strip():
+                print(f"  {name}: no state pulled ({(r.stderr or 'empty state').strip()[:120]})")
+                continue
+            out.mkdir(parents=True, exist_ok=True)
+            dest.write_text(r.stdout, encoding="utf-8")
+        pulled += 1
+    if args.dry_run:
+        print("\n== RESULT: DRY RUN COMPLETE (no state read) ==")
+        return 0
+    print(f"\n== RESULT: {pulled} STATE FILE(S) -> {out} (state holds secrets: "
+          "keep this folder out of version control and shared drives) ==")
+    return 0
+
+
+LOCK_PLATFORMS = ("windows_amd64", "linux_amd64")
+_LOCK_HWC_RE = re.compile(r'provider\s+"[^"]*/huaweicloud/huaweicloud"\s*\{[^}]*?'
+                          r'\bversion\s*=\s*"([^"]+)"')
+
+
+def locked_huaweicloud(env_dir: Path):
+    """The huaweicloud provider version in the env's .terraform.lock.hcl, or None."""
+    lock = env_dir / ".terraform.lock.hcl"
+    if not lock.exists():
+        return None
+    m = _LOCK_HWC_RE.search(lock.read_text(encoding="utf-8"))
+    return m.group(1) if m else None
+
+
+def cmd_providers_lock(args):
+    """Record provider hashes for every CI/operator platform, then report the
+    locked huaweicloud version per env. `init -upgrade` rewrites the lock with
+    the current platform's hashes only, which breaks init on the other OS."""
+    envs = Path(args.envs_dir)
+    targets = select(envs, args.env, args.all)
+    log = logfile(envs, "providers-lock") if not args.dry_run else None
+    failed, skipped = [], []
+    for name in targets:
+        env_dir = envs / name
+        if not (env_dir / ".terraform").exists() and not args.dry_run:
+            skipped.append(name)   # providers lock needs the modules init installs
+            continue
+        r = run_tf(env_dir, ["providers", "lock"] + [f"-platform={p}" for p in LOCK_PLATFORMS],
+                   args.dry_run, log)
+        if r.returncode != 0:
+            failed.append(name)
+    print("\n== huaweicloud provider in .terraform.lock.hcl ==")
+    versions = {}
+    for name in targets:
+        v = locked_huaweicloud(envs / name)
+        note = " (SKIP: not initialized)" if name in skipped else \
+               " (FAIL: lock error above)" if name in failed else ""
+        print(f"  {name:20} {v or '-'}{note}")
+        if v:
+            versions.setdefault(v, []).append(name)
+    if failed:
+        print(f"\n== RESULT: FAILED (providers lock error in {', '.join(failed)}) ==")
+        return 1
+    if len(versions) > 1:
+        print(f"\n== RESULT: VERSIONS DISAGREE ({', '.join(sorted(versions))}) - "
+              "upgrade the lagging env(s) with `terraform init -upgrade`, then re-run "
+              "providers-lock (the upgrade drops the other platforms' hashes) ==")
+        return 2
+    print(f"\n== RESULT: LOCKED ({', '.join(versions) or 'no lock files'}; "
+          f"platforms {', '.join(LOCK_PLATFORMS)}) ==")
     return 0
 
 
@@ -1025,6 +1133,7 @@ def cmd_apply(args):
     lock = Lock(envs)
     lock.acquire(dry=args.dry_run)
     log = logfile(envs, "apply") if not args.dry_run else None
+    par = _parallelism(args)
     applied, skipped = 0, 0
     try:
         for name in order:
@@ -1042,7 +1151,7 @@ def cmd_apply(args):
                       f"(configuration unchanged since; terraform verifies state freshness)")
                 rc, _ = triage_plan(env_dir, False, log)
             else:
-                rc = _plan_one(env_dir, args.dry_run, log)
+                rc = _plan_one(env_dir, args.dry_run, log, par)
             if rc == 1:
                 print(f"\n== RESULT: FAILED (plan error in {name}; earlier envs were applied) ==")
                 return 1
@@ -1082,7 +1191,7 @@ def cmd_apply(args):
                         print("\n== RESULT: STOPPED (destructive apply not confirmed) ==")
                         return 2
             # 3. apply the reviewed plan file
-            r = run_tf(env_dir, ["apply", "-input=false", "tf.plan"], args.dry_run, log)
+            r = run_tf(env_dir, ["apply", "-input=false", *par, "tf.plan"], args.dry_run, log)
             if r.returncode != 0 and not args.dry_run and _is_transient(r.stdout):
                 # Retry-once on documented transients (async grants, log-service
                 # hiccups). The saved plan is stale after a partial apply, so
@@ -1090,11 +1199,11 @@ def cmd_apply(args):
                 print(f"  RETRY {name}: transient platform error - re-plan + apply once")
                 if log:
                     log.write("\n[retry] transient signature matched; re-plan + apply\n")
-                rc2 = _plan_one(env_dir, False, log)
+                rc2 = _plan_one(env_dir, False, log, par)
                 if rc2 == 0:
                     r = subprocess.CompletedProcess([], 0, "", "")
                 elif rc2 == 2:
-                    r = run_tf(env_dir, ["apply", "-input=false", "tf.plan"], False, log)
+                    r = run_tf(env_dir, ["apply", "-input=false", *par, "tf.plan"], False, log)
                 # rc2 in (1, 3): fall through with the original failure
             if r.returncode != 0:
                 if "stale" in r.stdout.lower():
@@ -1121,6 +1230,9 @@ def cmd_drift(args):
     rows = []
     log = logfile(envs, "drift")
     targets = select(envs, args.env, not args.env)   # no ENV -> all
+    # --no-refresh compares configuration with recorded state only (seconds,
+    # not the full cloud read); it cannot see changes made outside terraform
+    extra = _parallelism(args) + (["-refresh=false"] if getattr(args, "no_refresh", False) else [])
     for name in targets:
         env_dir = envs / name
         if not (env_dir / ".terraform").exists():
@@ -1130,7 +1242,7 @@ def cmd_drift(args):
         # it can never arm cmd_apply's saved-plan reuse (tf.plan stays the
         # reviewed artifact from an explicit plan run)
         r = run_tf(env_dir, ["plan", "-input=false", "-out", "drift.tfplan",
-                             "-detailed-exitcode"], False, log)
+                             "-detailed-exitcode", *extra], False, log)
         if r.returncode == 0:
             rows.append((name, "clean"))
         elif r.returncode == 1:
@@ -1232,6 +1344,9 @@ def cmd_docs(args):
         tail = (r.stdout or r.stderr).strip().splitlines()
         print(f"  {'PASS' if r.returncode == 0 else 'FAIL'} {script.name}"
               + (f" - {tail[-1]}" if tail else ""))
+        for w in (r.stderr or "").splitlines():
+            if w.startswith("warning:"):
+                print(f"    {w}")
         rc = rc or r.returncode
     if rc == 0:
         print(f"\n== RESULT: {len(jobs)} DOCUMENT(S) GENERATED -> {out} ==")
@@ -1597,7 +1712,9 @@ def _coerce(raw: str, typ: str):
             raise ValueError("expected true or false")
         return v
     if t == "csv-list":
-        return [x.strip() for x in raw.split(",") if x.strip()]
+        # stored as the cell text the workbook holds ("a,b"), not a JSON
+        # list: a list does not survive the spec -> workbook round-trip
+        return ",".join(x.strip() for x in raw.split(",") if x.strip())
     if t == "json":
         return json.loads(raw)
     return raw
@@ -1876,10 +1993,15 @@ def main(argv=None):
         p.add_argument("--all", action="store_true")
         p.add_argument("--dry-run", action="store_true")
 
+    def parallelism(p):
+        p.add_argument("--parallelism", type=int, metavar="N",
+                       help="pass -parallelism=N to terraform (lower it if a large "
+                            "env fails with socket errors such as WSAEACCES)")
+
     p = sub.add_parser("preflight");  p.add_argument("--envs-dir", required=True); p.set_defaults(fn=cmd_preflight)
     p = sub.add_parser("order");      p.add_argument("--envs-dir", required=True); p.set_defaults(fn=cmd_order)
-    p = sub.add_parser("plan");       common(p); p.set_defaults(fn=cmd_plan)
-    p = sub.add_parser("apply");      common(p)
+    p = sub.add_parser("plan");       common(p); parallelism(p); p.set_defaults(fn=cmd_plan)
+    p = sub.add_parser("apply");      common(p); parallelism(p)
     p.add_argument("--allow-destroy", action="store_true")
     p.add_argument("--yes", action="store_true",
                    help="skip the per-env confirm; NEVER skips the destructive confirm")
@@ -1888,8 +2010,26 @@ def main(argv=None):
     p.set_defaults(fn=cmd_apply)
     p = sub.add_parser("drift");      p.add_argument("--envs-dir", required=True)
     p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")
+    p.add_argument("--no-refresh", action="store_true",
+                   help="plan with -refresh=false: configuration vs recorded state "
+                        "only (fast; blind to changes made outside terraform)")
+    parallelism(p)
     p.add_argument("--report"); p.set_defaults(fn=cmd_drift)
     p = sub.add_parser("state-backup"); common(p); p.set_defaults(fn=cmd_state_backup)
+    p = sub.add_parser("providers-lock", help="lock provider hashes for windows_amd64 + "
+                                              "linux_amd64; report the huaweicloud version per env")
+    p.add_argument("--envs-dir", required=True)
+    p.add_argument("env", nargs="?")
+    p.add_argument("--all", action="store_true")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_providers_lock)
+    p = sub.add_parser("state-pull", help="pull each env's state to <out>/state-<env>.json "
+                                          "(the docs --states-dir input)")
+    p.add_argument("--envs-dir", required=True)
+    p.add_argument("--out", required=True, help="folder for the state-<env>.json files")
+    p.add_argument("env", nargs="?", help="ENV[,ENV...] subset (default: all)")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(fn=cmd_state_pull)
     p = sub.add_parser("adopt");      p.add_argument("--envs-dir", required=True)
     p.add_argument("env"); p.add_argument("address"); p.add_argument("cloud_id")
     p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=cmd_adopt)

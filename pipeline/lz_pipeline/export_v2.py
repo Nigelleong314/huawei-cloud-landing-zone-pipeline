@@ -75,11 +75,13 @@ GENERATED_RENAMES = {
     "sgacl.generated.tf":         "sgacl.tf",
 }
 
-# .lz-customer is a BUILD GUARD (a spec for another customer refuses to build
-# against this tree); it is meaningless to the recipient, so it stays in the
-# working tree and never ships.
+# .lz-customer and .lz-module-source-root are BUILD GUARDS (a spec for another
+# customer, or a build under another module root, refuses to build against this
+# tree); they are meaningless to the recipient, so they stay in the working tree
+# and never ship.
 EXCLUDE_NAMES = {"secrets.auto.tfvars.json", "errored.tfstate",
-                 ".lzctl.lock", ".gitignore", ".gitattributes", ".lz-customer"}
+                 ".lzctl.lock", ".gitignore", ".gitattributes", ".lz-customer",
+                 ".lz-module-source-root"}
 # .txt: stray plan/log captures
 EXCLUDE_SUFFIXES = (".bak", ".backup", ".ps1", ".py", ".xlsx", ".txt", ".log")
 

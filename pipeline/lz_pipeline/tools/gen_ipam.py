@@ -32,7 +32,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 sys.path.insert(0, str(Path(__file__).parent))
-from envtree import BOX, HDR_FILL, HDR_FONT, WRAP, tfvars
+from envtree import BOX, HDR_FILL, HDR_FONT, WRAP, missing_states, tfvars
 
 NOTE_FONT = Font(size=9, italic=True, color="595959")
 FILL = {"Free": PatternFill("solid", fgColor="E2EFDA"),
@@ -205,6 +205,8 @@ def main():
         return 2
     supernet = ipaddress.ip_network(args.supernet or n5["spoke_private_supernet"])
     vpcs, subnets = collect(n5)
+    if args.states_dir:
+        missing_states(Path(args.envs_dir), Path(args.states_dir))
     by_subnet, by_vpc = inventory(Path(args.states_dir)) if args.states_dir else (None, None)
     vpc_subnets = defaultdict(list)
     for vpc, name, _ in subnets:

@@ -23,7 +23,7 @@ from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).parent))
 from envtree import (BOX, HDR_FILL, HDR_FONT, WRAP,
-                     env_dirs, state, alias_accounts, provider_alias_of)
+                     env_dirs, state, missing_states, alias_accounts, provider_alias_of)
 
 # Generic, platform-level descriptions (no customer specifics).
 DESC = {
@@ -118,6 +118,7 @@ def main():
 
     envs_dir = Path(args.envs_dir)
     states_dir = Path(args.states_dir)
+    missing_states(envs_dir, states_dir)
 
     rows = defaultdict(int)   # (env, account, type) -> count
     pending = []

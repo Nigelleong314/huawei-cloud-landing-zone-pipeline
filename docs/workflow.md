@@ -42,15 +42,15 @@ Checks: terraform on PATH and ≥ 1.6.3; `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCES
 
 Prints the apply order from `deps.json` (falls back to numeric prefix order). Exit 0.
 
-### `lzctl plan --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--pricing CARD.json]`
+### `lzctl plan --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--pricing CARD.json] [--parallelism N]`
 
-Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (with `-backend-config=backend.hcl` when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
+Per selected env (selection accepts exact names or unique prefixes, always runs in apply order): `terraform init` if needed (with `-backend-config=backend.hcl` when present), `terraform plan -out tf.plan -detailed-exitcode`, then triage + a monthly cost estimate (the report always names the rate card's region). `--parallelism N` passes `-parallelism=N` to terraform (default 10): lower it (e.g. `2`) when a large env — a CFW env with hundreds of rules — fails with socket errors such as `WSAEACCES` on Windows. Exit: worst of 0 / 2 / 3 across envs; 1 on plan error (stops immediately).
 
 ### `lzctl triage PLAN_JSON [...]`
 
 Offline classification of exported plan JSON (`terraform show -json tf.plan > plan.json`) into benign / create / update / destructive classes. Same 0/2/3 convention.
 
-### `lzctl apply --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes] [--destroy-confirm ENV]...`
+### `lzctl apply --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run] [--allow-destroy] [--yes] [--destroy-confirm ENV]... [--parallelism N]`
 
 Per env, in order:
 
@@ -62,11 +62,15 @@ Per env, in order:
 6. **Apply** the reviewed plan file.
 7. **Retry-once on documented transients** — if the apply fails and the output matches a transient signature (`LTS.2101,EPS.0004` by default; extend via the `LZ_TRANSIENT_SIGNATURES` env var), re-plan + apply the remainder exactly once. Never a replay of the stale plan.
 
+`--parallelism N` is passed to every plan and apply in the run, as for `plan`.
+
 Exit: 0 applied/current, 1 apply or plan error, 2 stopped by operator, 3 blocked on destructive changes or a content gate (placeholder PSK), 4 refused: this context cannot satisfy a required confirmation (agent session without `LZ_OPERATOR_APPLY=1`, or an interactive prompt with no terminal).
 
-### `lzctl drift --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
+### `lzctl drift --envs-dir <envs> [ENV[,ENV...]] [--report out.md] [--no-refresh] [--parallelism N]`
 
 Re-plans every (or the selected) env and summarizes: `clean`, `known-benign drift only`, `DRIFT: n destructive, n update, n create`, `ERROR`, or `SKIP (not initialized)`. Optional markdown report. Exit 0 clean/benign, 2 if any drift or errors.
+
+`--no-refresh` plans with `-refresh=false`: configuration against *recorded state* only, without reading the cloud. It answers "does the code still match what was applied?" in seconds (7 s against ~32 min on a large CFW env) — use it after a rebuild or a module change — but it is blind to changes made outside Terraform, so a real drift sweep (and `lzctl verify`) still refreshes. `--parallelism N` as for `plan`.
 
 ### `lzctl verify --envs-dir <envs> [ENV[,ENV...]] [--report out.md]`
 
@@ -80,6 +84,12 @@ Evidence bundle → `<envs>/evidence/<ts>/` (or `--out`): the last N run logs (d
 
 On-demand `terraform state pull` backups to `state-backups/`. Exit 0.
 
+### `lzctl providers-lock --envs-dir <envs> [ENV[,ENV...] | --all] [--dry-run]`
+
+Runs `terraform providers lock -platform=windows_amd64 -platform=linux_amd64` in each selected env, then prints the `huaweicloud` provider version each env's `.terraform.lock.hcl` records. It keeps each env's locked version and adds the missing platform's hashes, so a lock file written on a Windows laptop also verifies on a Linux CI runner. Envs that were never initialized are skipped (the command needs the modules `init` installs).
+
+Run it after every `terraform init -upgrade`: an upgrade rewrites the lock with the current platform's hashes only, and the next `init` on the other OS then fails the checksum check. The version report catches the other slow failure — envs drifting onto different provider versions (one estate ended up on three) — and is how to converge them: `init -upgrade` the lagging envs, then `providers-lock` again. Commit the lock files with the tree. Exit 0 locked and every env on one version, 1 on a lock error, 2 if the versions disagree.
+
 ### `lzctl adopt --envs-dir <envs> ENV ADDRESS CLOUD_ID [--dry-run]`
 
 `terraform import` an existing cloud resource, then re-plan. Exit 0 imported clean, 1 import failed, 2 imported but the configuration still differs (align and re-plan).
@@ -90,7 +100,11 @@ Prints the CTS lookup procedure for auditing who changed a resource. Exit 0.
 
 ### `lzctl docs --envs-dir <envs> --out-dir DIR [--states-dir DIR] [--customer NAME] [--spec SPEC.json]`
 
-Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--spec` — the Excel LLD workbook (a generated artifact of the spec). Exit 0 all generated.
+Regenerates the customer doc set from the tree: IP management workbook, config book, resource checklist (needs `--states-dir`), and — with `--spec` — the Excel LLD workbook (a generated artifact of the spec). `--states-dir` is a folder of `state-<env>.json` files — exactly that name; a pull saved as anything else reads as *not deployed*, so the generators warn with the envs that have no file. `lzctl state-pull` produces the folder. Exit 0 all generated.
+
+### `lzctl state-pull --envs-dir <envs> --out DIR [ENV[,ENV...]] [--dry-run]`
+
+Writes each env's current state to `DIR/state-<env>.json` — the input `lzctl docs --states-dir DIR` expects. Envs with a remote backend are read with `terraform state pull`; an env with no backend block (`00-bootstrap`, whose local state creates the bucket the others use) has its `terraform.tfstate` copied. State holds secrets: keep `DIR` out of version control and shared drives. Exit 0.
 
 ### `lzctl intake XLSX [-o OUT.json]`
 

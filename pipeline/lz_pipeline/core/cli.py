@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from .helpers import _home_region, ENV_NAMES, _scalar, _truthy
+from .helpers import _home_region, ENV_NAMES, MODULE_SOURCE_ROOT, _scalar, _truthy
 from .parsing import parse_workbook
 from .validation import validate
 from .builders import BUILDERS
@@ -190,6 +190,23 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
         else:
             envs_dir.mkdir(parents=True, exist_ok=True)
             marker.write_text(customer + "\n", encoding="utf-8", newline="\n")
+
+    # Every generated module `source` embeds the module source root, so the
+    # tree records it too: a build under another root would rewrite them all.
+    root_marker = envs_dir / ".lz-module-source-root"
+    if root_marker.exists():
+        have = root_marker.read_text(encoding="utf-8-sig").strip()
+        if have != MODULE_SOURCE_ROOT:
+            raise SystemExit(
+                f"module source root mismatch: {envs_dir.name} was built with "
+                f"LZ_MODULE_SOURCE_ROOT={have!r}, this build would write "
+                f"{MODULE_SOURCE_ROOT!r} into every module source - unset "
+                f"LZ_MODULE_SOURCE_ROOT (lzctl build then uses the recorded "
+                f"value) or set it to {have!r}; to re-root the tree on purpose, "
+                f"edit {root_marker}")
+    else:
+        envs_dir.mkdir(parents=True, exist_ok=True)
+        root_marker.write_text(MODULE_SOURCE_ROOT + "\n", encoding="utf-8", newline="\n")
 
     derive_log_converge(spec)
     g = spec.get("Global", {}).get("Settings", {})
