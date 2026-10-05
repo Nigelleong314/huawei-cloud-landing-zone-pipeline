@@ -39,6 +39,7 @@ import sys
 from pathlib import Path
 
 from . import model
+from .core.features import strip_secmaster
 
 # Workspace root: profile paths (envs_dir/docs_dir/ir) resolve against the
 # invoking workspace, not the package location.
@@ -181,126 +182,6 @@ def copy_customer_modules(envs: Path, dst: Path, library: Path,
         raise SystemExit(f"export refused: customer module(s) {clash} would shadow library modules of "
                          "the same name - rename them in the envs tree")
     return copy_tree(own, dst, rewrite=True, exclude_names=exclude_names)
-
-
-# ────────────────────────────────────────────────────────────────────────────
-# Feature strip: what disabling secmaster removes from envs/07-security.
-# Spans were derived from - and are oracle-tested against - the reviewed
-# removal in the shipped artifact.
-# ────────────────────────────────────────────────────────────────────────────
-
-def _find_block(text: str, header_re: str):
-    """(start, end) of the block whose opening line matches header_re; the
-    span runs to the matching closing brace, inclusive of the trailing \\n."""
-    m = re.search(header_re, text)
-    if not m:
-        return None
-    i = text.index("{", m.start())
-    depth = 0
-    for j in range(i, len(text)):
-        if text[j] == "{":
-            depth += 1
-        elif text[j] == "}":
-            depth -= 1
-            if depth == 0:
-                end = j + 1
-                if end < len(text) and text[end] == "\n":
-                    end += 1
-                return m.start(), end
-    return None
-
-
-def strip_secmaster(env_dir: Path):
-    """Remove the SecMaster wiring from envs/07-security. Fails CLOSED: a
-    pattern that finds nothing means the env drifted from this strip -
-    shipping would leave a "disabled" billable feature in the artifact."""
-
-    def _file(name):
-        p = env_dir / name
-        if not p.exists():
-            print(f"  strip[secmaster]: skip {name}: not present")
-            return None
-        return p
-
-    def _fail(name, what):
-        raise SystemExit(f"feature secmaster=off strip incomplete ({name}: {what} "
-                         f"not found) - update strip_secmaster in export_v2.py "
-                         f"to match envs/{env_dir.name}")
-
-    def _drop_block(text, header_re, name):
-        span = _find_block(text, header_re)
-        if span is None:
-            _fail(name, f"block {header_re!r}")
-        s, e = span
-        if s >= 1 and text[s - 1] == "\n" and (s < 2 or text[s - 2] == "\n"):
-            s -= 1
-        return text[:s] + text[e:]
-
-    def _drop_span(text, start_re, end_re, name):
-        ms = re.search(start_re, text, re.M)
-        me = re.search(end_re, text[ms.start():], re.M) if ms else None
-        if ms is None or me is None:
-            _fail(name, f"span {start_re!r}")
-        end = ms.start() + me.end()
-        if end < len(text) and text[end] == "\n":
-            end += 1
-        return text[:ms.start()] + text[end:]
-
-    p = _file("main.tf")
-    if p:
-        text = p.read_text(encoding="utf-8")
-        text = _drop_block(text, r'data "terraform_remote_state" "observability" \{', p.name)
-        text = "\n".join(l for l in text.split("\n") if not re.match(
-            r'^  observability = data\.terraform_remote_state\.observability\.outputs$', l))
-        text = _drop_span(text, r'^\n  # Wire SecMaster cloud_log_resources', r'^  \]$', p.name)
-        text = _drop_span(text, r'^\n# Warn \(not fail\) when SecMaster deploys', r'^\}$', p.name)
-        text = _drop_block(text, r'module "security" \{', p.name)
-        # the reviewed artifact keeps a separating blank line in locals
-        text = text.replace("network       = data.terraform_remote_state.network.outputs\n}",
-                            "network       = data.terraform_remote_state.network.outputs\n\n}")
-        p.write_text(text, encoding="utf-8")
-
-    p = _file("variables.tf")
-    if p:
-        text = p.read_text(encoding="utf-8")
-        for name in ("observability_state_bucket", "observability_state_key",
-                     "security_account", "enable_secmaster", "secmaster_workspace_name",
-                     "secmaster_modules", "alert_rules", "enable_hss", "enable_dbss",
-                     "enable_member_workspaces", "member_workspace_bindings"):
-            span = _find_block(text, rf'variable "{name}" \{{')
-            if span:
-                text = text[:span[0]] + text[span[1]:]
-        text = re.sub(r"\n{4,}", "\n\n\n", text)
-        p.write_text(text, encoding="utf-8")
-
-    p = _file("outputs.tf")
-    if p:
-        text = p.read_text(encoding="utf-8").replace(
-            'output "secmaster_workspace_id" { value = module.security.secmaster_workspace_id }',
-            "# No outputs: edge protection exposes nothing downstream.")
-        p.write_text(text, encoding="utf-8")
-
-    p = _file("providers.tf")
-    if p:
-        text = _drop_block(p.read_text(encoding="utf-8"),
-                           r'provider "huaweicloud" \{\n  alias              = "lz_security"',
-                           p.name)
-        p.write_text(text, encoding="utf-8")
-
-    p = _file("terraform.tfvars.json")
-    if p:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        for k in ("observability_state_bucket", "secmaster_modules", "security_account"):
-            data.pop(k, None)
-        p.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n", encoding="utf-8")
-
-    p = _file("terraform.tfvars.example")
-    if p:
-        match = (r'^(observability_state_bucket|# enable_secmaster|# enable_hss|# enable_dbss'
-                 r'|# enable_member_workspaces|# member_workspace_bindings)')
-        text = "\n".join(l for l in p.read_text(encoding="utf-8").split("\n")
-                         if not re.match(match, l))
-        p.write_text(text, encoding="utf-8")
 
 
 # ────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ from .validation import validate
 from .builders import BUILDERS
 from .writer import write_env, write_root_gitignore
 from .emitters import _CODEGEN
+from .features import secmaster_enabled, strip_secmaster
 
 
 _SHEET_ENV = {
@@ -206,6 +207,10 @@ def build_from_spec(spec: dict, envs_dir: Path, scaffold_dir, selected,
         write_env(env_dir, BUILDERS[env_name](spec), state_bucket, region, env_name)
         if env_name in _CODEGEN:
             _CODEGEN[env_name](env_dir, spec)
+        # a disabled feature is absent from the built tree, exactly as export ships it
+        if env_name == "07-security" and not secmaster_enabled(spec):
+            strip_secmaster(env_dir)
+            print(f"  enable_secmaster=FALSE: SecMaster stripped from {env_name}")
         _fmt(env_dir)
         print(f"wrote {env_dir}")
 

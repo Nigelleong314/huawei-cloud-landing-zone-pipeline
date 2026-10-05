@@ -53,6 +53,8 @@ Export profiles (`pipeline/lz_pipeline/profiles/*.json`) drive `python -m lz_pip
 
 A feature disabled in the profile is stripped from the staged artifact at generation time — exports are always re-runnable; artifact surgery is never needed.
 
+Set the same switch in the spec so the built tree already matches the artifact: `07_Security.Settings.enable_secmaster = FALSE` makes `build` strip SecMaster from `07-security` (the env keeps its directory and number; edge protection stays), and the export strip is then a no-op. Turning it back on needs a rebuild with `--scaffold-dir` to restore the scaffold files.
+
 ## Rate cards
 
 `pipeline/lz_pipeline/tools/pricing/<region>.json`:
